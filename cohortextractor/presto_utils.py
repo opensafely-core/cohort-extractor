@@ -5,10 +5,6 @@ import prestodb
 import requests
 
 
-class PrestoNoActiveNodesError(Exception):
-    pass
-
-
 def presto_connection_from_url(url):
     return ConnectionProxy(
         prestodb.dbapi.connect(**presto_connection_params_from_url(url))
@@ -40,24 +36,24 @@ def presto_connection_params_from_url(url):
     return connection_params
 
 
-def wait_for_presto_to_be_ready(url, timeout):
+def wait_for_presto_to_be_ready(url, test_query, timeout):
+    """
+    Waits for Presto to be ready to execute queries by repeatedly attempting to
+    connect and run `test_query`, raising the last received error after
+    `timeout` seconds
+    """
     connection_params = presto_connection_params_from_url(url)
     start = time.time()
     while True:
         try:
             connection = prestodb.dbapi.connect(**connection_params)
             cursor = connection.cursor()
-            cursor.execute(
-                "SELECT COUNT(*) FROM system.runtime.nodes WHERE state = 'active'"
-            )
-            count = cursor.fetchone()[0]
-            if count == 0:
-                raise PrestoNoActiveNodesError("No active nodes found")
+            cursor.execute(test_query)
+            cursor.fetchall()
             break
         except (
             prestodb.exceptions.PrestoQueryError,
             requests.exceptions.ConnectionError,
-            PrestoNoActiveNodesError,
         ):
             if time.time() - start < timeout:
                 time.sleep(1)

@@ -1,11 +1,11 @@
 from cohortextractor.tpp_backend import quote, codelist_to_sql
 
 
-def patients_with_ages_and_practices_sql(min_date_of_birth, age_thresholds):
+def patients_with_ages_and_practices_sql(date_of_birth_range, age_thresholds):
     """
     Retrieves patients with date of birth (rounded to start of month) plus the
     practice pseudo IDs to which they were registered in the months where they
-    hit the defined age thresholds.
+    hit the defined age thresholds (measured in months).
 
     Where no corresponding registration was found 0 is returned
     """
@@ -18,13 +18,13 @@ def patients_with_ages_and_practices_sql(min_date_of_birth, age_thresholds):
     FROM
       Patient
     WHERE
-      DateOfBirth >= {quote(min_date_of_birth)}
+      DateOfBirth {in_range(date_of_birth_range)}
     ORDER BY patient_id
     """
 
 
 def vaccination_events_sql(
-    min_date_of_birth,
+    date_of_birth_range,
     tpp_vaccination_codelist=None,
     ctv3_codelist=None,
     snomed_codelist=None,
@@ -46,7 +46,7 @@ def vaccination_events_sql(
                 "VaccinationDate",
                 "VaccinationName",
                 tpp_vaccination_codelist,
-                min_date_of_birth,
+                date_of_birth_range,
             ),
         )
     if ctv3_codelist:
@@ -56,7 +56,7 @@ def vaccination_events_sql(
                 "ConsultationDate",
                 "CTV3Code",
                 ctv3_codelist,
-                min_date_of_birth,
+                date_of_birth_range,
             ),
         )
     if snomed_codelist:
@@ -66,7 +66,7 @@ def vaccination_events_sql(
                 "ConsultationDate",
                 "DMD_ID",
                 snomed_codelist,
-                min_date_of_birth,
+                date_of_birth_range,
                 extra_join="""
                 INNER JOIN MedicationDictionary
                 ON MedicationIssue.MultilexDrug_ID = MedicationDictionary.MultilexDrug_ID
@@ -79,7 +79,7 @@ def vaccination_events_sql(
 
 
 def vaccination_events_from_table_sql(
-    table, date_column, code_column, codelist, min_date_of_birth, extra_join=""
+    table, date_column, code_column, codelist, date_of_birth_range, extra_join=""
 ):
     codes_sql = codelist_to_sql(codelist)
     case_expression = categorised_codelist_to_case_expression(codelist, code_column)
@@ -96,7 +96,7 @@ def vaccination_events_from_table_sql(
       Patient.Patient_ID = {table}.Patient_ID
     {extra_join}
     WHERE
-      DateOfBirth >= {quote(min_date_of_birth)}
+      DateOfBirth {in_range(date_of_birth_range)}
       AND {code_column} in ({codes_sql})
     """
 
@@ -123,8 +123,8 @@ def categorised_codelist_to_case_expression(codelist, column):
 # Where registration periods overlap we use the one with the most recent start
 # date. If there are several with the same start date we use the longest one
 # (i.e. with the latest end date).
-def sql_for_practice_id_at_age(age):
-    age = int(age)
+def sql_for_practice_id_at_age(age_in_months):
+    age_in_months = int(age_in_months)
     return f"""
     ISNULL(
         (
@@ -132,13 +132,18 @@ def sql_for_practice_id_at_age(age):
           TOP 1 Organisation_ID FROM RegistrationHistory AS reg
         WHERE
           Patient.Patient_ID = reg.Patient_ID AND
-          reg.StartDate <= DATEADD(year, {age}, DateOfBirth) AND
-          reg.EndDate > DATEADD(year, {age}, DateOfBirth)
+          reg.StartDate <= DATEADD(month, {age_in_months}, DateOfBirth) AND
+          reg.EndDate > DATEADD(month, {age_in_months}, DateOfBirth)
         ORDER BY
           reg.StartDate DESC, reg.EndDate DESC
         ),
-    0) AS practice_id_at_age_{age}
+    0) AS practice_id_at_month_{age_in_months}
     """
+
+
+def in_range(date_range):
+    min_date, max_date = date_range
+    return f"BETWEEN {quote(min_date)} AND {quote(max_date)}"
 
 
 def truncate_to_first_of_month(column):

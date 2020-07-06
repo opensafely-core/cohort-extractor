@@ -1273,6 +1273,82 @@ class TPPBackend:
             """,
         )
 
+    def patients_attended_emergency_care(
+        self,
+        between=None,
+        returning=None,
+        find_first_match_in_period=None,
+        find_last_match_in_period=None,
+        with_these_diagnoses=None,
+        discharged_to=None,
+    ):
+        if find_first_match_in_period:
+            ordering = "ASC"
+            date_aggregate = "MIN"
+        else:
+            ordering = "DESC"
+            date_aggregate = "MAX"
+
+        if returning == "binary_flag":
+            column = "1"
+            use_partition_query = False
+        elif returning == "date_arrived":
+            column = f"{date_aggregate}(Arrival_Date)"
+            use_partition_query = False
+        elif returning == "number_of_matches_in_period":
+            column = "COUNT(*)"
+            use_partition_query = False
+        elif returning == "discharge_destination":
+            column = "Discharge_Destination_SNOMED_CT"
+            use_partition_query = True
+        else:
+            assert False
+
+        conditions = [make_date_filter("Arrival_Date", between)]
+
+        if with_these_diagnoses:
+            assert isinstance(with_these_diagnoses, list)
+            codes = ", ".join(f"'{code}'" for code in with_these_diagnoses)
+            conditions.append(f"DiagnosisCode IN ({codes})")
+
+        if discharged_to:
+            assert isinstance(discharged_to, list)
+            codes = ", ".join(f"'{code}'" for code in discharged_to)
+            conditions.append(f"Discharge_Destination_SNOMED_CT IN ({codes})")
+
+        conditions = " AND ".join(conditions)
+
+        if use_partition_query:
+            sql = f"""
+            SELECT
+              Patient_ID AS patient_id,
+              {column} AS {returning}
+            FROM (
+              SELECT ECDS.Patient_ID, {column},
+              ROW_NUMBER() OVER (
+                PARTITION BY ECDS.Patient_ID ORDER BY Arrival_Date {ordering}
+              ) AS rownum
+              FROM ECDS
+              INNER JOIN ECDS_EC_Diagnoses
+                ON ECDS.EC_Ident = ECDS_EC_Diagnoses.EC_Ident
+              WHERE {conditions}
+            ) t
+            WHERE rownum = 1
+            """
+        else:
+            sql = f"""
+            SELECT
+              ECDS.Patient_ID AS patient_id,
+              {column} AS {returning}
+            FROM ECDS
+            INNER JOIN ECDS_EC_Diagnoses
+              ON ECDS.EC_Ident = ECDS_EC_Diagnoses.EC_Ident
+            WHERE {conditions}
+            GROUP BY ECDS.Patient_ID
+            """
+
+        return (["patient_id", returning], sql)
+
     def get_case_expression(
         self, column_types, column_definitions, category_definitions
     ):

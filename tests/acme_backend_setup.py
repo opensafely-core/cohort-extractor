@@ -60,7 +60,17 @@ def make_engine():
                 time.sleep(1)
             else:
                 raise
-    wait_for_presto_to_be_ready(os.environ["ACME_DATABASE_URL"], timeout)
+    wait_for_presto_to_be_ready(
+        os.environ["ACME_DATABASE_URL"],
+        # Presto will show active nodes in its `system.runtime.nodes` table but
+        # then throw a "no nodes available" error if you try to execute a query
+        # which needs to touch the MSSQL instance. So to properly confirm that
+        # Presto is ready we need a query which forces it to connect to MSSQL,
+        # but ideally one which doesn't depend on any particular configuration
+        # having been done first. The below seems to do the trick.
+        "SELECT 1 FROM sys.tables",
+        timeout,
+    )
     return engine
 
 

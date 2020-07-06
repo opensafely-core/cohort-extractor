@@ -42,6 +42,8 @@ def test_patients_with_ages_and_practices_sql():
         [
             # This patient is too old and should be ignored
             Patient(DateOfBirth="2002-05-04"),
+            # This patient is too young and should be ignored
+            Patient(DateOfBirth="2019-10-04"),
             Patient(
                 DateOfBirth="2018-10-28",
                 RegistrationHistory=[
@@ -72,14 +74,14 @@ def test_patients_with_ages_and_practices_sql():
     )
     session.commit()
     sql = patients_with_ages_and_practices_sql(
-        min_date_of_birth="2012-01-01", age_thresholds=[1, 2, 5],
+        date_of_birth_range=("2012-01-01", "2019-06-01"), age_thresholds=[12, 24, 60],
     )
     results = sql_to_dicts(sql)
     # Note this is rounded to start of month
     assert [x["date_of_birth"] for x in results] == ["2018-10-01", "2014-09-01"]
-    assert [x["practice_id_at_age_1"] for x in results] == ["456", "345"]
-    assert [x["practice_id_at_age_2"] for x in results] == ["456", "345"]
-    assert [x["practice_id_at_age_5"] for x in results] == ["0", "345"]
+    assert [x["practice_id_at_month_12"] for x in results] == ["456", "345"]
+    assert [x["practice_id_at_month_24"] for x in results] == ["456", "345"]
+    assert [x["practice_id_at_month_60"] for x in results] == ["0", "345"]
 
 
 def test_vaccination_events_sql():
@@ -92,6 +94,15 @@ def test_vaccination_events_sql():
                 Vaccinations=[
                     Vaccination(
                         VaccinationName="Infanrix Hexa", VaccinationDate="2002-06-01",
+                    )
+                ],
+            ),
+            # This patient is too young and should be ignored
+            Patient(
+                DateOfBirth="2019-10-04",
+                Vaccinations=[
+                    Vaccination(
+                        VaccinationName="Infanrix Hexa", VaccinationDate="2019-11-04",
                     )
                 ],
             ),
@@ -116,7 +127,7 @@ def test_vaccination_events_sql():
     )
     session.commit()
     sql = vaccination_events_sql(
-        min_date_of_birth="2012-01-01",
+        date_of_birth_range=("2012-01-01", "2019-06-01"),
         tpp_vaccination_codelist=codelist(
             [("Infanrix Hexa", "dtap_hex")], system="tpp_vaccines",
         ),

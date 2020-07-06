@@ -76,7 +76,7 @@ def test_study_definition(tmp_path):
     session.commit()
     study = VaccinationsStudyDefinition(
         start_date="2017-06-01",
-        get_registered_practice_at_ages=[1, 2, 5],
+        get_registered_practice_at_months=[12, 24, 60],
         tpp_vaccine_codelist=codelist(
             [
                 ("Infanrix Hexa", "dtap_hex"),
@@ -120,9 +120,9 @@ def test_study_definition(tmp_path):
         {
             "patient_id": "2",
             "date_of_birth": "2019-01-01",
-            "practice_id_at_age_1": "678",
-            "practice_id_at_age_2": "678",
-            "practice_id_at_age_5": "678",
+            "practice_id_at_month_12": "678",
+            "practice_id_at_month_24": "678",
+            "practice_id_at_month_60": "678",
             "dtap_hex_1": "",
             "menb_1": "",
             "rotavirus_1": "",
@@ -141,9 +141,9 @@ def test_study_definition(tmp_path):
         {
             "patient_id": "3",
             "date_of_birth": "2018-10-01",
-            "practice_id_at_age_1": "345",
-            "practice_id_at_age_2": "345",
-            "practice_id_at_age_5": "345",
+            "practice_id_at_month_12": "345",
+            "practice_id_at_month_24": "345",
+            "practice_id_at_month_60": "345",
             "dtap_hex_1": "2018-11-01",
             "menb_1": "2019-06-01",
             "rotavirus_1": "2019-01-01",
@@ -159,4 +159,72 @@ def test_study_definition(tmp_path):
             "dtap_ipv_1": "",
             "mmr_2": "",
         },
+    ]
+
+
+def test_study_definition_dummy_data(tmp_path):
+    study = VaccinationsStudyDefinition(
+        start_date="2017-06-01",
+        get_registered_practice_at_months=[12, 24, 60],
+        tpp_vaccine_codelist=codelist(
+            [
+                ("Infanrix Hexa", "dtap_hex"),
+                ("Bexsero", "menb"),
+                ("Rotarix", "rotavirus"),
+                ("Prevenar", "pcv"),
+                ("Prevenar - 13", "pcv"),
+                ("Menitorix", "hib_menc"),
+                ("Repevax", "dtap_ipv"),
+                ("Boostrix-IPV", "dtap_ipv"),
+                ("MMRvaxPRO", "mmr"),
+                ("Priorix", "mmr"),
+            ],
+            system="tpp_vaccines",
+        ),
+        ctv3_vaccine_codelist=codelist([("abc", "menb")], system="ctv3"),
+        snomed_vaccine_codelist=codelist([("123", "rotavirus")], system="snomed"),
+        event_washout_period=14,
+        vaccination_schedule=[
+            "dtap_hex_1",
+            "menb_1",
+            "rotavirus_1",
+            "dtap_hex_2",
+            "pcv_1",
+            "rotavirus_2",
+            "dtap_hex_3",
+            "menb_2",
+            "hib_menc_1",
+            "pcv_2",
+            "mmr_1",
+            "menb_3",
+            "dtap_ipv_1",
+            "mmr_2",
+        ],
+    )
+    study.to_csv(tmp_path / "dummy.csv", expectations_population=1000)
+    with open(tmp_path / "dummy.csv", newline="") as f:
+        reader = csv.DictReader(f)
+        results = list(reader)
+    assert len(results) == 1000
+    headers = list(results[0].keys())
+    assert headers == [
+        "patient_id",
+        "date_of_birth",
+        "practice_id_at_month_12",
+        "practice_id_at_month_24",
+        "practice_id_at_month_60",
+        "dtap_hex_1",
+        "menb_1",
+        "rotavirus_1",
+        "dtap_hex_2",
+        "pcv_1",
+        "rotavirus_2",
+        "dtap_hex_3",
+        "menb_2",
+        "hib_menc_1",
+        "pcv_2",
+        "mmr_1",
+        "menb_3",
+        "dtap_ipv_1",
+        "mmr_2",
     ]
