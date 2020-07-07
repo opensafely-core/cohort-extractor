@@ -530,3 +530,33 @@ def household_as_of(reference_date, returning=None, return_expectations=None):
         ),
     """
     return "household_as_of", locals()
+
+
+def attended_emergency_care(
+    on_or_before=None,
+    on_or_after=None,
+    between=None,
+    returning="binary_flag",
+    find_first_match_in_period=None,
+    find_last_match_in_period=None,
+    date_format=None,
+    with_these_diagnoses=None,
+    discharged_to=None,
+    return_expectations=None,
+):
+    """Return information about attendance of A&E.
+
+    Options for `returning` are:
+
+        binary_flag: Whether patient attended A&E
+        date_arrived: date patient arrived in A&E
+        number_of_matches_in_period: number of times patient attended A&E
+        discharge_destination: SNOMED CT code of discharge destination.  This
+                               will be a member of refset 999003011000000105.
+
+    `with_these_diagnoses` is optional, and is a list of SNOMED CT codes
+    `discharged_to` is optional, and is a list of members of refset 999003011000000105.
+
+    See https://github.com/opensafely/cohort-extractor/issues/182 for discussoin.
+    """
+    return "attended_emergency_care", locals()

@@ -28,6 +28,8 @@ from tests.tpp_backend_setup import (
     PotentialCareHomeAddress,
     Household,
     HouseholdMember,
+    ECDS,
+    ECDS_EC_Diagnoses,
 )
 
 from cohortextractor import (
@@ -74,6 +76,8 @@ def setup_function(function):
     session.query(PatientAddress).delete()
     session.query(HouseholdMember).delete()
     session.query(Household).delete()
+    session.query(ECDS_EC_Diagnoses).delete()
+    session.query(ECDS).delete()
     session.query(Patient).delete()
     session.commit()
 
@@ -835,7 +839,7 @@ def test_patients_satisfying():
         has_asthma=patients.with_these_clinical_events(
             codelist([condition_code], "ctv3")
         ),
-        at_risk=patients.satisfying("(age > 70 AND sex = 'M') OR has_asthma"),
+        at_risk=patients.satisfying("((age + 30) > 100 AND sex = 'M') OR has_asthma"),
     )
     results = study.to_dicts()
     assert [i["at_risk"] for i in results] == ["1", "0", "0", "1"]
@@ -2155,3 +2159,172 @@ def test_patients_household_as_of():
             population=patients.all(),
             size=patients.household_as_of("2020-05-01", returning="household_size"),
         )
+
+
+def test_patients_attended_accident_and_emergency():
+    discharge_to_ward = "306706006"
+    discharge_to_home = "306689006"
+    covid_19 = "1240751000000100"
+    not_covid_19 = "125605004"
+
+    session = make_session()
+    session.add_all(
+        [
+            # Patient with no episodes
+            Patient(Patient_ID=1),
+            # Patient with no episodes in period
+            Patient(
+                Patient_ID=2,
+                ECEpisodes=[
+                    ECDS(
+                        EC_Ident=1,
+                        Arrival_Date="2020-01-01",
+                        Discharge_Destination_SNOMED_CT=discharge_to_home,
+                        Diagnoses=[
+                            ECDS_EC_Diagnoses(Patient_ID=3, DiagnosisCode=covid_19)
+                        ],
+                    )
+                ],
+            ),
+            # Patient with some episodes in period
+            Patient(
+                Patient_ID=3,
+                ECEpisodes=[
+                    ECDS(
+                        EC_Ident=2,
+                        Arrival_Date="2020-01-01",
+                        Discharge_Destination_SNOMED_CT=discharge_to_home,
+                        Diagnoses=[
+                            ECDS_EC_Diagnoses(Patient_ID=3, DiagnosisCode=not_covid_19)
+                        ],
+                    ),
+                    ECDS(
+                        EC_Ident=3,
+                        Arrival_Date="2020-03-01",
+                        Discharge_Destination_SNOMED_CT=discharge_to_home,
+                        Diagnoses=[
+                            ECDS_EC_Diagnoses(Patient_ID=3, DiagnosisCode=not_covid_19)
+                        ],
+                    ),
+                ],
+            ),
+            # Patient with multiple episodes in period
+            Patient(
+                Patient_ID=4,
+                ECEpisodes=[
+                    ECDS(
+                        EC_Ident=4,
+                        Arrival_Date="2020-03-01",
+                        Discharge_Destination_SNOMED_CT=discharge_to_home,
+                        Diagnoses=[
+                            ECDS_EC_Diagnoses(Patient_ID=3, DiagnosisCode=not_covid_19)
+                        ],
+                    ),
+                    ECDS(
+                        EC_Ident=5,
+                        Arrival_Date="2020-05-01",
+                        Discharge_Destination_SNOMED_CT=discharge_to_ward,
+                        Diagnoses=[
+                            ECDS_EC_Diagnoses(Patient_ID=3, DiagnosisCode=covid_19)
+                        ],
+                    ),
+                    ECDS(
+                        EC_Ident=6,
+                        Arrival_Date="2020-07-01",
+                        Discharge_Destination_SNOMED_CT=discharge_to_ward,
+                        Diagnoses=[
+                            ECDS_EC_Diagnoses(Patient_ID=3, DiagnosisCode=covid_19)
+                        ],
+                    ),
+                ],
+            ),
+        ]
+    )
+    session.commit()
+
+    study = StudyDefinition(
+        population=patients.all(),
+        attended=patients.attended_emergency_care(
+            on_or_after="2020-02-01", returning="binary_flag"
+        ),
+        count=patients.attended_emergency_care(
+            on_or_after="2020-02-01", returning="number_of_matches_in_period",
+        ),
+        first_date=patients.attended_emergency_care(
+            on_or_after="2020-02-01",
+            returning="date_arrived",
+            find_first_match_in_period=True,
+            date_format="YYYY-MM-DD",
+        ),
+        last_date=patients.attended_emergency_care(
+            on_or_after="2020-02-01",
+            returning="date_arrived",
+            find_last_match_in_period=True,
+            date_format="YYYY-MM-DD",
+        ),
+        first_destination=patients.attended_emergency_care(
+            on_or_after="2020-02-01",
+            returning="discharge_destination",
+            find_first_match_in_period=True,
+        ),
+        last_destination=patients.attended_emergency_care(
+            on_or_after="2020-02-01",
+            returning="discharge_destination",
+            find_last_match_in_period=True,
+        ),
+        with_covid=patients.attended_emergency_care(
+            on_or_after="2020-02-01",
+            returning="binary_flag",
+            with_these_diagnoses=codelist([covid_19], "snomed"),
+        ),
+        first_date_with_covid=patients.attended_emergency_care(
+            on_or_after="2020-02-01",
+            returning="date_arrived",
+            date_format="YYYY-MM-DD",
+            find_first_match_in_period=True,
+            with_these_diagnoses=codelist([covid_19], "snomed"),
+        ),
+        last_date_with_covid=patients.attended_emergency_care(
+            on_or_after="2020-02-01",
+            returning="date_arrived",
+            date_format="YYYY-MM-DD",
+            find_last_match_in_period=True,
+            with_these_diagnoses=codelist([covid_19], "snomed"),
+        ),
+        first_date_discharged_to_ward=patients.attended_emergency_care(
+            on_or_after="2020-02-01",
+            returning="date_arrived",
+            date_format="YYYY-MM-DD",
+            find_first_match_in_period=True,
+            discharged_to=[discharge_to_ward],
+        ),
+        last_date_discharged_to_ward=patients.attended_emergency_care(
+            on_or_after="2020-02-01",
+            returning="date_arrived",
+            date_format="YYYY-MM-DD",
+            find_last_match_in_period=True,
+            discharged_to=[discharge_to_ward],
+        ),
+    )
+
+    assert_results(
+        study,
+        attended=["0", "0", "1", "1"],
+        count=["0", "0", "1", "3"],
+        first_date=["", "", "2020-03-01", "2020-03-01"],
+        last_date=["", "", "2020-03-01", "2020-07-01"],
+        first_destination=["", "", discharge_to_home, discharge_to_home],
+        last_destination=["", "", discharge_to_home, discharge_to_ward],
+        with_covid=["0", "0", "0", "1"],
+        first_date_with_covid=["", "", "", "2020-05-01"],
+        last_date_with_covid=["", "", "", "2020-07-01"],
+        first_date_discharged_to_ward=["", "", "", "2020-05-01"],
+        last_date_discharged_to_ward=["", "", "", "2020-07-01"],
+    )
+
+
+def assert_results(study, **expected_values):
+    results = study.to_dicts()
+    for col_name, expected_col_values in expected_values.items():
+        col_values = [row[col_name] for row in results]
+        assert col_values == expected_col_values, f"Unexpected results for {col_name}"

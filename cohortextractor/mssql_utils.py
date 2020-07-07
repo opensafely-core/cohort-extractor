@@ -96,7 +96,6 @@ def _mssql_query_to_csv_file(database_url, query, filename):
             "-o",
             csvfile,
         ]
-        found_error = False
         try:
             subprocess.run(cmd, capture_output=True, encoding="utf8", check=True)
         except subprocess.CalledProcessError:
@@ -106,6 +105,7 @@ def _mssql_query_to_csv_file(database_url, query, filename):
         with open(filename, "w+", newline="\r\n") as final_file:
             # We use windows line endings because that's what
             # the CSV module's default dialect does
+            found_error = False
 
             for line_num, line in enumerate(open(csvfile, "r")):
                 if line_num == 0:

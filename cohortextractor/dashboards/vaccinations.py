@@ -1,6 +1,8 @@
 import csv
 import datetime
+from datetime import timedelta
 import os
+import random
 import tempfile
 
 from cohortextractor.mssql_utils import mssql_query_to_csv_file
@@ -16,14 +18,14 @@ class VaccinationsStudyDefinition:
         self,
         #
         # This is the first date for which we need data. If the maximum age
-        # threshold (see below) is 5 then we will only include data on patients
-        # born less than 5 years before this date.
+        # threshold (see below) is 5 years then we will only include data on
+        # patients born less than 5 years before this date.
         start_date=None,
         #
         # Each age here produces a corresponding column in the final output:
-        # "practice_id_at_age_N" giving the psuedo-id of the practice where the
-        # patient was registered on their Nth birthday
-        get_registered_practice_at_ages=None,
+        # "practice_id_at_month_N" giving the psuedo-id of the practice where the
+        # patient was registered when they turned N-months old
+        get_registered_practice_at_months=None,
         #
         # Each of these codelists should be a categorised codelist mapping
         # individual codes to the vaccine they correspond to. For instance, the
@@ -87,14 +89,14 @@ class VaccinationsStudyDefinition:
         vaccination_schedule=None,
     ):
         self.start_date = start_date
-        self.get_registered_practice_at_ages = get_registered_practice_at_ages
+        self.get_registered_practice_at_months = get_registered_practice_at_months
         self.tpp_vaccine_codelist = tpp_vaccine_codelist
         self.ctv3_vaccine_codelist = ctv3_vaccine_codelist
         self.snomed_vaccine_codelist = snomed_vaccine_codelist
         self.event_washout_period = event_washout_period
         self.vaccination_schedule = vaccination_schedule
-        self.min_date_of_birth = self.get_min_date_of_birth(
-            start_date, get_registered_practice_at_ages
+        self.date_of_birth_range = self.get_date_of_birth_range(
+            start_date, datetime.date.today(), get_registered_practice_at_months
         )
         self.database_url = os.environ.get("DATABASE_URL")
 
@@ -102,18 +104,29 @@ class VaccinationsStudyDefinition:
         # Note we accept `with_sqlcmd` to match the expected signature here but
         # ignore its value and always use `sqlcmd`
         if expectations_population:
-            raise NotImplementedError("")
-        with tempfile.TemporaryDirectory() as tmpdir:
-            patients_filename = os.path.join(tmpdir, "patients.csv")
-            events_filename = os.path.join(tmpdir, "vaccination_events.csv")
-            self.extract_data(patients_filename, events_filename)
-            self.combine_data(patients_filename, events_filename, filename)
+            self.write_dummy_data(filename, expectations_population)
+        else:
+            with tempfile.TemporaryDirectory() as tmpdir:
+                patients_filename = os.path.join(tmpdir, "patients.csv")
+                events_filename = os.path.join(tmpdir, "vaccination_events.csv")
+                self.extract_data(patients_filename, events_filename)
+                self.combine_data(patients_filename, events_filename, filename)
 
     def csv_to_df(self, csv_name):
         raise NotImplementedError()
 
     def to_sql(self):
-        raise NotImplementedError()
+        patients_sql = self.get_patients_sql()
+        events_sql = self.get_events_sql()
+        return f"""
+        -- Get patient details
+        {patients_sql};
+
+        -- -------------------------------------------------------------------
+
+        -- Get vaccination events
+        {events_sql};
+        """
 
     def to_dicts(self):
         raise NotImplementedError()
@@ -121,38 +134,50 @@ class VaccinationsStudyDefinition:
     def to_data(self):
         raise NotImplementedError()
 
-    def get_min_date_of_birth(self, start_date, age_thresholds):
+    def get_date_of_birth_range(self, start_date, today, age_thresholds):
         """
-        Return the minimum date of birth for patients to be included. This means
-        patients who turned 5 in the first month we want to report on.
-
-        As there's no harm in including a few extra patients (their data will just
-        never get used) we round up year length to account for leap years.
+        Return the range of dates of birth for patients to be included. The
+        minimum will be patients who turned 5 years old in the first month we
+        want to report on. The maximum will be patients who turned 1 today.
         """
-        years = max(age_thresholds)
         start_date = datetime.date.fromisoformat(start_date)
-        cutoff_date = start_date - datetime.timedelta(days=366 * years)
-        return cutoff_date.strftime("%Y-%m-%d")
+        # We trim all dates to the first of the month as that is what our
+        # output looks like for IG reasons
+        start_date = start_date.replace(day=1)
+        today = today.replace(day=1)
+        max_age_months = max(age_thresholds)
+        min_age_months = min(age_thresholds)
+        min_date = add_months(start_date, -max_age_months)
+        max_date = add_months(today, -min_age_months)
+        return min_date.isoformat(), max_date.isoformat()
 
     def extract_data(self, patients_filename, events_filename):
-        patients_sql = patients_with_ages_and_practices_sql(
-            self.min_date_of_birth, self.get_registered_practice_at_ages
+        patients_sql = self.get_patients_sql()
+        events_sql = self.get_events_sql()
+        mssql_query_to_csv_file(self.database_url, patients_sql, patients_filename)
+        mssql_query_to_csv_file(self.database_url, events_sql, events_filename)
+
+    def get_patients_sql(self):
+        return patients_with_ages_and_practices_sql(
+            self.date_of_birth_range, self.get_registered_practice_at_months
         )
-        events_sql = vaccination_events_sql(
-            self.min_date_of_birth,
+
+    def get_events_sql(self):
+        return vaccination_events_sql(
+            self.date_of_birth_range,
             tpp_vaccination_codelist=self.tpp_vaccine_codelist,
             ctv3_codelist=self.ctv3_vaccine_codelist,
             snomed_codelist=self.snomed_vaccine_codelist,
         )
-        mssql_query_to_csv_file(self.database_url, patients_sql, patients_filename)
-        mssql_query_to_csv_file(self.database_url, events_sql, events_filename)
 
     def combine_data(self, patients_filename, events_filename, combined_filename):
+        # Have to disable Black here because it can't (yet) format multliline
+        # context managers correctly. See:
+        # https://github.com/psf/black/issues/664#issuecomment-593905179
         # fmt: off
         with open(patients_filename, newline="") as patients_file, \
                 open(events_filename, newline="") as events_file, \
                 open(combined_filename, "w", newline="") as combined_file:
-        # fmt: on
             patients = csv.DictReader(patients_file)
             vaccination_events = csv.DictReader(events_file)
             output_headers = patients.fieldnames + self.vaccination_schedule
@@ -164,7 +189,65 @@ class VaccinationsStudyDefinition:
                 combined_file, fieldnames=output_headers, extrasaction="ignore"
             )
             writer.writeheader()
-            for output_row in add_patient_vaccination_dates(
-                patients, vaccination_events
-            ):
+            output = add_patient_vaccination_dates(patients, vaccination_events)
+            for output_row in output:
                 writer.writerow(output_row)
+        # fmt: on
+
+    def write_dummy_data(self, filename, num_rows):
+        with open(filename, "w", newline="") as output_file:
+            patients = self.generate_dummy_data(num_rows)
+            patients = iter(patients)
+            first_patient = next(patients)
+            writer = csv.DictWriter(output_file, fieldnames=first_patient.keys())
+            writer.writeheader()
+            writer.writerow(first_patient)
+            for patient in patients:
+                writer.writerow(patient)
+
+    def generate_dummy_data(self, num_rows):
+        rand = random.Random()
+        min_date_of_birth = datetime.date.fromisoformat(self.date_of_birth_range[0])
+        max_date_of_birth = datetime.date.fromisoformat(self.date_of_birth_range[1])
+        today = datetime.date.today()
+        max_age_in_days = (today - min_date_of_birth).days
+        min_age_in_days = (today - max_date_of_birth).days
+        assert max_age_in_days > 0
+        practice_ids = rand.sample(range(99999999), 100)
+        patient_id = rand.randrange(100000, 200000)
+        for n in range(num_rows):
+            # Ensures patients IDs are strictly increasing but not contiguous
+            patient_id += rand.randrange(1, 9999)
+            days_old = rand.randrange(min_age_in_days, max_age_in_days)
+            date_of_birth = today - timedelta(days=days_old)
+            data = {
+                "patient_id": patient_id,
+                "date_of_birth": date_of_birth.strftime("%Y-%m-01"),
+            }
+            for age in self.get_registered_practice_at_months:
+                is_registered = rand.random() >= 0.1
+                data[f"practice_id_at_month_{age}"] = (
+                    rand.choice(practice_ids) if is_registered else 0
+                )
+            dose_date = date_of_birth
+            for vaccine_dose in self.vaccination_schedule:
+                dose_date += timedelta(days=rand.randrange(14, 365))
+                if dose_date <= today:
+                    received = rand.random() >= 0.1
+                else:
+                    received = False
+                data[vaccine_dose] = dose_date.strftime("%Y-%m-01") if received else ""
+            yield data
+
+
+def add_months(date, months):
+    """
+    Adds a number of calendar months (positive or negative) to `date`
+
+    If the day of the month in `date` is greater than 28 then this may produce
+    an error as the corresponding day may not exist in the target month
+    """
+    zero_based_month = (date.month - 1) + months
+    new_month = (zero_based_month % 12) + 1
+    new_year = date.year + (zero_based_month // 12)
+    return date.replace(year=new_year, month=new_month)
