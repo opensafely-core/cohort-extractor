@@ -38,6 +38,7 @@ from cohortextractor import (
     codelist,
 )
 from cohortextractor.mssql_utils import mssql_connection_params_from_url
+from cohortextractor.mssql_utils import mssql_query_to_csv_file
 from cohortextractor.tpp_backend import quote, AppointmentStatus, TPPBackend
 
 
@@ -105,6 +106,14 @@ def test_sql_error_propagates_with_sqlcmd():
             with pytest.raises(ValueError) as excinfo:
                 study.to_csv(f.name, with_sqlcmd=True)
             assert "Invalid object name 'Bar'" in str(excinfo.value)
+
+
+def test_credentials_error_propagates_with_sqlcmd(monkeypatch):
+    failing_db_url = os.environ["TPP_DATABASE_URL"].replace("pass", "fail")
+    with tempfile.NamedTemporaryFile(mode="w+") as f:
+        with pytest.raises(ValueError) as excinfo:
+            mssql_query_to_csv_file(failing_db_url, "SELECT * FROM foo", f.name)
+        assert "Login failed" in str(excinfo.value)
 
 
 def test_sql_error_propagates_without_sqlcmd():
