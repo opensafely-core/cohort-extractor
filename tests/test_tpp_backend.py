@@ -1286,6 +1286,15 @@ def test_patients_admitted_to_icu():
 
     assert [i["icu"] for i in results] == ["1", "1", "0", "0", "1"]
 
+    study = StudyDefinition(
+        population=patients.all(),
+        icu=patients.admitted_to_icu(
+            on_or_after="2020-02-01", returning="was_ventilated",
+        ),
+    )
+    results = study.to_dicts()
+    assert [i["icu"] for i in results] == ["0", "1", "0", "0", "1"]
+
 
 def test_patients_with_these_codes_on_death_certificate():
     code = "COVID"
