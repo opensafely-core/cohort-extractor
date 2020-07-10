@@ -956,6 +956,9 @@ class TPPBackend:
         elif returning == "binary_flag":
             column_name = "was_admitted"
             column_definition = 1
+        elif returning == "was_ventilated":
+            column_name = "ventilated"
+            column_definition = "MAX(Ventilator)"  # apparently can be 0, 1 or NULL
         else:
             assert False, "`returning` must be one of `binary_flag` or `date_admitted`"
         return (
@@ -963,8 +966,7 @@ class TPPBackend:
             f"""
             SELECT
               Patient_ID AS patient_id,
-              {column_definition} AS {column_name},
-              MAX(Ventilator) AS ventilated -- apparently can be 0, 1 or NULL
+              {column_definition} AS {column_name}
             FROM
               ICNARC
             GROUP BY Patient_ID
