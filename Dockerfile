@@ -35,24 +35,24 @@ RUN ACCEPT_EULA=Y apt-get install -y mssql-tools
 ENV PATH=$PATH:/opt/mssql-tools/bin
 
 RUN mkdir /workspace
-WORKDIR /workspace
-
-# maybe build with this
-# https://github.com/whoan/docker-build-with-cache-action
+RUN mkdir /app
+WORKDIR /app
 
 # Install pip and requirements
-COPY requirements.txt /workspace
+COPY requirements.txt /app
 # Extra dependencies needed by python packages
 RUN apt-get install -y unixodbc-dev
 RUN curl https://bootstrap.pypa.io/get-pip.py | python
 RUN pip install --requirement requirements.txt
 
-COPY . /workspace
+COPY . /app
 
 # .python-version is not needed but can make its way into the image when built
 # locally
 RUN rm -f .python-version
 RUN python setup.py develop
 RUN pyenv rehash
+
+WORKDIR /workspace
 
 ENTRYPOINT ["cohortextractor"]
