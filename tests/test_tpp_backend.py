@@ -2332,6 +2332,67 @@ def test_patients_attended_accident_and_emergency():
     )
 
 
+def test_patients_date_deregistered_from_all_supported_practices():
+    session = make_session()
+    session.add_all(
+        [
+            # Never de-registered
+            Patient(
+                RegistrationHistory=[
+                    RegistrationHistory(
+                        StartDate="2001-01-01",
+                        EndDate="9999-01-01",
+                        Organisation=Organisation(),
+                    )
+                ]
+            ),
+            # De-registered, but after cut-off date
+            Patient(
+                RegistrationHistory=[
+                    RegistrationHistory(
+                        StartDate="2001-01-01",
+                        EndDate="2017-01-01",
+                        Organisation=Organisation(),
+                    ),
+                    RegistrationHistory(
+                        StartDate="2019-01-01",
+                        EndDate="2020-01-01",
+                        Organisation=Organisation(),
+                    ),
+                ]
+            ),
+            # De-registered (but with a gap, and overlapping registrations)
+            Patient(
+                RegistrationHistory=[
+                    RegistrationHistory(
+                        StartDate="1990-01-01",
+                        EndDate="2005-01-01",
+                        Organisation=Organisation(),
+                    ),
+                    RegistrationHistory(
+                        StartDate="2010-01-01",
+                        EndDate="2015-05-19",
+                        Organisation=Organisation(),
+                    ),
+                    RegistrationHistory(
+                        StartDate="2015-04-10",
+                        EndDate="2017-10-04",
+                        Organisation=Organisation(),
+                    ),
+                ]
+            ),
+        ]
+    )
+    session.commit()
+    study = StudyDefinition(
+        population=patients.all(),
+        dereg_date=patients.date_deregistered_from_all_supported_practices(
+            on_or_before="2018-02-01", date_format="YYYY-MM",
+        ),
+    )
+    assert_results(study, dereg_date=["", "", "2017-10"])
+
+
 def assert_results(study, **expected_values):
     results = study.to_dicts()
     for col_name, expected_col_values in expected_values.items():

@@ -569,3 +569,15 @@ def attended_emergency_care(
     See https://github.com/opensafely/cohort-extractor/issues/182 for discussoin.
     """
     return "attended_emergency_care", locals()
+
+
+def date_deregistered_from_all_supported_practices(
+    on_or_before=None, on_or_after=None, between=None, date_format=None,
+):
+    """
+    Returns the date (if any) on which the patient de-registered from all
+    practices for which OpenSAFELY has data. Events which occur in primary care
+    after this date will not be recorded in the platform (though there may be
+    data from other sources e.g. SGSS, CPNS).
+    """
+    return "date_deregistered_from_all_supported_practices", locals()
