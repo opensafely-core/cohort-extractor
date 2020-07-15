@@ -265,6 +265,9 @@ class GetColumnType:
     def type_of_with_complete_history_between(self, **kwargs):
         return "bool"
 
+    def type_of_date_deregistered_from_all_supported_practices(self, **kwargs):
+        return "date"
+
     def type_of_with_these_medications(self, returning, **kwargs):
         return self._type_from_return_value(returning)
 

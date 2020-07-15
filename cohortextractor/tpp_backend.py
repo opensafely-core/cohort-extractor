@@ -848,6 +848,36 @@ class TPPBackend:
             """,
         )
 
+    def patients_date_deregistered_from_all_supported_practices(self, between):
+        if between is None:
+            between = (None, None)
+        min_date, max_date = between
+        # Registrations with no end date are recorded using an end date of
+        # 9999-12-31, so if no max date is supplied then we need to set a max
+        # date to something less than 9999-12-31 to filter out registrations
+        # which have no end date.
+        if max_date is None:
+            max_date = "3000-01-01"
+        if min_date is None:
+            min_date = "1900-01-01"
+        return (
+            ["patient_id", "date"],
+            f"""
+            SELECT
+              Patient_ID AS patient_id,
+              CASE
+                WHEN
+                  MAX(EndDate) BETWEEN {quote(min_date)} AND {quote(max_date)}
+                THEN
+                  MAX(EndDate)
+              END AS date
+            FROM
+              RegistrationHistory
+            GROUP BY
+              Patient_ID
+            """,
+        )
+
     def patients_address_as_of(self, date, returning=None, round_to_nearest=None):
         # N.B. A value of -1 indicates no postcode recorded on the
         # record, an invalid postcode, or no fixed abode.
