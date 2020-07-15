@@ -572,7 +572,11 @@ def attended_emergency_care(
 
 
 def date_deregistered_from_all_supported_practices(
-    on_or_before=None, on_or_after=None, between=None, date_format=None,
+    on_or_before=None,
+    on_or_after=None,
+    between=None,
+    date_format=None,
+    return_expectations=None,
 ):
     """
     Returns the date (if any) on which the patient de-registered from all
