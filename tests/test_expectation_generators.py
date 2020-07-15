@@ -754,3 +754,22 @@ def test_make_df_from_expectations_with_care_home_status():
     result = study.make_df_from_expectations(population_size)
     value_counts = result.care_home_type.value_counts()
     assert value_counts["PN"] < value_counts["U"]
+
+
+def test_make_df_from_expectations_with_deregistration_date():
+    study = StudyDefinition(
+        population=patients.all(),
+        dereg_date=patients.date_deregistered_from_all_supported_practices(
+            on_or_before="2018-02-01",
+            date_format="YYYY-MM",
+            return_expectations={
+                "incidence": 0.1,
+                "date": {"earliest": "1980-01-01", "latest": "2018-02-01"},
+            },
+        ),
+    )
+    population_size = 1000
+    result = study.make_df_from_expectations(population_size)
+    dates = result.dereg_date.dropna()
+    assert dates.max() <= "2018-02"
+    assert dates.min() >= "1980-01"
