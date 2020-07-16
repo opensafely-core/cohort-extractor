@@ -1,5 +1,4 @@
 import csv
-import filecmp
 import os
 import subprocess
 import tempfile
@@ -1494,7 +1493,11 @@ def test_sqlcmd_and_odbc_outputs_match():
         study.to_csv(input_csv_odbc.name, with_sqlcmd=False)
         # unix line endings
         study.to_csv(input_csv_sqlcmd.name, with_sqlcmd=True)
-        assert filecmp.cmp(input_csv_odbc.name, input_csv_sqlcmd.name, shallow=False)
+        with open(input_csv_odbc.name) as f:
+            odbc_output = f.read()
+        with open(input_csv_sqlcmd.name) as f:
+            sqlcmd_output = f.read()
+        assert odbc_output == sqlcmd_output
 
 
 def test_column_name_clashes_produce_errors():
