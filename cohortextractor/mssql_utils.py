@@ -73,7 +73,6 @@ def _mssql_query_to_csv_file(database_url, query, filename):
         with open(sqlfile, "w") as f:
             f.write(query)
         db_dict = mssql_connection_params_from_url(database_url)
-        csvfile = os.path.join(tmpdir, "output.csv")
         cmd = [
             "sqlcmd",
             "-S",
@@ -91,33 +90,31 @@ def _mssql_query_to_csv_file(database_url, query, filename):
             ",",  # comma delimited
             "-r",
             "1",  # error messages to stderr
-            # "-w",
-            # "99",
-            "-o",
-            csvfile,
         ]
-        found_error = False
-        try:
-            subprocess.run(cmd, capture_output=True, encoding="utf8", check=True)
-        except subprocess.CalledProcessError:
-            # When called as above, sqlcmd sends its error output to
-            # the output file, which we read below
-            found_error = True
-        with open(filename, "w+", newline="\r\n") as final_file:
-            # We use windows line endings because that's what
-            # the CSV module's default dialect does
-            for line_num, line in enumerate(open(csvfile, "r")):
-                if line_num == 0:
-                    if line.startswith("Warning"):
-                        continue
-                    elif line.startswith("Msg "):
-                        # SQL errors complete with a success status,
-                        # but still write their output here
-                        found_error = True
-                if line_num <= 2 and line.startswith("-"):
+        temp_file = os.path.join(tmpdir, "output.csv")
+        with open(temp_file, "wb") as temp_file_handle:
+            process = subprocess.Popen(
+                cmd, encoding="utf-8", stderr=subprocess.PIPE, stdout=temp_file_handle
+            )
+            _, stderr = process.communicate()
+            has_error = process.returncode != 0 or _output_contains_errors(stderr)
+        # We use windows line endings because that's what the CSV module's
+        # default dialect does
+        with open(filename, "w+", newline="\r\n") as out, open(temp_file, "r") as inp:
+            for line_num, line in enumerate(inp):
+                # sqlcmd outputs a separator line (consisting of repeated
+                # dashes) between the column headers and the data. There's no
+                # option to disable this behaviour so we remove it here.
+                if line_num == 1 and line.startswith("-"):
                     continue
                 yield line
-                final_file.write(line)
-            if found_error:
-                final_file.seek(0)
-                raise ValueError(final_file.read())
+                out.write(line)
+        # We deliberately create the output file before raising any error to
+        # aid debugging (given that these queries can often take a long time to
+        # run)
+        if has_error:
+            raise ValueError(stderr)
+
+
+def _output_contains_errors(output):
+    return any(line.startswith("Msg ") for line in output.splitlines())
