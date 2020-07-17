@@ -1,4 +1,5 @@
 import os
+import re
 import subprocess
 import tempfile
 from urllib.parse import urlparse, unquote
@@ -105,7 +106,13 @@ def _mssql_query_to_csv_file(database_url, query, filename):
                 # sqlcmd outputs a separator line (consisting of repeated
                 # dashes) between the column headers and the data. There's no
                 # option to disable this behaviour so we remove it here.
-                if line_num == 1 and line.startswith("-"):
+                if line_num == 1:
+                    if not re.match(r"^[\-,]+$", line):
+                        stderr += (
+                            f"\nExpected line 2 to be a separator containing only "
+                            f"dashes and commas but found: {line}"
+                        )
+                        has_error = True
                     continue
                 yield line
                 out.write(line)
