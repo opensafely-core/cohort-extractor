@@ -1307,9 +1307,9 @@ def test_patients_with_these_codes_on_death_certificate():
             # Died of something else
             Patient(ONSDeath=[ONSDeaths(dod="2020-02-01", icd10u="MI")]),
             # Covid underlying cause
-            Patient(ONSDeath=[ONSDeaths(dod="2020-02-01", icd10u=code)]),
+            Patient(ONSDeath=[ONSDeaths(dod="2020-02-01", icd10u=code, ICD10014="MI")]),
             # Covid not underlying cause
-            Patient(ONSDeath=[ONSDeaths(dod="2020-03-01", ICD10014=code)]),
+            Patient(ONSDeath=[ONSDeaths(dod="2020-03-01", icd10u="MI", ICD10014=code)]),
         ]
     )
     session.commit()
@@ -1329,11 +1329,18 @@ def test_patients_with_these_codes_on_death_certificate():
             returning="date_of_death",
             date_format="YYYY-MM-DD",
         ),
+        underlying_cause=patients.with_these_codes_on_death_certificate(
+            covid_codelist,
+            on_or_before="2020-06-01",
+            match_only_underlying_cause=False,
+            returning="underlying_cause_of_death",
+        ),
     )
     results = study.to_dicts()
     assert [i["died_of_covid"] for i in results] == ["0", "0", "0", "1", "0"]
     assert [i["died_with_covid"] for i in results] == ["0", "0", "0", "1", "1"]
     assert [i["date_died"] for i in results] == ["", "", "", "2020-02-01", "2020-03-01"]
+    assert [i["underlying_cause"] for i in results] == ["", "", "", code, "MI"]
 
 
 def test_patients_died_from_any_cause():
@@ -1345,7 +1352,7 @@ def test_patients_died_from_any_cause():
             # Died after date cutoff
             Patient(ONSDeath=[ONSDeaths(dod="2021-01-01")]),
             # Died
-            Patient(ONSDeath=[ONSDeaths(dod="2020-02-01")]),
+            Patient(ONSDeath=[ONSDeaths(dod="2020-02-01", icd10u="A")]),
         ]
     )
     session.commit()
@@ -1357,10 +1364,14 @@ def test_patients_died_from_any_cause():
             returning="date_of_death",
             date_format="YYYY-MM-DD",
         ),
+        underlying_cause=patients.died_from_any_cause(
+            on_or_before="2020-06-01", returning="underlying_cause_of_death",
+        ),
     )
     results = study.to_dicts()
     assert [i["died"] for i in results] == ["0", "0", "1"]
     assert [i["date_died"] for i in results] == ["", "", "2020-02-01"]
+    assert [i["underlying_cause"] for i in results] == ["", "", "A"]
 
 
 def test_patients_with_death_recorded_in_cpns():

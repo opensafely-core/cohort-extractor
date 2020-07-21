@@ -336,6 +336,7 @@ class GetColumnType:
             "date_arrived": "date",
             "discharge_destination": "str",
             "was_ventilated": "bool",
+            "underlying_cause_of_death": "str",
         }
         try:
             return mapping[returning]

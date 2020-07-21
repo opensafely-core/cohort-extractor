@@ -302,6 +302,16 @@ def with_these_codes_on_death_certificate(
     include_day=False,
     return_expectations=None,
 ):
+    """Identify patients with ONS-registered death, where cause of death
+    matches the supplied icd10 codelist
+
+    Options for `returning` are:
+
+       date_of_death: Date of death
+       binary_flag: If they died or not
+       underlying_cause_of_death: The icd10 code corresponding to the underlying cause of death
+
+    """
     return "with_these_codes_on_death_certificate", locals()
 
 
@@ -318,6 +328,15 @@ def died_from_any_cause(
     include_day=False,
     return_expectations=None,
 ):
+    """Identify patients who with ONS-registered deaths
+
+    Options for `returning` are:
+
+       date_of_death: Date of death
+       binary_flag: If they died or not
+       underlying_cause_of_death: The icd10 code corresponding to the underlying cause of death
+
+    """
     return "died_from_any_cause", locals()
 
 
