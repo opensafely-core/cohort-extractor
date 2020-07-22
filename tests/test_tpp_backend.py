@@ -1,7 +1,6 @@
 import csv
 import os
 import subprocess
-from unittest.mock import patch
 
 import pyodbc
 import pytest
@@ -37,7 +36,7 @@ from cohortextractor import (
 )
 from cohortextractor.mssql_utils import mssql_connection_params_from_url
 from cohortextractor.mssql_utils import mssql_query_to_csv_file
-from cohortextractor.tpp_backend import quote, AppointmentStatus, TPPBackend
+from cohortextractor.tpp_backend import quote, AppointmentStatus
 
 
 @pytest.fixture(autouse=True)
@@ -97,12 +96,13 @@ def test_minimal_study_to_csv(tmp_path):
 
 
 def test_sql_error_propagates_with_sqlcmd(tmp_path):
-    with patch.object(TPPBackend, "to_sql") as to_sql:
-        to_sql.return_value = "SELECT Foo FROM Bar"
-        study = StudyDefinition(population=patients.all(), sex=patients.sex())
-        with pytest.raises(ValueError) as excinfo:
-            study.to_csv(tmp_path / "test.csv", with_sqlcmd=True)
-        assert "Invalid object name 'Bar'" in str(excinfo.value)
+    study = StudyDefinition(population=patients.all(), sex=patients.sex())
+    # A bit hacky: fiddle with the list of queries to insert a deliberate error
+    # at the end
+    study.backend.queries[-1] = ("test", "SELECT Foo FROM Bar")
+    with pytest.raises(ValueError) as excinfo:
+        study.to_csv(tmp_path / "test.csv", with_sqlcmd=True)
+    assert "Invalid object name 'Bar'" in str(excinfo.value)
 
 
 def test_credentials_error_propagates_with_sqlcmd(monkeypatch, tmp_path):
@@ -115,12 +115,13 @@ def test_credentials_error_propagates_with_sqlcmd(monkeypatch, tmp_path):
 
 
 def test_sql_error_propagates_without_sqlcmd(tmp_path):
-    with patch.object(TPPBackend, "get_queries") as get_queries:
-        get_queries.return_value = [("final_output", "SELECT Foo FROM Bar")]
-        study = StudyDefinition(population=patients.all(), sex=patients.sex())
-        with pytest.raises(pyodbc.ProgrammingError) as excinfo:
-            study.to_csv(tmp_path / "test.csv", with_sqlcmd=False)
-        assert "Invalid object name 'Bar'" in str(excinfo.value)
+    study = StudyDefinition(population=patients.all(), sex=patients.sex())
+    # A bit hacky: fiddle with the list of queries to insert a deliberate error
+    # at the end
+    study.backend.queries[-1] = ("test", "SELECT Foo FROM Bar")
+    with pytest.raises(pyodbc.ProgrammingError) as excinfo:
+        study.to_csv(tmp_path / "test.csv", with_sqlcmd=False)
+    assert "Invalid object name 'Bar'" in str(excinfo.value)
 
 
 def test_meds():
