@@ -28,20 +28,22 @@ class TPPBackend:
 
     def to_csv(self, filename, with_sqlcmd=False):
         unique_check = UniqueCheck()
-        for patient_id in self._to_csv(filename, with_sqlcmd=with_sqlcmd):
+        queries = self.to_sql_list()
+        for patient_id in self._to_csv(filename, queries, with_sqlcmd=with_sqlcmd):
             unique_check.add(patient_id)
         unique_check.assert_unique_ids()
 
-    def _to_csv(self, filename, with_sqlcmd=False):
+    def _to_csv(self, filename, queries, with_sqlcmd=False):
         if with_sqlcmd:
+            sql = "\nGO\n\n".join(queries)
             lines = mssql_query_to_csv_file(
-                self.database_url, self.to_sql(), filename, yield_output_lines=True
+                self.database_url, sql, filename, yield_output_lines=True
             )
             for line in lines:
                 patient_id = line.split(",")[0]
                 yield patient_id
         else:
-            result = self.execute_query()
+            result = self.execute_queries(queries)
             with open(filename, "w", newline="") as csvfile:
                 writer = csv.writer(csvfile)
                 writer.writerow([x[0] for x in result.description])
@@ -51,7 +53,7 @@ class TPPBackend:
                     yield patient_id
 
     def to_dicts(self):
-        result = self.execute_query()
+        result = self.execute_queries(self.to_sql_list())
         keys = [x[0] for x in result.description]
         # Convert all values to str as that's what will end in the CSV
         output = [dict(zip(keys, map(str, row))) for row in result]
@@ -67,15 +69,20 @@ class TPPBackend:
 
         Useful for debugging, optimising, etc.
         """
-        prepared_sql = ["-- Create codelist tables"]
-        for query in self.get_codelist_queries():
-            prepared_sql.append(query)
-            prepared_sql.append("GO")
+        return "\nGO\n\n".join(self.to_sql_list())
+
+    def to_sql_list(self):
+        """
+        Return all SQL needed for the study as a list of individual
+        statements/queries
+        """
+        queries = list(self.get_codelist_queries())
+        if len(queries):
+            # Add comment to first query
+            queries[0] = f"-- Write codelists into temporary tables\n\n{queries[0]}"
         for name, query in self.queries:
-            prepared_sql.append(f"-- Query for {name}")
-            prepared_sql.append(query)
-            prepared_sql.append("\n\n")
-        return "\n".join(prepared_sql)
+            queries.append(f"-- Query for {name}\n{query}")
+        return queries
 
     def get_queries(self, covariate_definitions):
         output_columns = {}
@@ -174,14 +181,13 @@ class TPPBackend:
         else:
             raise ValueError(f"Unhandled column type: {column_type}")
 
-    def execute_query(self):
+    def execute_queries(self, queries):
         cursor = self.get_db_connection().cursor()
-        self.log("Uploading codelists into temporary tables")
-        for query in self.get_codelist_queries():
+        for query in queries:
+            if query.startswith("--"):
+                comment = query.partition("\n")[0].lstrip("- ")
+                self.log(f"Running: {comment}")
             cursor.execute(query)
-        for name, sql in self.queries:
-            self.log(f"Running query: {name}")
-            cursor.execute(sql)
         return cursor
 
     def log(self, message):
