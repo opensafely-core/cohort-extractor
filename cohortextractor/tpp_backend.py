@@ -1,7 +1,6 @@
 import csv
 import datetime
 import enum
-import os
 import re
 
 from .expressions import format_expression
@@ -186,33 +185,10 @@ class TPPBackend:
         for create_sql, insert_sql, values in self.codelist_tables:
             cursor.execute(create_sql)
             cursor.executemany(insert_sql, values)
-        queries = list(self.queries)
-        final_query = queries.pop()[1]
-        for name, sql in queries:
+        for name, sql in self.queries:
             self.log(f"Running query: {name}")
             cursor.execute(sql)
-        output_table = self.get_output_table_name(os.environ.get("TEMP_DATABASE_NAME"))
-        if output_table:
-            self.log(f"Running final query and writing output to '{output_table}'")
-            sql = f"SELECT * INTO {output_table} FROM ({final_query}) t"
-            cursor.execute(sql)
-            self.log(f"Downloading data from '{output_table}'")
-            cursor.execute(f"SELECT * FROM {output_table}")
-        else:
-            self.log(
-                "No TEMP_DATABASE_NAME defined in environment, downloading results "
-                "directly without writing to output table"
-            )
-            cursor.execute(final_query)
         return cursor
-
-    def get_output_table_name(self, temporary_database):
-        if not temporary_database:
-            return
-        timestamp = datetime.datetime.now(datetime.timezone.utc).strftime(
-            "%Y%m%d_%H%M%S"
-        )
-        return f"{temporary_database}..Output_{timestamp}"
 
     def log(self, message):
         timestamp = datetime.datetime.now(datetime.timezone.utc).strftime(
