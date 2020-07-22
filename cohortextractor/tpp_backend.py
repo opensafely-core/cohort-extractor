@@ -71,11 +71,18 @@ class TPPBackend:
         for create_sql, insert_sql, value_template, values in self.codelist_tables:
             prepared_sql.append(create_sql)
             prepared_sql.append("GO")
-            prepared_sql.append(insert_sql)
             value_template = value_template.replace("?", "{}")
-            values_sql = [value_template.format(*map(quote, row)) for row in values]
-            prepared_sql.append(",\n".join(values_sql))
-            prepared_sql.append("GO\n\n")
+            # There's a limit on how many rows we can insert in one go using this method
+            # See: https://docs.microsoft.com/en-us/sql/t-sql/queries/table-value-constructor-transact-sql?view=sql-server-ver15#limitations-and-restrictions
+            batch_size = 999
+            for i in range(0, len(values), batch_size):
+                values_batch = values[i : i + batch_size]
+                prepared_sql.append(insert_sql)
+                values_sql = [
+                    value_template.format(*map(quote, row)) for row in values_batch
+                ]
+                prepared_sql.append(",\n".join(values_sql))
+                prepared_sql.append("GO\n\n")
         for name, query in self.queries:
             prepared_sql.append(f"-- Query for {name}")
             prepared_sql.append(query)
