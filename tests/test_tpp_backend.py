@@ -1,7 +1,6 @@
 import csv
 import os
 import subprocess
-import tempfile
 from unittest.mock import patch
 
 import pyodbc
@@ -81,48 +80,47 @@ def setup_function(function):
     session.commit()
 
 
-def test_minimal_study_to_csv():
+def test_minimal_study_to_csv(tmp_path):
     session = make_session()
     patient_1 = Patient(DateOfBirth="1900-01-01", Sex="M")
     patient_2 = Patient(DateOfBirth="1900-01-01", Sex="F")
     session.add_all([patient_1, patient_2])
     session.commit()
     study = StudyDefinition(population=patients.all(), sex=patients.sex())
-    with tempfile.NamedTemporaryFile(mode="w+") as f:
-        study.to_csv(f.name)
+    study.to_csv(tmp_path / "test.csv")
+    with open(tmp_path / "test.csv") as f:
         results = list(csv.DictReader(f))
-        assert results == [
-            {"patient_id": str(patient_1.Patient_ID), "sex": "M"},
-            {"patient_id": str(patient_2.Patient_ID), "sex": "F"},
-        ]
+    assert results == [
+        {"patient_id": str(patient_1.Patient_ID), "sex": "M"},
+        {"patient_id": str(patient_2.Patient_ID), "sex": "F"},
+    ]
 
 
-def test_sql_error_propagates_with_sqlcmd():
+def test_sql_error_propagates_with_sqlcmd(tmp_path):
     with patch.object(TPPBackend, "to_sql") as to_sql:
         to_sql.return_value = "SELECT Foo FROM Bar"
         study = StudyDefinition(population=patients.all(), sex=patients.sex())
-        with tempfile.NamedTemporaryFile(mode="w+") as f:
-            with pytest.raises(ValueError) as excinfo:
-                study.to_csv(f.name, with_sqlcmd=True)
-            assert "Invalid object name 'Bar'" in str(excinfo.value)
-
-
-def test_credentials_error_propagates_with_sqlcmd(monkeypatch):
-    failing_db_url = os.environ["TPP_DATABASE_URL"].replace("pass", "fail")
-    with tempfile.NamedTemporaryFile(mode="w+") as f:
         with pytest.raises(ValueError) as excinfo:
-            mssql_query_to_csv_file(failing_db_url, "SELECT * FROM foo", f.name)
-        assert "Login failed" in str(excinfo.value)
+            study.to_csv(tmp_path / "test.csv", with_sqlcmd=True)
+        assert "Invalid object name 'Bar'" in str(excinfo.value)
 
 
-def test_sql_error_propagates_without_sqlcmd():
+def test_credentials_error_propagates_with_sqlcmd(monkeypatch, tmp_path):
+    failing_db_url = os.environ["TPP_DATABASE_URL"].replace("pass", "fail")
+    with pytest.raises(ValueError) as excinfo:
+        mssql_query_to_csv_file(
+            failing_db_url, "SELECT * FROM foo", tmp_path / "test.csv"
+        )
+    assert "Login failed" in str(excinfo.value)
+
+
+def test_sql_error_propagates_without_sqlcmd(tmp_path):
     with patch.object(TPPBackend, "get_queries") as get_queries:
         get_queries.return_value = [("final_output", "SELECT Foo FROM Bar")]
         study = StudyDefinition(population=patients.all(), sex=patients.sex())
-        with tempfile.NamedTemporaryFile(mode="w+") as f:
-            with pytest.raises(pyodbc.ProgrammingError) as excinfo:
-                study.to_csv(f.name, with_sqlcmd=False)
-            assert "Invalid object name 'Bar'" in str(excinfo.value)
+        with pytest.raises(pyodbc.ProgrammingError) as excinfo:
+            study.to_csv(tmp_path / "test.csv", with_sqlcmd=False)
+        assert "Invalid object name 'Bar'" in str(excinfo.value)
 
 
 def test_meds():
@@ -572,7 +570,7 @@ def test_simple_bmi(include_dates):
         BMI=patients.most_recent_bmi(
             on_or_after="1995-01-01", on_or_before="2005-01-01"
         ),
-        **dict(BMI_date_measured=date_query) if date_query else {}
+        **dict(BMI_date_measured=date_query) if date_query else {},
     )
     results = study.to_dicts()
     assert [x["BMI"] for x in results] == ["0.5"]
@@ -1462,7 +1460,7 @@ def test_to_sql_passes():
     assert patient_id == str(patient.Patient_ID)
 
 
-def test_duplicate_id_checking():
+def test_duplicate_id_checking(tmp_path):
     study = StudyDefinition(population=patients.all())
     # A bit of a hack: overwrite the queries we're going to run with a query which
     # deliberately returns duplicate values
@@ -1483,11 +1481,10 @@ def test_duplicate_id_checking():
     with pytest.raises(RuntimeError):
         study.to_dicts()
     with pytest.raises(RuntimeError):
-        with tempfile.NamedTemporaryFile(mode="w+") as f:
-            study.to_csv(f.name)
+        study.to_csv(tmp_path / "test.csv")
 
 
-def test_sqlcmd_and_odbc_outputs_match():
+def test_sqlcmd_and_odbc_outputs_match(tmp_path):
     session = make_session()
     patient = Patient(DateOfBirth="1950-01-01")
     patient.CodedEvents.append(
@@ -1499,16 +1496,17 @@ def test_sqlcmd_and_odbc_outputs_match():
     study = StudyDefinition(
         population=patients.with_these_clinical_events(codelist(["XYZ"], "ctv3"))
     )
-    with tempfile.NamedTemporaryFile() as input_csv_odbc, tempfile.NamedTemporaryFile() as input_csv_sqlcmd:
-        # windows line endings
-        study.to_csv(input_csv_odbc.name, with_sqlcmd=False)
-        # unix line endings
-        study.to_csv(input_csv_sqlcmd.name, with_sqlcmd=True)
-        with open(input_csv_odbc.name) as f:
-            odbc_output = f.read()
-        with open(input_csv_sqlcmd.name) as f:
-            sqlcmd_output = f.read()
-        assert odbc_output == sqlcmd_output
+    input_csv_odbc = tmp_path / "odbc.csv"
+    input_csv_sqlcmd = tmp_path / "sqlcmd.csv"
+    # windows line endings
+    study.to_csv(input_csv_odbc, with_sqlcmd=False)
+    # unix line endings
+    study.to_csv(input_csv_sqlcmd, with_sqlcmd=True)
+    with open(input_csv_odbc) as f:
+        odbc_output = f.read()
+    with open(input_csv_sqlcmd) as f:
+        sqlcmd_output = f.read()
+    assert odbc_output == sqlcmd_output
 
 
 def test_column_name_clashes_produce_errors():
