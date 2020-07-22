@@ -68,21 +68,9 @@ class TPPBackend:
         Useful for debugging, optimising, etc.
         """
         prepared_sql = ["-- Create codelist tables"]
-        for create_sql, insert_sql, value_template, values in self.codelist_tables:
-            prepared_sql.append(create_sql)
+        for query in self.get_codelist_queries():
+            prepared_sql.append(query)
             prepared_sql.append("GO")
-            value_template = value_template.replace("?", "{}")
-            # There's a limit on how many rows we can insert in one go using this method
-            # See: https://docs.microsoft.com/en-us/sql/t-sql/queries/table-value-constructor-transact-sql?view=sql-server-ver15#limitations-and-restrictions
-            batch_size = 999
-            for i in range(0, len(values), batch_size):
-                values_batch = values[i : i + batch_size]
-                prepared_sql.append(insert_sql)
-                values_sql = [
-                    value_template.format(*map(quote, row)) for row in values_batch
-                ]
-                prepared_sql.append(",\n".join(values_sql))
-                prepared_sql.append("GO\n\n")
         for name, query in self.queries:
             prepared_sql.append(f"-- Query for {name}")
             prepared_sql.append(query)
@@ -189,9 +177,8 @@ class TPPBackend:
     def execute_query(self):
         cursor = self.get_db_connection().cursor()
         self.log("Uploading codelists into temporary tables")
-        for create_sql, insert_sql, value_template, values in self.codelist_tables:
-            cursor.execute(create_sql)
-            cursor.executemany(f"{insert_sql} {value_template}", values)
+        for query in self.get_codelist_queries():
+            cursor.execute(query)
         for name, sql in self.queries:
             self.log(f"Running query: {name}")
             cursor.execute(sql)
@@ -235,11 +222,27 @@ class TPPBackend:
                 )
                 """,
                 f"INSERT INTO {table_name} (code, category) VALUES",
-                "(?, ?)",
+                "({}, {})",
                 values,
             )
         )
         return table_name
+
+    def get_codelist_queries(self):
+        # There's a limit on how many rows we can insert in one go using this method
+        # See: https://docs.microsoft.com/en-us/sql/t-sql/queries/table-value-constructor-transact-sql?view=sql-server-ver15#limitations-and-restrictions
+        batch_size = 999
+        queries = []
+        for create_sql, insert_sql, value_template, values in self.codelist_tables:
+            queries.append(create_sql)
+            for i in range(0, len(values), batch_size):
+                values_batch = values[i : i + batch_size]
+                values_sql_lines = [
+                    value_template.format(*map(quote, row)) for row in values_batch
+                ]
+                values_sql = ",\n".join(values_sql_lines)
+                queries.append(f"{insert_sql}\n{values_sql}")
+        return queries
 
     def patients_age_as_of(self, reference_date):
         quoted_date = quote(reference_date)
