@@ -1033,6 +1033,9 @@ class TPPBackend:
         elif returning == "date_of_death":
             column_definition = "dod"
             column_name = "date_of_death"
+        elif returning == "underlying_cause_of_death":
+            column_definition = "icd10u"
+            column_name = "underlying_cause_of_death"
         else:
             raise ValueError(f"Unsupported `returning` value: {returning}")
         return (
