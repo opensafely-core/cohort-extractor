@@ -68,13 +68,13 @@ class TPPBackend:
         Useful for debugging, optimising, etc.
         """
         prepared_sql = ["-- Create codelist tables"]
-        for create_sql, insert_sql, values in self.codelist_tables:
+        for create_sql, insert_sql, value_template, values in self.codelist_tables:
             prepared_sql.append(create_sql)
             prepared_sql.append("GO")
-            for row in values:
-                prepared_sql.append(
-                    insert_sql.replace("?", "{}").format(*map(quote, row)) + ";"
-                )
+            prepared_sql.append(insert_sql)
+            value_template = value_template.replace("?", "{}")
+            values_sql = [value_template.format(*map(quote, row)) for row in values]
+            prepared_sql.append(",\n".join(values_sql))
             prepared_sql.append("GO\n\n")
         for name, query in self.queries:
             prepared_sql.append(f"-- Query for {name}")
@@ -182,9 +182,9 @@ class TPPBackend:
     def execute_query(self):
         cursor = self.get_db_connection().cursor()
         self.log("Uploading codelists into temporary tables")
-        for create_sql, insert_sql, values in self.codelist_tables:
+        for create_sql, insert_sql, value_template, values in self.codelist_tables:
             cursor.execute(create_sql)
-            cursor.executemany(insert_sql, values)
+            cursor.executemany(f"{insert_sql} {value_template}", values)
         for name, sql in self.queries:
             self.log(f"Running query: {name}")
             cursor.execute(sql)
@@ -227,7 +227,8 @@ class TPPBackend:
                   category VARCHAR(MAX)
                 )
                 """,
-                f"INSERT INTO {table_name} (code, category) VALUES(?, ?)",
+                f"INSERT INTO {table_name} (code, category) VALUES",
+                "(?, ?)",
                 values,
             )
         )
