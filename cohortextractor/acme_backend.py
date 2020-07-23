@@ -19,7 +19,7 @@ class ACMEBackend:
     _db_connection = None
     _current_column_name = None
 
-    def __init__(self, database_url, covariate_definitions):
+    def __init__(self, database_url, covariate_definitions, temporary_database=None):
         self.database_url = database_url
         self.covariate_definitions = covariate_definitions
         self.codelist_tables = []

@@ -1,7 +1,7 @@
 import csv
 import datetime
 import enum
-import os
+import hashlib
 import re
 
 from .expressions import format_expression
@@ -21,28 +21,41 @@ class TPPBackend:
     _db_connection = None
     _current_column_name = None
 
-    def __init__(self, database_url, covariate_definitions):
+    def __init__(self, database_url, covariate_definitions, temporary_database=None):
         self.database_url = database_url
         self.covariate_definitions = covariate_definitions
+        self.temporary_database = temporary_database
         self.codelist_tables = []
         self.queries = self.get_queries(self.covariate_definitions)
 
     def to_csv(self, filename, with_sqlcmd=False):
         unique_check = UniqueCheck()
-        for patient_id in self._to_csv(filename, with_sqlcmd=with_sqlcmd):
+        queries = self.to_sql_list()
+        # If we have a temporary database available we write results to a table
+        # there, download them, and then delete the table. This allows us to
+        # resume in the case of a failed download without rerunning the whole
+        # query
+        if self.temporary_database:
+            queries, cleanup_queries = self.save_results_to_temporary_db(queries)
+        else:
+            cleanup_queries = []
+        for patient_id in self._to_csv(filename, queries, with_sqlcmd=with_sqlcmd):
             unique_check.add(patient_id)
+        if cleanup_queries:
+            self.execute_queries(cleanup_queries)
         unique_check.assert_unique_ids()
 
-    def _to_csv(self, filename, with_sqlcmd=False):
+    def _to_csv(self, filename, queries, with_sqlcmd=False):
         if with_sqlcmd:
+            sql = "\nGO\n\n".join(queries)
             lines = mssql_query_to_csv_file(
-                self.database_url, self.to_sql(), filename, yield_output_lines=True
+                self.database_url, sql, filename, yield_output_lines=True
             )
             for line in lines:
                 patient_id = line.split(",")[0]
                 yield patient_id
         else:
-            result = self.execute_query()
+            result = self.execute_queries(queries)
             with open(filename, "w", newline="") as csvfile:
                 writer = csv.writer(csvfile)
                 writer.writerow([x[0] for x in result.description])
@@ -52,7 +65,7 @@ class TPPBackend:
                     yield patient_id
 
     def to_dicts(self):
-        result = self.execute_query()
+        result = self.execute_queries(self.to_sql_list())
         keys = [x[0] for x in result.description]
         # Convert all values to str as that's what will end in the CSV
         output = [dict(zip(keys, map(str, row))) for row in result]
@@ -68,20 +81,71 @@ class TPPBackend:
 
         Useful for debugging, optimising, etc.
         """
-        prepared_sql = ["-- Create codelist tables"]
-        for create_sql, insert_sql, values in self.codelist_tables:
-            prepared_sql.append(create_sql)
-            prepared_sql.append("GO")
-            for row in values:
-                prepared_sql.append(
-                    insert_sql.replace("?", "{}").format(*map(quote, row)) + ";"
-                )
-            prepared_sql.append("GO\n\n")
+        return "\nGO\n\n".join(self.to_sql_list())
+
+    def to_sql_list(self):
+        """
+        Return all SQL needed for the study as a list of individual
+        statements/queries
+        """
+        queries = list(self.get_codelist_queries())
+        if len(queries):
+            # Add comment to first query
+            queries[0] = f"-- Write codelists into temporary tables\n\n{queries[0]}"
         for name, query in self.queries:
-            prepared_sql.append(f"-- Query for {name}")
-            prepared_sql.append(query)
-            prepared_sql.append("\n\n")
-        return "\n".join(prepared_sql)
+            queries.append(f"-- Query for {name}\n{query}")
+        return queries
+
+    def save_results_to_temporary_db(self, queries):
+        """
+        Sometimes there are glitches (network issues?) which occur when
+        downloading large result sets. To avoid having to recompute these each
+        time we can write the results to a table which we only delete once
+        we've fully downloaded its contents. If the download is interrupted
+        then subsequent runs will pick up the table and download it without
+        having to re-run all the queries.
+        """
+        assert self.temporary_database
+        # We're using the hash of all the queries as a cache key. Obviously
+        # this doesn't take into account the fact that the data itself may
+        # change, but for our purposes this doesn't matter: this is designed to
+        # be a very short-lived cache which is deleted as soon as the data is
+        # successfully downloaded
+        query_hash = hashlib.sha1("\n".join(queries).encode("utf8")).hexdigest()
+        output_table = f"{self.temporary_database}..DataExtract_{query_hash}"
+        if not self.table_exists(output_table):
+            queries = list(queries)
+            final_query = queries.pop()
+            self.execute_queries(queries)
+            # We need to run the final query in a transaction so that we don't end up
+            # with an empty output table in the event that the query fails. See:
+            # https://docs.microsoft.com/en-us/sql/t-sql/queries/select-into-clause-transact-sql?view=sql-server-ver15#remarks
+            conn = self.get_db_connection()
+            conn.autocommit = False
+            conn.execute(f"SELECT * INTO {output_table} FROM ({final_query}) t")
+            conn.commit()
+            conn.autocommit = True
+        return [f"SELECT * FROM {output_table}"], [f"DROP TABLE {output_table}"]
+
+    def table_exists(self, table_name):
+        # We don't have access to sys.tables so this seems like the simplest
+        # way of testing for table existence
+        cursor = self.get_db_connection().cursor()
+        try:
+            cursor.execute(f"SELECT 1 FROM {table_name}")
+            list(cursor)
+            return True
+        # Really we ought to be catching `pyodbc.ProgrammingError` here, but
+        # for $REASONS we want to avoid depending on pyodbc directly in this
+        # module. Because we're checking a specific error code and re-raising
+        # otherwise, this overbroad exception handling shouldn't be a problem
+        # in practice.
+        except Exception as e:
+            # This is the error code for "Invalid object name"
+            if e.args[0] == "42S02":
+                return False
+            else:
+                raise
 
     def get_queries(self, covariate_definitions):
         output_columns = {}
@@ -180,39 +244,14 @@ class TPPBackend:
         else:
             raise ValueError(f"Unhandled column type: {column_type}")
 
-    def execute_query(self):
+    def execute_queries(self, queries):
         cursor = self.get_db_connection().cursor()
-        self.log("Uploading codelists into temporary tables")
-        for create_sql, insert_sql, values in self.codelist_tables:
-            cursor.execute(create_sql)
-            cursor.executemany(insert_sql, values)
-        queries = list(self.queries)
-        final_query = queries.pop()[1]
-        for name, sql in queries:
-            self.log(f"Running query: {name}")
-            cursor.execute(sql)
-        output_table = self.get_output_table_name(os.environ.get("TEMP_DATABASE_NAME"))
-        if output_table:
-            self.log(f"Running final query and writing output to '{output_table}'")
-            sql = f"SELECT * INTO {output_table} FROM ({final_query}) t"
-            cursor.execute(sql)
-            self.log(f"Downloading data from '{output_table}'")
-            cursor.execute(f"SELECT * FROM {output_table}")
-        else:
-            self.log(
-                "No TEMP_DATABASE_NAME defined in environment, downloading results "
-                "directly without writing to output table"
-            )
-            cursor.execute(final_query)
+        for query in queries:
+            if query.startswith("--"):
+                comment = query.partition("\n")[0].lstrip("- ")
+                self.log(f"Running: {comment}")
+            cursor.execute(query)
         return cursor
-
-    def get_output_table_name(self, temporary_database):
-        if not temporary_database:
-            return
-        timestamp = datetime.datetime.now(datetime.timezone.utc).strftime(
-            "%Y%m%d_%H%M%S"
-        )
-        return f"{temporary_database}..Output_{timestamp}"
 
     def log(self, message):
         timestamp = datetime.datetime.now(datetime.timezone.utc).strftime(
@@ -251,11 +290,28 @@ class TPPBackend:
                   category VARCHAR(MAX)
                 )
                 """,
-                f"INSERT INTO {table_name} (code, category) VALUES(?, ?)",
+                f"INSERT INTO {table_name} (code, category) VALUES",
+                "({}, {})",
                 values,
             )
         )
         return table_name
+
+    def get_codelist_queries(self):
+        # There's a limit on how many rows we can insert in one go using this method
+        # See: https://docs.microsoft.com/en-us/sql/t-sql/queries/table-value-constructor-transact-sql?view=sql-server-ver15#limitations-and-restrictions
+        batch_size = 999
+        queries = []
+        for create_sql, insert_sql, value_template, values in self.codelist_tables:
+            queries.append(create_sql)
+            for i in range(0, len(values), batch_size):
+                values_batch = values[i : i + batch_size]
+                values_sql_lines = [
+                    value_template.format(*map(quote, row)) for row in values_batch
+                ]
+                values_sql = ",\n".join(values_sql_lines)
+                queries.append(f"{insert_sql}\n{values_sql}")
+        return queries
 
     def patients_age_as_of(self, reference_date):
         quoted_date = quote(reference_date)

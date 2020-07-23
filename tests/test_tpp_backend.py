@@ -1,8 +1,7 @@
 import csv
+from unittest.mock import patch
 import os
 import subprocess
-import tempfile
-from unittest.mock import patch
 
 import pyodbc
 import pytest
@@ -38,7 +37,7 @@ from cohortextractor import (
 )
 from cohortextractor.mssql_utils import mssql_connection_params_from_url
 from cohortextractor.mssql_utils import mssql_query_to_csv_file
-from cohortextractor.tpp_backend import quote, AppointmentStatus, TPPBackend
+from cohortextractor.tpp_backend import quote, AppointmentStatus
 
 
 @pytest.fixture(autouse=True)
@@ -81,48 +80,49 @@ def setup_function(function):
     session.commit()
 
 
-def test_minimal_study_to_csv():
+def test_minimal_study_to_csv(tmp_path):
     session = make_session()
     patient_1 = Patient(DateOfBirth="1900-01-01", Sex="M")
     patient_2 = Patient(DateOfBirth="1900-01-01", Sex="F")
     session.add_all([patient_1, patient_2])
     session.commit()
     study = StudyDefinition(population=patients.all(), sex=patients.sex())
-    with tempfile.NamedTemporaryFile(mode="w+") as f:
-        study.to_csv(f.name)
+    study.to_csv(tmp_path / "test.csv")
+    with open(tmp_path / "test.csv") as f:
         results = list(csv.DictReader(f))
-        assert results == [
-            {"patient_id": str(patient_1.Patient_ID), "sex": "M"},
-            {"patient_id": str(patient_2.Patient_ID), "sex": "F"},
-        ]
+    assert results == [
+        {"patient_id": str(patient_1.Patient_ID), "sex": "M"},
+        {"patient_id": str(patient_2.Patient_ID), "sex": "F"},
+    ]
 
 
-def test_sql_error_propagates_with_sqlcmd():
-    with patch.object(TPPBackend, "to_sql") as to_sql:
-        to_sql.return_value = "SELECT Foo FROM Bar"
-        study = StudyDefinition(population=patients.all(), sex=patients.sex())
-        with tempfile.NamedTemporaryFile(mode="w+") as f:
-            with pytest.raises(ValueError) as excinfo:
-                study.to_csv(f.name, with_sqlcmd=True)
-            assert "Invalid object name 'Bar'" in str(excinfo.value)
+def test_sql_error_propagates_with_sqlcmd(tmp_path):
+    study = StudyDefinition(population=patients.all(), sex=patients.sex())
+    # A bit hacky: fiddle with the list of queries to insert a deliberate error
+    # at the end
+    study.backend.queries[-1] = ("test", "SELECT Foo FROM Bar")
+    with pytest.raises(ValueError) as excinfo:
+        study.to_csv(tmp_path / "test.csv", with_sqlcmd=True)
+    assert "Invalid object name 'Bar'" in str(excinfo.value)
 
 
-def test_credentials_error_propagates_with_sqlcmd(monkeypatch):
+def test_credentials_error_propagates_with_sqlcmd(monkeypatch, tmp_path):
     failing_db_url = os.environ["TPP_DATABASE_URL"].replace("pass", "fail")
-    with tempfile.NamedTemporaryFile(mode="w+") as f:
-        with pytest.raises(ValueError) as excinfo:
-            mssql_query_to_csv_file(failing_db_url, "SELECT * FROM foo", f.name)
-        assert "Login failed" in str(excinfo.value)
+    with pytest.raises(ValueError) as excinfo:
+        mssql_query_to_csv_file(
+            failing_db_url, "SELECT * FROM foo", tmp_path / "test.csv"
+        )
+    assert "Login failed" in str(excinfo.value)
 
 
-def test_sql_error_propagates_without_sqlcmd():
-    with patch.object(TPPBackend, "get_queries") as get_queries:
-        get_queries.return_value = [("final_output", "SELECT Foo FROM Bar")]
-        study = StudyDefinition(population=patients.all(), sex=patients.sex())
-        with tempfile.NamedTemporaryFile(mode="w+") as f:
-            with pytest.raises(pyodbc.ProgrammingError) as excinfo:
-                study.to_csv(f.name, with_sqlcmd=False)
-            assert "Invalid object name 'Bar'" in str(excinfo.value)
+def test_sql_error_propagates_without_sqlcmd(tmp_path):
+    study = StudyDefinition(population=patients.all(), sex=patients.sex())
+    # A bit hacky: fiddle with the list of queries to insert a deliberate error
+    # at the end
+    study.backend.queries[-1] = ("test", "SELECT Foo FROM Bar")
+    with pytest.raises(pyodbc.ProgrammingError) as excinfo:
+        study.to_csv(tmp_path / "test.csv", with_sqlcmd=False)
+    assert "Invalid object name 'Bar'" in str(excinfo.value)
 
 
 def test_meds():
@@ -572,7 +572,7 @@ def test_simple_bmi(include_dates):
         BMI=patients.most_recent_bmi(
             on_or_after="1995-01-01", on_or_before="2005-01-01"
         ),
-        **dict(BMI_date_measured=date_query) if date_query else {}
+        **dict(BMI_date_measured=date_query) if date_query else {},
     )
     results = study.to_dicts()
     assert [x["BMI"] for x in results] == ["0.5"]
@@ -1462,7 +1462,7 @@ def test_to_sql_passes():
     assert patient_id == str(patient.Patient_ID)
 
 
-def test_duplicate_id_checking():
+def test_duplicate_id_checking(tmp_path):
     study = StudyDefinition(population=patients.all())
     # A bit of a hack: overwrite the queries we're going to run with a query which
     # deliberately returns duplicate values
@@ -1483,11 +1483,10 @@ def test_duplicate_id_checking():
     with pytest.raises(RuntimeError):
         study.to_dicts()
     with pytest.raises(RuntimeError):
-        with tempfile.NamedTemporaryFile(mode="w+") as f:
-            study.to_csv(f.name)
+        study.to_csv(tmp_path / "test.csv")
 
 
-def test_sqlcmd_and_odbc_outputs_match():
+def test_sqlcmd_and_odbc_outputs_match(tmp_path):
     session = make_session()
     patient = Patient(DateOfBirth="1950-01-01")
     patient.CodedEvents.append(
@@ -1499,16 +1498,17 @@ def test_sqlcmd_and_odbc_outputs_match():
     study = StudyDefinition(
         population=patients.with_these_clinical_events(codelist(["XYZ"], "ctv3"))
     )
-    with tempfile.NamedTemporaryFile() as input_csv_odbc, tempfile.NamedTemporaryFile() as input_csv_sqlcmd:
-        # windows line endings
-        study.to_csv(input_csv_odbc.name, with_sqlcmd=False)
-        # unix line endings
-        study.to_csv(input_csv_sqlcmd.name, with_sqlcmd=True)
-        with open(input_csv_odbc.name) as f:
-            odbc_output = f.read()
-        with open(input_csv_sqlcmd.name) as f:
-            sqlcmd_output = f.read()
-        assert odbc_output == sqlcmd_output
+    input_csv_odbc = tmp_path / "odbc.csv"
+    input_csv_sqlcmd = tmp_path / "sqlcmd.csv"
+    # windows line endings
+    study.to_csv(input_csv_odbc, with_sqlcmd=False)
+    # unix line endings
+    study.to_csv(input_csv_sqlcmd, with_sqlcmd=True)
+    with open(input_csv_odbc) as f:
+        odbc_output = f.read()
+    with open(input_csv_sqlcmd) as f:
+        sqlcmd_output = f.read()
+    assert odbc_output == sqlcmd_output
 
 
 def test_column_name_clashes_produce_errors():
@@ -2331,7 +2331,7 @@ def test_patients_attended_accident_and_emergency():
     )
 
     assert_results(
-        study,
+        study.to_dicts(),
         attended=["0", "0", "1", "1"],
         count=["0", "0", "1", "3"],
         first_date=["", "", "2020-03-01", "2020-03-01"],
@@ -2404,11 +2404,84 @@ def test_patients_date_deregistered_from_all_supported_practices():
             on_or_before="2018-02-01", date_format="YYYY-MM",
         ),
     )
-    assert_results(study, dereg_date=["", "", "2017-10"])
+    assert_results(study.to_dicts(), dereg_date=["", "", "2017-10"])
 
 
-def assert_results(study, **expected_values):
-    results = study.to_dicts()
+def assert_results(results, **expected_values):
     for col_name, expected_col_values in expected_values.items():
         col_values = [row[col_name] for row in results]
         assert col_values == expected_col_values, f"Unexpected results for {col_name}"
+
+
+def test_temporary_database(tmp_path, monkeypatch):
+    temporary_database = os.environ["TPP_TEMP_DATABASE_NAME"]
+    monkeypatch.setenv("TEMP_DATABASE_NAME", temporary_database)
+    session = make_session()
+    session.add_all(
+        [
+            Patient(DateOfBirth="1960-01-01", Sex="M"),
+            Patient(DateOfBirth="1980-01-01", Sex="F"),
+        ]
+    )
+    session.commit()
+    study = StudyDefinition(
+        population=patients.all(),
+        sex=patients.sex(),
+        age=patients.age_as_of("2000-01-01"),
+    )
+    initial_temporary_tables = _list_table_in_db(session, temporary_database)
+    # Trigger error during data download process
+    with patch("cohortextractor.tpp_backend.mssql_query_to_csv_file") as query_fn:
+        query_fn.side_effect = ValueError("deliberate error")
+        with pytest.raises(ValueError, match="deliberate error"):
+            study.to_csv(tmp_path / "fail.csv", with_sqlcmd=True)
+    # Check that we've created one extra temporary table
+    temporary_tables = _list_table_in_db(session, temporary_database)
+    assert len(set(temporary_tables) - set(initial_temporary_tables)) == 1
+    # Delete all patient data so we can be sure the download below isn't just
+    # re-running the query
+    session.query(Patient).delete()
+    session.commit()
+    # Now try downloading again and check we have correct results
+    study.to_csv(tmp_path / "test.csv", with_sqlcmd=True)
+    with open(tmp_path / "test.csv") as f:
+        results = list(csv.DictReader(f))
+    assert_results(results, sex=["M", "F"], age=["40", "20"])
+    # Check that the temporary table has been deleted
+    final_temporary_tables = _list_table_in_db(session, temporary_database)
+    assert final_temporary_tables == initial_temporary_tables
+
+
+def _list_table_in_db(session, database_name):
+    conn = session.connection()
+    results = conn.execute(
+        f"""
+        SELECT table_name FROM {database_name}.information_schema.tables
+        WHERE table_type = 'BASE TABLE'
+        """
+    )
+    return sorted(row[0] for row in results)
+
+
+def test_large_codelists_upload_correctly():
+    # 999 is the limit we can upload in a single batch so we want to be well
+    # above that
+    codes = [f"foo{i}" for i in range(3000)]
+    session = make_session()
+    # Select codes from the beginning, middle and end of the codelist
+    session.add_all(
+        [
+            Patient(CodedEvents=[CodedEvent(CTV3Code=codes[0], NumericValue=7,),]),
+            Patient(CodedEvents=[CodedEvent(CTV3Code=codes[1500], NumericValue=11,),]),
+            Patient(CodedEvents=[CodedEvent(CTV3Code=codes[-1], NumericValue=18,),]),
+        ]
+    )
+    session.commit()
+    study = StudyDefinition(
+        population=patients.all(),
+        value=patients.with_these_clinical_events(
+            codelist(codes, system="ctv3"), returning="numeric_value"
+        ),
+    )
+    results = study.to_dicts()
+    assert_results(results, value=["7.0", "11.0", "18.0"])

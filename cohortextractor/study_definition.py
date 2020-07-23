@@ -16,9 +16,14 @@ class StudyDefinition:
         self.covariate_definitions = process_covariate_definitions(covariates)
         self.pandas_csv_args = self.get_pandas_csv_args(self.covariate_definitions)
         database_url = os.environ.get("DATABASE_URL")
+        temporary_database = os.environ.get("TEMP_DATABASE_NAME")
         if database_url:
             Backend = self.get_backend_for_database_url(database_url)
-            self.backend = Backend(database_url, self.covariate_definitions)
+            self.backend = Backend(
+                database_url,
+                self.covariate_definitions,
+                temporary_database=temporary_database,
+            )
         else:
             # Without a backend defined we can still generate dummy data but we
             # can't rely on the backend to validate the study definition for us
