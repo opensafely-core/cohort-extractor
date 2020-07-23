@@ -2461,3 +2461,27 @@ def _list_table_in_db(session, database_name):
         """
     )
     return sorted(row[0] for row in results)
+
+
+def test_large_codelists_upload_correctly():
+    # 999 is the limit we can upload in a single batch so we want to be well
+    # above that
+    codes = [f"foo{i}" for i in range(3000)]
+    session = make_session()
+    # Select codes from the beginning, middle and end of the codelist
+    session.add_all(
+        [
+            Patient(CodedEvents=[CodedEvent(CTV3Code=codes[0], NumericValue=7,),]),
+            Patient(CodedEvents=[CodedEvent(CTV3Code=codes[1500], NumericValue=11,),]),
+            Patient(CodedEvents=[CodedEvent(CTV3Code=codes[-1], NumericValue=18,),]),
+        ]
+    )
+    session.commit()
+    study = StudyDefinition(
+        population=patients.all(),
+        value=patients.with_these_clinical_events(
+            codelist(codes, system="ctv3"), returning="numeric_value"
+        ),
+    )
+    results = study.to_dicts()
+    assert_results(results, value=["7.0", "11.0", "18.0"])
