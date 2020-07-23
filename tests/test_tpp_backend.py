@@ -2330,7 +2330,7 @@ def test_patients_attended_accident_and_emergency():
     )
 
     assert_results(
-        study,
+        study.to_dicts(),
         attended=["0", "0", "1", "1"],
         count=["0", "0", "1", "3"],
         first_date=["", "", "2020-03-01", "2020-03-01"],
@@ -2403,11 +2403,10 @@ def test_patients_date_deregistered_from_all_supported_practices():
             on_or_before="2018-02-01", date_format="YYYY-MM",
         ),
     )
-    assert_results(study, dereg_date=["", "", "2017-10"])
+    assert_results(study.to_dicts(), dereg_date=["", "", "2017-10"])
 
 
-def assert_results(study, **expected_values):
-    results = study.to_dicts()
+def assert_results(results, **expected_values):
     for col_name, expected_col_values in expected_values.items():
         col_values = [row[col_name] for row in results]
         assert col_values == expected_col_values, f"Unexpected results for {col_name}"
