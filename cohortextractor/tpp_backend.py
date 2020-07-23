@@ -4,8 +4,6 @@ import enum
 import hashlib
 import re
 
-import pyodbc
-
 from .expressions import format_expression
 from .mssql_utils import (
     mssql_pyodbc_connection_from_url,
@@ -137,7 +135,12 @@ class TPPBackend:
             cursor.execute(f"SELECT 1 FROM {table_name}")
             list(cursor)
             return True
-        except pyodbc.ProgrammingError as e:
+        # Really we ought to be catching `pyodbc.ProgrammingError` here, but
+        # for $REASONS we want to avoid depending on pyodbc directly in this
+        # module. Because we're checking a specific error code and re-raising
+        # otherwise, this overbroad exception handling shouldn't be a problem
+        # in practice.
+        except Exception as e:
             # This is the error code for "Invalid object name"
             if e.args[0] == "42S02":
                 return False
