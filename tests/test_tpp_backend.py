@@ -1,4 +1,5 @@
 import csv
+from unittest.mock import patch
 import os
 import subprocess
 
@@ -2410,3 +2411,53 @@ def assert_results(results, **expected_values):
     for col_name, expected_col_values in expected_values.items():
         col_values = [row[col_name] for row in results]
         assert col_values == expected_col_values, f"Unexpected results for {col_name}"
+
+
+def test_temporary_database(tmp_path, monkeypatch):
+    temporary_database = os.environ["TPP_TEMP_DATABASE_NAME"]
+    monkeypatch.setenv("TEMP_DATABASE_NAME", temporary_database)
+    session = make_session()
+    session.add_all(
+        [
+            Patient(DateOfBirth="1960-01-01", Sex="M"),
+            Patient(DateOfBirth="1980-01-01", Sex="F"),
+        ]
+    )
+    session.commit()
+    study = StudyDefinition(
+        population=patients.all(),
+        sex=patients.sex(),
+        age=patients.age_as_of("2000-01-01"),
+    )
+    initial_temporary_tables = _list_table_in_db(session, temporary_database)
+    # Trigger error during data download process
+    with patch("cohortextractor.tpp_backend.mssql_query_to_csv_file") as query_fn:
+        query_fn.side_effect = ValueError("deliberate error")
+        with pytest.raises(ValueError, match="deliberate error"):
+            study.to_csv(tmp_path / "fail.csv", with_sqlcmd=True)
+    # Check that we've created one extra temporary table
+    temporary_tables = _list_table_in_db(session, temporary_database)
+    assert len(set(temporary_tables) - set(initial_temporary_tables)) == 1
+    # Delete all patient data so we can be sure the download below isn't just
+    # re-running the query
+    session.query(Patient).delete()
+    session.commit()
+    # Now try downloading again and check we have correct results
+    study.to_csv(tmp_path / "test.csv", with_sqlcmd=True)
+    with open(tmp_path / "test.csv") as f:
+        results = list(csv.DictReader(f))
+    assert_results(results, sex=["M", "F"], age=["40", "20"])
+    # Check that the temporary table has been deleted
+    final_temporary_tables = _list_table_in_db(session, temporary_database)
+    assert final_temporary_tables == initial_temporary_tables
+
+
+def _list_table_in_db(session, database_name):
+    conn = session.connection()
+    results = conn.execute(
+        f"""
+        SELECT table_name FROM {database_name}.information_schema.tables
+        WHERE table_type = 'BASE TABLE'
+        """
+    )
+    return sorted(row[0] for row in results)
