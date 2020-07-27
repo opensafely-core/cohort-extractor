@@ -1,6 +1,6 @@
 import pytest
 
-from cohortextractor.expressions import format_expression
+from cohortextractor.expressions import format_expression, InvalidExpressionError
 
 
 def test_basic_expression_rewritting():
@@ -14,9 +14,9 @@ def test_basic_expression_rewritting():
 
 def test_validation():
     kwargs = dict(name_map={"a": "a", "b": "b"}, empty_value_map={"a": 0, "b": 0})
-    with pytest.raises(ValueError):
+    with pytest.raises(InvalidExpressionError):
         format_expression("a AND AND b", **kwargs)
-    with pytest.raises(ValueError):
+    with pytest.raises(InvalidExpressionError):
         format_expression("(a AND b", **kwargs)
-    with pytest.raises(ValueError):
+    with pytest.raises(InvalidExpressionError):
         format_expression("a > > b", **kwargs)

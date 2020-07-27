@@ -10,7 +10,11 @@ IGNORE = object()
 SAFE_CHARS_RE = re.compile(r"^[a-zA-Z0-9_]+$")
 
 
-class UnknownColumnError(ValueError):
+class InvalidExpressionError(ValueError):
+    pass
+
+
+class UnknownColumnError(InvalidExpressionError):
     pass
 
 
@@ -41,7 +45,12 @@ def format_expression(expression, name_map, empty_value_map):
     tokens = filter_and_validate_tokens(tokens)
     tokens = insert_implicit_comparisons(tokens, empty_value_map)
     tokens = list(tokens)
-    validate_expression(tokens, empty_value_map)
+    try:
+        validate_expression(tokens, empty_value_map)
+    except InvalidExpressionError as e:
+        raise InvalidExpressionError(
+            f"Invalid SQL expression: {expression}\nError: {e}"
+        )
     tokens = remap_names(tokens, name_map)
     return " ".join(token.value for token in tokens)
 
@@ -180,7 +189,7 @@ def validate_expression(tokens, empty_value_map):
     try:
         conn.execute(f"SELECT ({sql})")
     except sqlite3.OperationalError as e:
-        raise ValueError(f"Invalid SQL expression: {e}")
+        raise InvalidExpressionError(e)
 
 
 def replace_names_with_empty_values(token, empty_value_map):
