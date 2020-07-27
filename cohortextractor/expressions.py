@@ -40,7 +40,8 @@ def format_expression(expression, name_map, empty_value_map):
     tokens = tree[0].flatten()
     tokens = filter_and_validate_tokens(tokens)
     tokens = insert_implicit_comparisons(tokens, empty_value_map)
-    tokens = validate_expression(tokens, empty_value_map)
+    tokens = list(tokens)
+    validate_expression(tokens, empty_value_map)
     tokens = remap_names(tokens, name_map)
     return " ".join(token.value for token in tokens)
 
@@ -172,7 +173,6 @@ def validate_expression(tokens, empty_value_map):
     operations on non-numeric types. But it at least catches basic syntactic
     errors.
     """
-    tokens = list(tokens)
     sql = " ".join(
         replace_names_with_empty_values(token, empty_value_map) for token in tokens
     )
@@ -181,7 +181,6 @@ def validate_expression(tokens, empty_value_map):
         conn.execute(f"SELECT ({sql})")
     except sqlite3.OperationalError as e:
         raise ValueError(f"Invalid SQL expression: {e}")
-    return tokens
 
 
 def replace_names_with_empty_values(token, empty_value_map):
