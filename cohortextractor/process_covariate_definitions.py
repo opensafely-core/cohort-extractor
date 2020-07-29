@@ -17,6 +17,7 @@ def process_covariate_definitions(covariate_definitions):
     )
     covariate_definitions = add_include_date_flags_to_columns(covariate_definitions)
     covariate_definitions = add_column_types(covariate_definitions)
+    covariate_definitions = process_date_expressions(covariate_definitions)
     return covariate_definitions
 
 
@@ -72,13 +73,6 @@ def process_arguments(args):
     backwards compatibility.
     """
     args = handle_time_period_options(args)
-
-    for date_arg in ("reference_date", "start_date", "end_date"):
-        if date_arg in args:
-            value = args[date_arg]
-            if value == "today":
-                value = datetime.date.today()
-            args[date_arg] = datetime.date.fromisoformat(str(value))
 
     # Handle deprecated API
     if args.pop("return_binary_flag", None):
@@ -380,6 +374,49 @@ class GetColumnType:
                     f"different types (found '{column_type}' and '{other_type}')"
                 )
         return column_type
+
+
+def process_date_expressions(covariate_definitions):
+    output = {}
+    for name, (query_type, query_args) in covariate_definitions.items():
+        for key in ("reference_date", "start_date", "end_date"):
+            if key in query_args:
+                query_args[key] = process_date_expression(query_args[key])
+        if "between" in query_args:
+            start, end = query_args["between"]
+            query_args["between"] = (
+                process_date_expression(start),
+                process_date_expression(end),
+            )
+        for key in ("earliest", "latest"):
+            try:
+                value = query_args["return_expectations"]["date"][key]
+            except (KeyError, TypeError):
+                continue
+            query_args["return_expectations"]["date"][key] = process_date_expression(
+                value
+            )
+        output[name] = (query_type, query_args)
+    return output
+
+
+def process_date_expression(date_str):
+    if date_str is None:
+        return None
+    # There's a question mark over whether we should support this at all, see:
+    # https://github.com/opensafely/cohort-extractor/issues/237
+    if date_str == "today":
+        return datetime.date.today().isoformat()
+    else:
+        validate_date(date_str)
+    return date_str
+
+
+def validate_date(date_str):
+    try:
+        datetime.date.fromisoformat(date_str)
+    except ValueError:
+        raise ValueError(f"Date not in YYYY-MM-DD format: {date_str}")
 
 
 def pop_keys_from_dict(dictionary, keys):

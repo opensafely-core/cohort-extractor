@@ -1,6 +1,5 @@
 import collections
 import copy
-import datetime
 import os
 
 import pandas as pd
@@ -202,7 +201,7 @@ class StudyDefinition:
                 )
             kwargs = self.default_expectations.copy()
             kwargs = merge(kwargs, return_expectations)
-            self.convert_today_string_to_date(colname, kwargs)
+            self.check_date_expectations_defined(colname, kwargs)
             df[colname] = generate(population, **kwargs)["date"]
 
             # Now apply any date-based filtering specified in the study
@@ -221,7 +220,7 @@ class StudyDefinition:
             kwargs = merge(
                 kwargs, self.pandas_csv_args["args"][colname]["return_expectations"]
             )
-            self.convert_today_string_to_date(colname, kwargs)
+            self.check_date_expectations_defined(colname, kwargs)
 
             if dtype == "category":
                 self.validate_category_expectations(
@@ -296,12 +295,12 @@ class StudyDefinition:
             series = series.dt.strftime("%Y")
         return series
 
-    def convert_today_string_to_date(self, colname, kwargs):
+    def check_date_expectations_defined(self, colname, kwargs):
         if "date" not in kwargs:
             raise ValueError(f"{colname} must define a date expectation")
         for k in ["earliest", "latest"]:
-            if kwargs["date"][k] == "today":
-                kwargs["date"][k] = datetime.datetime.now().strftime("%Y-%m-%d")
+            if k not in kwargs["date"]:
+                raise ValueError(f"{colname} must define a date[{k}] expectation")
 
 
 def merge(dict1, dict2):

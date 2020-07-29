@@ -1343,7 +1343,7 @@ class TPPBackend:
         return columns, sql
 
     def patients_household_as_of(self, reference_date, returning):
-        if reference_date.isoformat() != "2020-02-01":
+        if reference_date != "2020-02-01":
             raise ValueError("Household data only currently available for 2020-02-01")
         if returning == "pseudo_id":
             column = "Household.Household_ID"
