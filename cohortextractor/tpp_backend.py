@@ -1440,6 +1440,94 @@ class TPPBackend:
 
         return (["patient_id", returning], sql)
 
+    def patients_admitted_to_hospital(
+        self,
+        between=None,
+        returning=None,
+        find_first_match_in_period=None,
+        find_last_match_in_period=None,
+        with_these_primary_diagnoses=None,
+        with_these_diagnoses=None,
+        with_these_procedures=None,
+    ):
+        if find_first_match_in_period:
+            ordering = "ASC"
+            date_aggregate = "MIN"
+        else:
+            ordering = "DESC"
+            date_aggregate = "MAX"
+
+        if returning == "binary_flag":
+            column = "1"
+            use_partition_query = False
+        elif returning == "date_admitted":
+            column = f"{date_aggregate}(Admission_Date)"
+            use_partition_query = False
+        elif returning == "date_discharged":
+            column = f"{date_aggregate}(Discharge_Date)"
+            use_partition_query = False
+        elif returning == "number_of_matches_in_period":
+            column = "COUNT(*)"
+            use_partition_query = False
+        elif returning == "primary_diagnosis":
+            column = "Spell_Primary_Diagnosis"
+            use_partition_query = True
+        else:
+            assert False, returning
+
+        conditions = [make_date_filter("Admission_Date", between)]
+
+        if with_these_primary_diagnoses:
+            codes = ", ".join(f"'{code}'" for code in with_these_primary_diagnoses)
+            conditions.append(f"APCS_Der.Spell_Primary_Diagnosis IN ({codes})")
+
+        if with_these_diagnoses:
+            fragments = [
+                f"Der_Diagnosis_All LIKE '%[^A-Za-z0-9]{code}%'"
+                for code in with_these_diagnoses
+            ]
+            conditions.append("(" + " OR ".join(fragments) + ")")
+
+        if with_these_procedures:
+            fragments = [
+                f"Der_Procedure_All LIKE '%[^A-Za-z0-9]{code}%'"
+                for code in with_these_procedures
+            ]
+            conditions.append("(" + " OR ".join(fragments) + ")")
+
+        conditions = " AND ".join(conditions)
+
+        if use_partition_query:
+            sql = f"""
+            SELECT
+              Patient_ID AS patient_id,
+              {column} AS {returning}
+            FROM (
+              SELECT APCS.Patient_ID, {column},
+              ROW_NUMBER() OVER (
+                PARTITION BY APCS.Patient_ID ORDER BY Admission_Date {ordering}
+              ) AS rownum
+              FROM APCS
+              INNER JOIN APCS_Der
+                ON APCS.APCS_Ident = APCS_Der.APCS_Ident
+              WHERE {conditions}
+            ) t
+            WHERE rownum = 1
+            """
+        else:
+            sql = f"""
+            SELECT
+              APCS.Patient_ID AS patient_id,
+              {column} AS {returning}
+            FROM APCS
+            INNER JOIN APCS_Der
+              ON APCS.APCS_Ident = APCS_Der.APCS_Ident
+            WHERE {conditions}
+            GROUP BY APCS.Patient_ID
+            """
+
+        return (["patient_id", returning], sql)
+
     def get_case_expression(
         self, column_types, column_definitions, category_definitions
     ):

@@ -28,6 +28,8 @@ from tests.tpp_backend_setup import (
     HouseholdMember,
     ECDS,
     ECDS_EC_Diagnoses,
+    APCS,
+    APCS_Der,
 )
 
 from cohortextractor import (
@@ -76,6 +78,8 @@ def setup_function(function):
     session.query(Household).delete()
     session.query(ECDS_EC_Diagnoses).delete()
     session.query(ECDS).delete()
+    session.query(APCS_Der).delete()
+    session.query(APCS).delete()
     session.query(Patient).delete()
     session.commit()
 
@@ -2383,6 +2387,176 @@ def test_patients_date_deregistered_from_all_supported_practices():
         ),
     )
     assert_results(study.to_dicts(), dereg_date=["", "", "2017-10"])
+
+
+def test_patients_admitted_to_hospital():
+    # Test period is on_or_after 2020-02-01
+    session = make_session()
+    session.add_all(
+        [
+            # Patient with no episodes
+            Patient(Patient_ID=1),
+            # Patient with no episodes in period
+            Patient(
+                Patient_ID=2,
+                APCSEpisodes=[
+                    APCS(
+                        APCS_Ident=1,
+                        Admission_Date="2020-01-01",
+                        Discharge_Date="2020-03-01",
+                        Der_Diagnosis_All="||AAAA ,XXXA, XXXB",
+                        Der_Procedure_All="||AAAA ,YYYA, YYYB",
+                        APCS_Der=APCS_Der(Patient_ID=2, Spell_Primary_Diagnosis="AAAA"),
+                    )
+                ],
+            ),
+            # Patient with some episodes in period
+            Patient(
+                Patient_ID=3,
+                APCSEpisodes=[
+                    APCS(
+                        APCS_Ident=2,
+                        Admission_Date="2020-01-01",
+                        Discharge_Date="2020-02-01",
+                        Der_Diagnosis_All="||BBBB ,XXXB, XXXC",
+                        Der_Procedure_All="||BBBB ,YYYB, YYYC",
+                        APCS_Der=APCS_Der(Patient_ID=3, Spell_Primary_Diagnosis="BBBB"),
+                    ),
+                    APCS(
+                        APCS_Ident=3,
+                        Admission_Date="2020-03-01",
+                        Discharge_Date="2020-04-01",
+                        Der_Diagnosis_All="||CCCC ,XXXC, XXXD",
+                        Der_Procedure_All="||CCCC ,YYYC, YYYD",
+                        APCS_Der=APCS_Der(Patient_ID=3, Spell_Primary_Diagnosis="CCCC"),
+                    ),
+                ],
+            ),
+            # Patient with multiple episodes in period
+            Patient(
+                Patient_ID=4,
+                APCSEpisodes=[
+                    APCS(
+                        APCS_Ident=4,
+                        Admission_Date="2020-03-01",
+                        Discharge_Date="2020-04-01",
+                        Der_Diagnosis_All="||DDDD ,XXXD, XXXE",
+                        Der_Procedure_All="||DDDD ,YYYD, YYYE",
+                        APCS_Der=APCS_Der(Patient_ID=4, Spell_Primary_Diagnosis="DDDD"),
+                    ),
+                    APCS(
+                        APCS_Ident=5,
+                        Admission_Date="2020-05-01",
+                        Discharge_Date="2020-06-01",
+                        Der_Diagnosis_All="||EEEE ,XXXE, XXXF",
+                        Der_Procedure_All="||EEEE ,YYYE, YYYF",
+                        APCS_Der=APCS_Der(Patient_ID=4, Spell_Primary_Diagnosis="EEEE"),
+                    ),
+                    APCS(
+                        APCS_Ident=6,
+                        Admission_Date="2020-07-01",
+                        Discharge_Date="2020-08-01",
+                        Der_Diagnosis_All="||FFFF ,XXXF, XXXG",
+                        Der_Procedure_All="||FFFF ,YYYF, YYYG",
+                        APCS_Der=APCS_Der(Patient_ID=4, Spell_Primary_Diagnosis="FFFF"),
+                    ),
+                ],
+            ),
+        ]
+    )
+    session.commit()
+
+    study = StudyDefinition(
+        population=patients.all(),
+        admitted=patients.admitted_to_hospital(
+            on_or_after="2020-02-01", returning="binary_flag"
+        ),
+        count=patients.admitted_to_hospital(
+            on_or_after="2020-02-01", returning="number_of_matches_in_period",
+        ),
+        first_date_admitted=patients.admitted_to_hospital(
+            on_or_after="2020-02-01",
+            returning="date_admitted",
+            find_first_match_in_period=True,
+            date_format="YYYY-MM-DD",
+        ),
+        last_date_admitted=patients.admitted_to_hospital(
+            on_or_after="2020-02-01",
+            returning="date_admitted",
+            find_last_match_in_period=True,
+            date_format="YYYY-MM-DD",
+        ),
+        first_date_discharged=patients.admitted_to_hospital(
+            on_or_after="2020-02-01",
+            returning="date_discharged",
+            find_first_match_in_period=True,
+            date_format="YYYY-MM-DD",
+        ),
+        last_date_discharged=patients.admitted_to_hospital(
+            on_or_after="2020-02-01",
+            returning="date_discharged",
+            find_last_match_in_period=True,
+            date_format="YYYY-MM-DD",
+        ),
+        with_particular_primary_diagnosis=patients.admitted_to_hospital(
+            on_or_after="2020-02-01",
+            returning="binary_flag",
+            with_these_primary_diagnoses=codelist(["EEEE"], "icd10"),
+        ),
+        with_particular_diagnoses_1=patients.admitted_to_hospital(
+            on_or_after="2020-02-01",
+            returning="number_of_matches_in_period",
+            with_these_diagnoses=codelist(["XXXD"], "icd10"),
+        ),
+        with_particular_diagnoses_2=patients.admitted_to_hospital(
+            on_or_after="2020-02-01",
+            returning="number_of_matches_in_period",
+            with_these_diagnoses=codelist(["XXXE"], "icd10"),
+        ),
+        with_particular_diagnoses_3=patients.admitted_to_hospital(
+            on_or_after="2020-02-01",
+            returning="number_of_matches_in_period",
+            with_these_diagnoses=codelist(["XXX"], "icd10"),
+        ),
+        with_particular_diagnoses_4=patients.admitted_to_hospital(
+            on_or_after="2020-02-01",
+            returning="number_of_matches_in_period",
+            with_these_diagnoses=codelist(["XXXC", "XXXD", "XXXE"], "icd10"),
+        ),
+        with_particular_procedures=patients.admitted_to_hospital(
+            on_or_after="2020-02-01",
+            returning="number_of_matches_in_period",
+            with_these_procedures=codelist(["YYYC", "YYYD", "YYYE"], "icd10"),
+        ),
+        first_primary_diagnosis=patients.admitted_to_hospital(
+            on_or_after="2020-02-01",
+            returning="primary_diagnosis",
+            find_first_match_in_period=True,
+        ),
+        last_primary_diagnosis=patients.admitted_to_hospital(
+            on_or_after="2020-02-01",
+            returning="primary_diagnosis",
+            find_last_match_in_period=True,
+        ),
+    )
+
+    assert_results(
+        study.to_dicts(),
+        admitted=["0", "0", "1", "1"],
+        count=["0", "0", "1", "3"],
+        first_date_admitted=["", "", "2020-03-01", "2020-03-01"],
+        last_date_admitted=["", "", "2020-03-01", "2020-07-01"],
+        first_date_discharged=["", "", "2020-04-01", "2020-04-01"],
+        last_date_discharged=["", "", "2020-04-01", "2020-08-01"],
+        with_particular_primary_diagnosis=["0", "0", "0", "1"],
+        with_particular_diagnoses_1=["0", "0", "1", "1"],
+        with_particular_diagnoses_2=["0", "0", "0", "2"],
+        with_particular_diagnoses_3=["0", "0", "1", "3"],
+        with_particular_diagnoses_4=["0", "0", "1", "2"],
+        with_particular_procedures=["0", "0", "1", "2"],
+        first_primary_diagnosis=["", "", "CCCC", "DDDD"],
+        last_primary_diagnosis=["", "", "CCCC", "FFFF"],
+    )
 
 
 def assert_results(results, **expected_values):
