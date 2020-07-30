@@ -388,16 +388,25 @@ def process_date_expressions(covariate_definitions):
                 process_date_expression(start),
                 process_date_expression(end),
             )
-        for key in ("earliest", "latest"):
-            try:
-                value = query_args["return_expectations"]["date"][key]
-            except (KeyError, TypeError):
-                continue
-            query_args["return_expectations"]["date"][key] = process_date_expression(
-                value
+        if "return_expectations" in query_args:
+            query_args["return_expectations"] = process_expectations_definition(
+                query_args["return_expectations"]
             )
         output[name] = (query_type, query_args)
     return output
+
+
+def process_expectations_definition(expectations_definition):
+    if not expectations_definition:
+        return expectations_definition
+    expectations_definition = copy.deepcopy(expectations_definition)
+    for key in ("earliest", "latest"):
+        try:
+            value = expectations_definition["date"][key]
+        except (KeyError, TypeError):
+            continue
+        expectations_definition["date"][key] = process_date_expression(value)
+    return expectations_definition
 
 
 def process_date_expression(date_str):

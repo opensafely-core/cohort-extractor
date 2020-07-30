@@ -5,13 +5,18 @@ import os
 import pandas as pd
 
 from .expectation_generators import generate
-from .process_covariate_definitions import process_covariate_definitions
+from .process_covariate_definitions import (
+    process_covariate_definitions,
+    process_expectations_definition,
+)
 
 
 class StudyDefinition:
-    def __init__(self, population, **covariates):
+    def __init__(self, population, default_expectations=None, **covariates):
         covariates["population"] = population
-        self.default_expectations = covariates.pop("default_expectations", {})
+        self.default_expectations = process_expectations_definition(
+            default_expectations or {}
+        )
         self.covariate_definitions = process_covariate_definitions(covariates)
         self.pandas_csv_args = self.get_pandas_csv_args(self.covariate_definitions)
         database_url = os.environ.get("DATABASE_URL")
