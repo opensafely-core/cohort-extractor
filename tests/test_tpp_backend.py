@@ -2465,14 +2465,42 @@ def test_large_codelists_upload_correctly():
     assert_results(results, value=["7.0", "11.0", "18.0"])
 
 
-def test_use_of_index_date():
+def test_use_of_date_expressions():
     session = make_session()
-    session.add_all([Patient(DateOfBirth="1980-01-01",)])
+    session.add_all(
+        [
+            # Event too early
+            Patient(
+                DateOfBirth="1980-01-01",
+                CodedEvents=[CodedEvent(ConsultationDate="2012-12-15", CTV3Code="foo")],
+            ),
+            # Events in range
+            Patient(
+                DateOfBirth="1980-05-01",
+                CodedEvents=[CodedEvent(ConsultationDate="2013-01-01", CTV3Code="foo")],
+            ),
+            Patient(
+                DateOfBirth="1980-07-01",
+                CodedEvents=[CodedEvent(ConsultationDate="2015-12-31", CTV3Code="foo")],
+            ),
+            # Event too late
+            Patient(
+                DateOfBirth="1980-01-01",
+                CodedEvents=[CodedEvent(ConsultationDate="2016-01-01", CTV3Code="foo")],
+            ),
+        ]
+    )
     session.commit()
     study = StudyDefinition(
-        index_date="2015-01-01",
-        population=patients.all(),
+        index_date="2015-06-01",
+        population=patients.with_these_clinical_events(
+            codelist(["foo"], system="ctv3"),
+            between=[
+                "first_day_of_year(index_date) - 2 years",
+                "last_day_of_year(index_date)",
+            ],
+        ),
         age=patients.age_as_of("index_date"),
     )
     results = study.to_dicts()
-    assert_results(results, age=["35"])
+    assert_results(results, age=["35", "34"])

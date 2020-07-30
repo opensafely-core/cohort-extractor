@@ -1,6 +1,8 @@
 import copy
 import datetime
 
+from .date_expressions import DateExpressionEvaluator, UnparseableExpressionError
+
 
 def process_covariate_definitions(covariate_definitions, index_date=None):
     """
@@ -416,14 +418,12 @@ def process_expectations_definition(expectations_definition, index_date):
 def process_date_expression(date_str, index_date):
     if date_str is None:
         return None
-    # There's a question mark over whether we should support this at all, see:
-    # https://github.com/opensafely/cohort-extractor/issues/237
-    if date_str == "today":
-        return datetime.date.today().isoformat()
-    elif date_str == "index_date":
-        return index_date
-    else:
-        validate_date(date_str)
+    parse_expression = DateExpressionEvaluator(index_date)
+    try:
+        return parse_expression(date_str)
+    except UnparseableExpressionError:
+        pass
+    validate_date(date_str)
     return date_str
 
 
