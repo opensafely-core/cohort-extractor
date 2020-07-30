@@ -2,7 +2,7 @@ import copy
 import datetime
 
 
-def process_covariate_definitions(covariate_definitions):
+def process_covariate_definitions(covariate_definitions, index_date=None):
     """
     Takes a dict of covariate definitions as supplied by the user (where the
     API is optimised for expressiveness and ease of use) and applies various
@@ -17,7 +17,9 @@ def process_covariate_definitions(covariate_definitions):
     )
     covariate_definitions = add_include_date_flags_to_columns(covariate_definitions)
     covariate_definitions = add_column_types(covariate_definitions)
-    covariate_definitions = process_date_expressions(covariate_definitions)
+    if index_date is not None:
+        validate_date(index_date)
+    covariate_definitions = process_date_expressions(covariate_definitions, index_date)
     return covariate_definitions
 
 
@@ -376,27 +378,27 @@ class GetColumnType:
         return column_type
 
 
-def process_date_expressions(covariate_definitions):
+def process_date_expressions(covariate_definitions, index_date):
     output = {}
     for name, (query_type, query_args) in covariate_definitions.items():
         for key in ("reference_date", "start_date", "end_date"):
             if key in query_args:
-                query_args[key] = process_date_expression(query_args[key])
+                query_args[key] = process_date_expression(query_args[key], index_date)
         if "between" in query_args:
             start, end = query_args["between"]
             query_args["between"] = (
-                process_date_expression(start),
-                process_date_expression(end),
+                process_date_expression(start, index_date),
+                process_date_expression(end, index_date),
             )
         if "return_expectations" in query_args:
             query_args["return_expectations"] = process_expectations_definition(
-                query_args["return_expectations"]
+                query_args["return_expectations"], index_date
             )
         output[name] = (query_type, query_args)
     return output
 
 
-def process_expectations_definition(expectations_definition):
+def process_expectations_definition(expectations_definition, index_date):
     if not expectations_definition:
         return expectations_definition
     expectations_definition = copy.deepcopy(expectations_definition)
@@ -405,17 +407,21 @@ def process_expectations_definition(expectations_definition):
             value = expectations_definition["date"][key]
         except (KeyError, TypeError):
             continue
-        expectations_definition["date"][key] = process_date_expression(value)
+        expectations_definition["date"][key] = process_date_expression(
+            value, index_date
+        )
     return expectations_definition
 
 
-def process_date_expression(date_str):
+def process_date_expression(date_str, index_date):
     if date_str is None:
         return None
     # There's a question mark over whether we should support this at all, see:
     # https://github.com/opensafely/cohort-extractor/issues/237
     if date_str == "today":
         return datetime.date.today().isoformat()
+    elif date_str == "index_date":
+        return index_date
     else:
         validate_date(date_str)
     return date_str

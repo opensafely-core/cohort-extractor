@@ -2463,3 +2463,16 @@ def test_large_codelists_upload_correctly():
     )
     results = study.to_dicts()
     assert_results(results, value=["7.0", "11.0", "18.0"])
+
+
+def test_use_of_index_date():
+    session = make_session()
+    session.add_all([Patient(DateOfBirth="1980-01-01",)])
+    session.commit()
+    study = StudyDefinition(
+        index_date="2015-01-01",
+        population=patients.all(),
+        age=patients.age_as_of("index_date"),
+    )
+    results = study.to_dicts()
+    assert_results(results, age=["35"])

@@ -12,12 +12,16 @@ from .process_covariate_definitions import (
 
 
 class StudyDefinition:
-    def __init__(self, population, default_expectations=None, **covariates):
+    def __init__(
+        self, population, default_expectations=None, index_date=None, **covariates
+    ):
         covariates["population"] = population
         self.default_expectations = process_expectations_definition(
-            default_expectations or {}
+            default_expectations or {}, index_date
         )
-        self.covariate_definitions = process_covariate_definitions(covariates)
+        self.covariate_definitions = process_covariate_definitions(
+            covariates, index_date
+        )
         self.pandas_csv_args = self.get_pandas_csv_args(self.covariate_definitions)
         database_url = os.environ.get("DATABASE_URL")
         temporary_database = os.environ.get("TEMP_DATABASE_NAME")
