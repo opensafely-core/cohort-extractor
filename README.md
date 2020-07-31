@@ -47,8 +47,9 @@ will (probably) still want to use docker to run a SQL Server instance:
 * Set up a virtualenv and `pip install -r requirements.txt`
 * `py.test tests/`
 
-Note: until we make this cleaner... if you change the database schema
-be sure to `docker rm stata-docker_sql_1` before restarting.
+Note: if you change the database schema
+be sure to `docker-compose stop && docker-compose rm` before re-running
+tests to ensure they are recreated.
 
 ## Make releases
 
