@@ -173,6 +173,12 @@ class Patient(Base):
         back_populates="Patient",
         cascade="all, delete, delete-orphan",
     )
+    APCSEpisodes = relationship(
+        "APCS", back_populates="Patient", cascade="all, delete, delete-orphan",
+    )
+    APCS_DerEpisodes = relationship(
+        "APCS_Der", back_populates="Patient", cascade="all, delete, delete-orphan",
+    )
 
 
 class RegistrationHistory(Base):
@@ -452,3 +458,29 @@ class ECDS_EC_Diagnoses(Base):
     ECDS = relationship("ECDS", back_populates="Diagnoses", cascade="all, delete")
     Ordinal = Column(Integer)
     DiagnosisCode = Column(String(collation="Latin1_General_CI_AS"))
+
+
+class APCS(Base):
+    __tablename__ = "APCS"
+    Patient_ID = Column(Integer, ForeignKey("Patient.Patient_ID"))
+    Patient = relationship(
+        "Patient", back_populates="APCSEpisodes", cascade="all, delete"
+    )
+    APCS_Ident = Column(Integer, primary_key=True)
+    APCS_Der = relationship("APCS_Der", uselist=False, back_populates="APCS")
+    Admission_Date = Column(Date)
+    Discharge_Date = Column(Date)
+    Der_Diagnosis_All = Column(String)
+    Der_Procedure_All = Column(String)
+
+
+class APCS_Der(Base):
+    __tablename__ = "APCS_Der"
+    Patient_ID = Column(Integer, ForeignKey("Patient.Patient_ID"))
+    Patient = relationship(
+        "Patient", back_populates="APCS_DerEpisodes", cascade="all, delete"
+    )
+    APCS_Ident = Column(Integer, ForeignKey("APCS.APCS_Ident"), primary_key=True)
+    APCS = relationship("APCS", back_populates="APCS_Der")
+    Spell_Primary_Diagnosis = Column(String)
+    Spell_Secondary_Diagnosis = Column(String)

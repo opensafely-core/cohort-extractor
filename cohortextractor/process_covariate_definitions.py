@@ -310,6 +310,9 @@ class GetColumnType:
     def type_of_attended_emergency_care(self, returning, **kwargs):
         return self._type_from_return_value(returning)
 
+    def type_of_admitted_to_hospital(self, returning, **kwargs):
+        return self._type_from_return_value(returning)
+
     def _type_from_return_value(self, returning):
         if returning == "nhse_region_name":
             raise ValueError(
@@ -320,6 +323,7 @@ class GetColumnType:
             "binary_flag": "bool",
             "date": "date",
             "date_admitted": "date",
+            "date_discharged": "date",
             "date_of_death": "date",
             "number_of_matches_in_period": "int",
             "numeric_value": "float",
@@ -337,6 +341,7 @@ class GetColumnType:
             "discharge_destination": "str",
             "was_ventilated": "bool",
             "underlying_cause_of_death": "str",
+            "primary_diagnosis": "str",
         }
         try:
             return mapping[returning]

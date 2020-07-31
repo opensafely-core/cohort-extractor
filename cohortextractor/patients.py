@@ -604,3 +604,34 @@ def date_deregistered_from_all_supported_practices(
     data from other sources e.g. SGSS, CPNS).
     """
     return "date_deregistered_from_all_supported_practices", locals()
+
+
+def admitted_to_hospital(
+    on_or_before=None,
+    on_or_after=None,
+    between=None,
+    returning="binary_flag",
+    find_first_match_in_period=None,
+    find_last_match_in_period=None,
+    date_format=None,
+    with_these_diagnoses=None,
+    with_these_primary_diagnoses=None,
+    with_these_procedures=None,
+    return_expectations=None,
+):
+    """Return information about admission to hospital.
+
+    Options for `returning` are:
+
+        binary_flag: Whether patient was admitted to hospital
+        primary_diagnosis: ICD-10 code of primary diagnosis
+        date_admitted: Date patient was admitted to hospital
+        date_discharged: Date patient was discharged from hospital
+
+    `with_these_diagnoses` is optional, and is a list of ICD-10 codes
+    `with_these_primary_diagnoses` is optional, and is a list of ICD-10 codes
+    `with_these_procedures` is optional, and is a list of OPCS-4 codes
+
+    See https://github.com/opensafely/cohort-extractor/issues/186 for discussion.
+    """
+    return "admitted_to_hospital", locals()
