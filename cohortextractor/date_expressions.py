@@ -42,6 +42,7 @@ class DateExpressionEvaluator:
         try:
             return self.evaluate(**match.groupdict())
         except (InvalidExpressionError, InvalidDateError) as e:
+            # Add the expression to the error message for easier debugging
             message = f"{e} in: {expression_str}"
             e.args = (message, *e.args[1:])
             raise e
