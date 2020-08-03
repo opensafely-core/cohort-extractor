@@ -11,6 +11,10 @@ class UnparseableExpressionError(InvalidExpressionError):
     pass
 
 
+class InvalidDateError(ValueError):
+    pass
+
+
 def create_regex():
     token = r"[A-Za-z_\-\.]+"
     name = f"(?P<name>{token})"
@@ -37,7 +41,7 @@ class DateExpressionEvaluator:
             raise UnparseableExpressionError(expression_str)
         try:
             return self.evaluate(**match.groupdict())
-        except InvalidExpressionError as e:
+        except (InvalidExpressionError, InvalidDateError) as e:
             message = f"{e} in: {expression_str}"
             e.args = (message, *e.args[1:])
             raise e
@@ -91,7 +95,7 @@ class DateExpressionEvaluator:
 
     def date_unit_years(self, date, value):
         # This can potentially throw an error if used on 29 Feb
-        return date.replace(year=date.year + value)
+        return date_replace(date, year=date.year + value)
 
     def date_unit_months(self, date, value):
         # Can potentially thrown an error if day is greater than 28 and there's
@@ -99,7 +103,7 @@ class DateExpressionEvaluator:
         zero_based_month = (date.month - 1) + value
         new_month = (zero_based_month % 12) + 1
         new_year = date.year + (zero_based_month // 12)
-        return date.replace(year=new_year, month=new_month)
+        return date_replace(date, year=new_year, month=new_month)
 
     def date_unit_days(self, date, value):
         return date + datetime.timedelta(days=value)
@@ -108,3 +112,17 @@ class DateExpressionEvaluator:
     date_unit_year = date_unit_years
     date_unit_month = date_unit_months
     date_unit_day = date_unit_days
+
+
+def date_replace(date, **kwargs):
+    try:
+        return date.replace(**kwargs)
+    except ValueError as e:
+        if "out of range" not in str(e):
+            raise
+    # Reformat "out of range" errors to show the invalid date (including the
+    # full month name) which should make the problem more obvious
+    first_of_month = date.replace(**dict(kwargs, day=1))
+    target_day = kwargs.get("day", date.day)
+    target_date = f"{target_day} {first_of_month.strftime('%B %Y')}"
+    raise InvalidDateError(f"No such date {target_date}")
