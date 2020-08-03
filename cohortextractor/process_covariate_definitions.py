@@ -1,8 +1,10 @@
 import copy
 import datetime
 
+from .date_expressions import DateExpressionEvaluator, UnparseableExpressionError
 
-def process_covariate_definitions(covariate_definitions):
+
+def process_covariate_definitions(covariate_definitions, index_date=None):
     """
     Takes a dict of covariate definitions as supplied by the user (where the
     API is optimised for expressiveness and ease of use) and applies various
@@ -17,6 +19,9 @@ def process_covariate_definitions(covariate_definitions):
     )
     covariate_definitions = add_include_date_flags_to_columns(covariate_definitions)
     covariate_definitions = add_column_types(covariate_definitions)
+    if index_date is not None:
+        validate_date(index_date)
+    covariate_definitions = process_date_expressions(covariate_definitions, index_date)
     return covariate_definitions
 
 
@@ -72,13 +77,6 @@ def process_arguments(args):
     backwards compatibility.
     """
     args = handle_time_period_options(args)
-
-    for date_arg in ("reference_date", "start_date", "end_date"):
-        if date_arg in args:
-            value = args[date_arg]
-            if value == "today":
-                value = datetime.date.today()
-            args[date_arg] = datetime.date.fromisoformat(str(value))
 
     # Handle deprecated API
     if args.pop("return_binary_flag", None):
@@ -385,6 +383,82 @@ class GetColumnType:
                     f"different types (found '{column_type}' and '{other_type}')"
                 )
         return column_type
+
+
+def process_date_expressions(covariate_definitions, index_date):
+    """
+    Take a covariate definition and parse every date reference within it (which
+    might be expressions such as "index_date + 1 month") replacing them all
+    with ISO date strings and returning the modified definition
+    """
+    output = {}
+    for name, (query_type, query_args) in covariate_definitions.items():
+        for key in ("reference_date", "start_date", "end_date"):
+            if key in query_args:
+                query_args[key] = process_date_expression(query_args[key], index_date)
+        if "between" in query_args:
+            start, end = query_args["between"]
+            query_args["between"] = (
+                process_date_expression(start, index_date),
+                process_date_expression(end, index_date),
+            )
+        if "return_expectations" in query_args:
+            return_expectations = process_date_expressions_in_expectations_definition(
+                query_args["return_expectations"], index_date
+            )
+            query_args["return_expectations"] = return_expectations
+        output[name] = (query_type, query_args)
+    return output
+
+
+def process_date_expressions_in_expectations_definition(
+    expectations_definition, index_date
+):
+    """
+    Take an expectations definition and parse every date reference within it
+    (which might be expressions such as "index_date + 1 month") replacing them
+    all with ISO date strings and returning the modified definition
+    """
+    if not expectations_definition:
+        return expectations_definition
+    expectations_definition = copy.deepcopy(expectations_definition)
+    for key in ("earliest", "latest"):
+        try:
+            value = expectations_definition["date"][key]
+        except (KeyError, TypeError):
+            continue
+        expectations_definition["date"][key] = process_date_expression(
+            value, index_date
+        )
+    return expectations_definition
+
+
+def process_date_expression(date_str, index_date):
+    """
+    Return an ISO date string from a date expression (e.g "index_date + 1
+    month") and index date
+
+    `date_str` can also just be an ISO date string to start with, in which case
+    it is validated but not further modified.
+    """
+    if date_str is None:
+        return None
+    parse_expression = DateExpressionEvaluator(index_date)
+    try:
+        return parse_expression(date_str)
+    except UnparseableExpressionError:
+        # If we can't parse it as an expression that we just attempt to
+        # validate it as an ISO date
+        pass
+    validate_date(date_str)
+    return date_str
+
+
+def validate_date(date_str):
+    try:
+        datetime.date.fromisoformat(date_str)
+    except ValueError:
+        raise ValueError(f"Date not in YYYY-MM-DD format: {date_str}")
 
 
 def pop_keys_from_dict(dictionary, keys):

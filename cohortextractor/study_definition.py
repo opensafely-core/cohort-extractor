@@ -1,19 +1,27 @@
 import collections
 import copy
-import datetime
 import os
 
 import pandas as pd
 
 from .expectation_generators import generate
-from .process_covariate_definitions import process_covariate_definitions
+from .process_covariate_definitions import (
+    process_covariate_definitions,
+    process_date_expressions_in_expectations_definition,
+)
 
 
 class StudyDefinition:
-    def __init__(self, population, **covariates):
+    def __init__(
+        self, population, default_expectations=None, index_date=None, **covariates
+    ):
         covariates["population"] = population
-        self.default_expectations = covariates.pop("default_expectations", {})
-        self.covariate_definitions = process_covariate_definitions(covariates)
+        self.default_expectations = process_date_expressions_in_expectations_definition(
+            default_expectations or {}, index_date
+        )
+        self.covariate_definitions = process_covariate_definitions(
+            covariates, index_date
+        )
         self.pandas_csv_args = self.get_pandas_csv_args(self.covariate_definitions)
         database_url = os.environ.get("DATABASE_URL")
         temporary_database = os.environ.get("TEMP_DATABASE_NAME")
@@ -202,7 +210,7 @@ class StudyDefinition:
                 )
             kwargs = self.default_expectations.copy()
             kwargs = merge(kwargs, return_expectations)
-            self.convert_today_string_to_date(colname, kwargs)
+            self.check_date_expectations_defined(colname, kwargs)
             df[colname] = generate(population, **kwargs)["date"]
 
             # Now apply any date-based filtering specified in the study
@@ -221,7 +229,7 @@ class StudyDefinition:
             kwargs = merge(
                 kwargs, self.pandas_csv_args["args"][colname]["return_expectations"]
             )
-            self.convert_today_string_to_date(colname, kwargs)
+            self.check_date_expectations_defined(colname, kwargs)
 
             if dtype == "category":
                 self.validate_category_expectations(
@@ -296,12 +304,12 @@ class StudyDefinition:
             series = series.dt.strftime("%Y")
         return series
 
-    def convert_today_string_to_date(self, colname, kwargs):
+    def check_date_expectations_defined(self, colname, kwargs):
         if "date" not in kwargs:
             raise ValueError(f"{colname} must define a date expectation")
         for k in ["earliest", "latest"]:
-            if kwargs["date"][k] == "today":
-                kwargs["date"][k] = datetime.datetime.now().strftime("%Y-%m-%d")
+            if k not in kwargs["date"]:
+                raise ValueError(f"{colname} must define a date[{k}] expectation")
 
 
 def merge(dict1, dict2):
