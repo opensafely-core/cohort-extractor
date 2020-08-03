@@ -55,7 +55,7 @@ def get_job_logs():
         elif entry["status_code"] is None:
             status = "running"
         elif entry["status_code"] == 0:
-            status = f"finished ({entry['output_url']})"
+            status = f"finished ({entry['output_bucket']})"
         else:
             status = f"error ({entry['status_code']})"
         entry["status"] = status
