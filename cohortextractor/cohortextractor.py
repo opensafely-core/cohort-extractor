@@ -107,9 +107,15 @@ def preflight_generation_check():
         raise RuntimeError(msg.format(", ".join(missing_paths)))
 
 
-def generate_cohort(output_dir, expectations_population):
+def generate_cohort(output_dir, expectations_population, selected_study_name=None):
     preflight_generation_check()
-    for study_name, suffix in list_study_definitions():
+    study_definitions = list_study_definitions()
+    if selected_study_name and selected_study_name != "all":
+        for study_name, suffix in study_definitions:
+            if study_name == selected_study_name:
+                study_definitions = [(study_name, suffix)]
+                break
+    for study_name, suffix in study_definitions:
         print(f"Generating cohort for {study_name}...")
         _generate_cohort(output_dir, study_name, suffix, expectations_population)
 
@@ -352,6 +358,13 @@ def main():
         type=str,
         default="output",
     )
+    generate_cohort_parser.add_argument(
+        "--study-definition",
+        help="Study definition to use",
+        type=str,
+        choices=["all"] + [x[0] for x in list_study_definitions()],
+        default="all",
+    )
     cohort_method_group = generate_cohort_parser.add_mutually_exclusive_group(
         required=True
     )
@@ -375,7 +388,11 @@ def main():
         parser.print_help()
     elif options.which == "generate_cohort":
         os.environ["DATABASE_URL"] = options.database_url
-        generate_cohort(options.output_dir, options.expectations_population)
+        generate_cohort(
+            options.output_dir,
+            options.expectations_population,
+            options.study_definition,
+        )
     elif options.which == "cohort_report":
         make_cohort_report(options.input_dir, options.output_dir)
     elif options.which == "update_codelists":
@@ -387,7 +404,7 @@ def main():
         dump_study_yaml(options.study_definition)
     elif options.which == "remote_generate_cohort":
         submit_job(
-            options.backend, options.db, options.ref, "generate_cohort", options.repo
+            options.backend, options.db, options.ref, "generate_cohort", options.repo,
         )
         print("Job submitted!")
     elif options.which == "remote_log":
