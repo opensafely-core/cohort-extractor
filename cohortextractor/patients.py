@@ -271,7 +271,7 @@ def admitted_to_icu(
     # Required keyword
     return_expectations=None,
     # Deprecated options kept for now for backwards compatibility
-    include_month=True,
+    include_month=False,
     include_day=False,
 ):
     """Return information about being admitted to ICU.
