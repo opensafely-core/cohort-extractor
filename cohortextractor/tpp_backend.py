@@ -1144,6 +1144,43 @@ class TPPBackend:
             """,
         )
 
+    def patients_with_death_recorded_in_primary_care(
+        self,
+        # Set date limits
+        between=None,
+        # Set return type
+        returning="binary_flag",
+    ):
+        if returning == "binary_flag":
+            column = "1"
+        elif returning == "date_of_death":
+            column = "DateOfDeath"
+        else:
+            raise ValueError(f"Unsupported `returning` value: {returning}")
+        if between is None:
+            between = (None, None)
+        min_date, max_date = between
+        # Patients with no date of death (i.e. alive ones) are recorded using a
+        # death date of 9999-12-31, so if no max date is supplied then we need
+        # to set a max date to something less than 9999-12-31 to filter these
+        # out
+        if max_date is None:
+            max_date = "3000-01-01"
+        if min_date is None:
+            min_date = "1900-01-01"
+        return (
+            ["patient_id", returning],
+            f"""
+            SELECT
+              Patient_ID AS patient_id,
+              {column} AS {returning}
+            FROM
+              Patient
+            WHERE
+              DateOfDeath BETWEEN {quote(min_date)} AND {quote(max_date)}
+            """,
+        )
+
     def patients_with_tpp_vaccination_record(
         self,
         target_disease_matches=None,

@@ -2678,3 +2678,32 @@ def test_use_of_date_expressions():
     )
     results = study.to_dicts()
     assert_results(results, age=["35", "34"])
+
+
+def test_patients_with_death_recorded_in_primary_care():
+    session = make_session()
+    session.add_all(
+        [
+            Patient(DateOfDeath="9999-12-31"),
+            Patient(DateOfDeath="2017-05-06"),
+            Patient(DateOfDeath="2019-06-07"),
+            Patient(DateOfDeath="2020-07-08"),
+        ]
+    )
+    session.commit()
+    study = StudyDefinition(
+        population=patients.all(),
+        has_died=patients.with_death_recorded_in_primary_care(),
+        date_of_death=patients.with_death_recorded_in_primary_care(
+            returning="date_of_death", date_format="YYYY-MM-DD"
+        ),
+        died_in_2019=patients.with_death_recorded_in_primary_care(
+            between=["2019-01-01", "2019-12-31"], returning="date_of_death",
+        ),
+    )
+    assert_results(
+        study.to_dicts(),
+        has_died=["0", "1", "1", "1"],
+        date_of_death=["", "2017-05-06", "2019-06-07", "2020-07-08"],
+        died_in_2019=["", "", "2019", ""],
+    )
