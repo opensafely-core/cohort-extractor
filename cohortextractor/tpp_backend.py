@@ -1437,7 +1437,8 @@ class TPPBackend:
         if with_these_diagnoses:
             assert isinstance(with_these_diagnoses, list)
             codes = ", ".join(f"'{code}'" for code in with_these_diagnoses)
-            conditions.append(f"DiagnosisCode IN ({codes})")
+            fragments = [f"EC_Diagnosis_{ix:02} IN ({codes})" for ix in range(1, 25)]
+            conditions.append("(" + " OR ".join(fragments) + ")")
 
         if discharged_to:
             assert isinstance(discharged_to, list)
@@ -1452,13 +1453,13 @@ class TPPBackend:
               Patient_ID AS patient_id,
               {column} AS {returning}
             FROM (
-              SELECT ECDS.Patient_ID, {column},
+              SELECT EC.Patient_ID, {column},
               ROW_NUMBER() OVER (
-                PARTITION BY ECDS.Patient_ID ORDER BY Arrival_Date {ordering}
+                PARTITION BY EC.Patient_ID ORDER BY Arrival_Date {ordering}
               ) AS rownum
-              FROM ECDS
-              INNER JOIN ECDS_EC_Diagnoses
-                ON ECDS.EC_Ident = ECDS_EC_Diagnoses.EC_Ident
+              FROM EC
+              INNER JOIN EC_Diagnosis
+                ON EC.EC_Ident = EC_Diagnosis.EC_Ident
               WHERE {conditions}
             ) t
             WHERE rownum = 1
@@ -1466,13 +1467,13 @@ class TPPBackend:
         else:
             sql = f"""
             SELECT
-              ECDS.Patient_ID AS patient_id,
+              EC.Patient_ID AS patient_id,
               {column} AS {returning}
-            FROM ECDS
-            INNER JOIN ECDS_EC_Diagnoses
-              ON ECDS.EC_Ident = ECDS_EC_Diagnoses.EC_Ident
+            FROM EC
+            INNER JOIN EC_Diagnosis
+              ON EC.EC_Ident = EC_Diagnosis.EC_Ident
             WHERE {conditions}
-            GROUP BY ECDS.Patient_ID
+            GROUP BY EC.Patient_ID
             """
 
         return (["patient_id", returning], sql)

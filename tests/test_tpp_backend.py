@@ -26,8 +26,8 @@ from tests.tpp_backend_setup import (
     PotentialCareHomeAddress,
     Household,
     HouseholdMember,
-    ECDS,
-    ECDS_EC_Diagnoses,
+    EC,
+    EC_Diagnosis,
     APCS,
     APCS_Der,
 )
@@ -76,8 +76,8 @@ def setup_function(function):
     session.query(PatientAddress).delete()
     session.query(HouseholdMember).delete()
     session.query(Household).delete()
-    session.query(ECDS_EC_Diagnoses).delete()
-    session.query(ECDS).delete()
+    session.query(EC_Diagnosis).delete()
+    session.query(EC).delete()
     session.query(APCS_Der).delete()
     session.query(APCS).delete()
     session.query(Patient).delete()
@@ -2181,12 +2181,12 @@ def test_patients_attended_accident_and_emergency():
             Patient(
                 Patient_ID=2,
                 ECEpisodes=[
-                    ECDS(
+                    EC(
                         EC_Ident=1,
                         Arrival_Date="2020-01-01",
                         Discharge_Destination_SNOMED_CT=discharge_to_home,
                         Diagnoses=[
-                            ECDS_EC_Diagnoses(Patient_ID=3, DiagnosisCode=covid_19)
+                            EC_Diagnosis(Patient_ID=3, EC_Diagnosis_01=covid_19)
                         ],
                     )
                 ],
@@ -2195,20 +2195,20 @@ def test_patients_attended_accident_and_emergency():
             Patient(
                 Patient_ID=3,
                 ECEpisodes=[
-                    ECDS(
+                    EC(
                         EC_Ident=2,
                         Arrival_Date="2020-01-01",
                         Discharge_Destination_SNOMED_CT=discharge_to_home,
                         Diagnoses=[
-                            ECDS_EC_Diagnoses(Patient_ID=3, DiagnosisCode=not_covid_19)
+                            EC_Diagnosis(Patient_ID=3, EC_Diagnosis_01=not_covid_19)
                         ],
                     ),
-                    ECDS(
+                    EC(
                         EC_Ident=3,
                         Arrival_Date="2020-03-01",
                         Discharge_Destination_SNOMED_CT=discharge_to_home,
                         Diagnoses=[
-                            ECDS_EC_Diagnoses(Patient_ID=3, DiagnosisCode=not_covid_19)
+                            EC_Diagnosis(Patient_ID=3, EC_Diagnosis_01=not_covid_19)
                         ],
                     ),
                 ],
@@ -2217,28 +2217,28 @@ def test_patients_attended_accident_and_emergency():
             Patient(
                 Patient_ID=4,
                 ECEpisodes=[
-                    ECDS(
+                    EC(
                         EC_Ident=4,
                         Arrival_Date="2020-03-01",
                         Discharge_Destination_SNOMED_CT=discharge_to_home,
                         Diagnoses=[
-                            ECDS_EC_Diagnoses(Patient_ID=3, DiagnosisCode=not_covid_19)
+                            EC_Diagnosis(Patient_ID=3, EC_Diagnosis_01=not_covid_19)
                         ],
                     ),
-                    ECDS(
+                    EC(
                         EC_Ident=5,
                         Arrival_Date="2020-05-01",
                         Discharge_Destination_SNOMED_CT=discharge_to_ward,
                         Diagnoses=[
-                            ECDS_EC_Diagnoses(Patient_ID=3, DiagnosisCode=covid_19)
+                            EC_Diagnosis(Patient_ID=3, EC_Diagnosis_01=covid_19, EC_Diagnosis_02=not_covid_19)
                         ],
                     ),
-                    ECDS(
+                    EC(
                         EC_Ident=6,
                         Arrival_Date="2020-07-01",
                         Discharge_Destination_SNOMED_CT=discharge_to_ward,
                         Diagnoses=[
-                            ECDS_EC_Diagnoses(Patient_ID=3, DiagnosisCode=covid_19)
+                            EC_Diagnosis(Patient_ID=3, EC_Diagnosis_01=not_covid_19, EC_Diagnosis_02=covid_19)
                         ],
                     ),
                 ],
