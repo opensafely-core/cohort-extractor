@@ -1,6 +1,7 @@
 import os
 
 from .study_definition import StudyDefinition
+from .measure import Measure
 
 from .codelistlib import (
     codelist,
@@ -14,6 +15,7 @@ with open(os.path.join(os.path.dirname(__file__), "VERSION")) as version_file:
 
 __all__ = [
     "StudyDefinition",
+    "Measure",
     "codelist",
     "codelist_from_csv",
     "filter_codes_by_category",
