@@ -1,6 +1,86 @@
 import calendar
+import copy
 import datetime
 import re
+
+
+def evaluate_date_expressions_in_covariate_definitions(
+    covariate_definitions, index_date
+):
+    """
+    Take a dict of covariate definitions and parse every date reference within
+    it (which might be expressions such as "index_date + 1 month") replacing
+    them all with ISO date strings and returning the modified definition
+    """
+    output = {}
+    for name, (query_type, query_args) in covariate_definitions.items():
+        query_args = query_args.copy()
+        for key in ("reference_date", "start_date", "end_date"):
+            if key in query_args:
+                query_args[key] = evaluate_date_expression(query_args[key], index_date)
+        if "between" in query_args:
+            start, end = query_args["between"]
+            query_args["between"] = (
+                evaluate_date_expression(start, index_date),
+                evaluate_date_expression(end, index_date),
+            )
+        if "return_expectations" in query_args:
+            return_expectations = evaluate_date_expressions_in_expectations_definition(
+                query_args["return_expectations"], index_date
+            )
+            query_args["return_expectations"] = return_expectations
+        output[name] = (query_type, query_args)
+    return output
+
+
+def evaluate_date_expressions_in_expectations_definition(
+    expectations_definition, index_date
+):
+    """
+    Take an expectations definition and parse every date reference within it
+    (which might be expressions such as "index_date + 1 month") replacing them
+    all with ISO date strings and returning the modified definition
+    """
+    if not expectations_definition:
+        return expectations_definition
+    expectations_definition = copy.deepcopy(expectations_definition)
+    for key in ("earliest", "latest"):
+        try:
+            value = expectations_definition["date"][key]
+        except (KeyError, TypeError):
+            continue
+        expectations_definition["date"][key] = evaluate_date_expression(
+            value, index_date
+        )
+    return expectations_definition
+
+
+def evaluate_date_expression(date_str, index_date):
+    """
+    Return an ISO date string from a date expression (e.g "index_date + 1
+    month") and index date
+
+    `date_str` can also just be an ISO date string to start with, in which case
+    it is validated but not further modified.
+    """
+    if date_str is None:
+        return None
+    parse_expression = DateExpressionEvaluator(index_date)
+    try:
+        return parse_expression(date_str)
+    except UnparseableExpressionError:
+        # If we can't parse it as an expression that we just attempt to
+        # validate it as an ISO date
+        pass
+    validate_date(date_str)
+    return date_str
+
+
+def validate_date(date_str):
+    try:
+        datetime.date.fromisoformat(date_str)
+    except ValueError:
+        raise ValueError(f"Date not in YYYY-MM-DD format: {date_str}")
 
 
 class InvalidExpressionError(ValueError):

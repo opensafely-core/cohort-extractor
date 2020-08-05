@@ -5,9 +5,11 @@ import os
 import pandas as pd
 
 from .expectation_generators import generate
-from .process_covariate_definitions import (
-    process_covariate_definitions,
-    process_date_expressions_in_expectations_definition,
+from .process_covariate_definitions import process_covariate_definitions
+from .date_expressions import (
+    evaluate_date_expressions_in_covariate_definitions,
+    evaluate_date_expressions_in_expectations_definition,
+    validate_date,
 )
 
 
@@ -16,12 +18,9 @@ class StudyDefinition:
         self, population, default_expectations=None, index_date=None, **covariates
     ):
         covariates["population"] = population
-        self.default_expectations = process_date_expressions_in_expectations_definition(
-            default_expectations or {}, index_date
-        )
-        self.covariate_definitions = process_covariate_definitions(
-            covariates, index_date
-        )
+        self._original_covariates = process_covariate_definitions(covariates)
+        self._original_default_expectations = default_expectations or {}
+        self.set_index_date(index_date)
         self.pandas_csv_args = self.get_pandas_csv_args(self.covariate_definitions)
         database_url = os.environ.get("DATABASE_URL")
         temporary_database = os.environ.get("TEMP_DATABASE_NAME")
@@ -37,6 +36,21 @@ class StudyDefinition:
             # can't rely on the backend to validate the study definition for us
             self.validate_study_definition(self.covariate_definitions)
             self.backend = None
+
+    def set_index_date(self, index_date):
+        """
+        Re-evaluate all date expressions in the covariate definitions and the
+        default expecations using the supplied index date
+        """
+        if index_date is not None:
+            validate_date(index_date)
+        self.index_date = index_date
+        self.covariate_definitions = evaluate_date_expressions_in_covariate_definitions(
+            self._original_covariates, self.index_date
+        )
+        self.default_expectations = evaluate_date_expressions_in_expectations_definition(
+            self._original_default_expectations, self.index_date
+        )
 
     def to_csv(self, filename, expectations_population=False, **kwargs):
         if expectations_population:
