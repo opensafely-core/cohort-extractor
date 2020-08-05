@@ -166,10 +166,10 @@ class Patient(Base):
         cascade="all, delete, delete-orphan",
     )
     ECEpisodes = relationship(
-        "ECDS", back_populates="Patient", cascade="all, delete, delete-orphan",
+        "EC", back_populates="Patient", cascade="all, delete, delete-orphan",
     )
     ECDiagnoses = relationship(
-        "ECDS_EC_Diagnoses",
+        "EC_Diagnosis",
         back_populates="Patient",
         cascade="all, delete, delete-orphan",
     )
@@ -429,8 +429,8 @@ class HouseholdMember(Base):
     )
 
 
-class ECDS(Base):
-    __tablename__ = "ECDS"
+class EC(Base):
+    __tablename__ = "EC"
     Patient_ID = Column(Integer, ForeignKey("Patient.Patient_ID"))
     Patient = relationship(
         "Patient", back_populates="ECEpisodes", cascade="all, delete"
@@ -439,12 +439,12 @@ class ECDS(Base):
     Arrival_Date = Column(Date)
     Discharge_Destination_SNOMED_CT = Column(String(collation="Latin1_General_CI_AS"))
     Diagnoses = relationship(
-        "ECDS_EC_Diagnoses", back_populates="ECDS", cascade="all, delete, delete-orphan"
+        "EC_Diagnosis", back_populates="EC", cascade="all, delete, delete-orphan"
     )
 
 
-class ECDS_EC_Diagnoses(Base):
-    __tablename__ = "ECDS_EC_Diagnoses"
+class EC_Diagnosis(Base):
+    __tablename__ = "EC_Diagnosis"
 
     # This column isn't in the actual database but SQLAlchemy gets a bit upset
     # if we don't give it a primary key
@@ -454,11 +454,32 @@ class ECDS_EC_Diagnoses(Base):
     Patient = relationship(
         "Patient", back_populates="ECDiagnoses", cascade="all, delete"
     )
-    EC_Ident = Column(Integer, ForeignKey("ECDS.EC_Ident"))
-    ECDS = relationship("ECDS", back_populates="Diagnoses", cascade="all, delete")
-    Ordinal = Column(Integer)
-    DiagnosisCode = Column(String(collation="Latin1_General_CI_AS"))
-
+    EC_Ident = Column(Integer, ForeignKey("EC.EC_Ident"))
+    EC = relationship("EC", back_populates="Diagnoses", cascade="all, delete")
+    EC_Diagnosis_01 = Column(String(collation="Latin1_General_CI_AS"))
+    EC_Diagnosis_02 = Column(String(collation="Latin1_General_CI_AS"))
+    EC_Diagnosis_03 = Column(String(collation="Latin1_General_CI_AS"))
+    EC_Diagnosis_04 = Column(String(collation="Latin1_General_CI_AS"))
+    EC_Diagnosis_05 = Column(String(collation="Latin1_General_CI_AS"))
+    EC_Diagnosis_06 = Column(String(collation="Latin1_General_CI_AS"))
+    EC_Diagnosis_07 = Column(String(collation="Latin1_General_CI_AS"))
+    EC_Diagnosis_08 = Column(String(collation="Latin1_General_CI_AS"))
+    EC_Diagnosis_09 = Column(String(collation="Latin1_General_CI_AS"))
+    EC_Diagnosis_10 = Column(String(collation="Latin1_General_CI_AS"))
+    EC_Diagnosis_11 = Column(String(collation="Latin1_General_CI_AS"))
+    EC_Diagnosis_12 = Column(String(collation="Latin1_General_CI_AS"))
+    EC_Diagnosis_13 = Column(String(collation="Latin1_General_CI_AS"))
+    EC_Diagnosis_14 = Column(String(collation="Latin1_General_CI_AS"))
+    EC_Diagnosis_15 = Column(String(collation="Latin1_General_CI_AS"))
+    EC_Diagnosis_16 = Column(String(collation="Latin1_General_CI_AS"))
+    EC_Diagnosis_17 = Column(String(collation="Latin1_General_CI_AS"))
+    EC_Diagnosis_18 = Column(String(collation="Latin1_General_CI_AS"))
+    EC_Diagnosis_19 = Column(String(collation="Latin1_General_CI_AS"))
+    EC_Diagnosis_20 = Column(String(collation="Latin1_General_CI_AS"))
+    EC_Diagnosis_21 = Column(String(collation="Latin1_General_CI_AS"))
+    EC_Diagnosis_22 = Column(String(collation="Latin1_General_CI_AS"))
+    EC_Diagnosis_23 = Column(String(collation="Latin1_General_CI_AS"))
+    EC_Diagnosis_24 = Column(String(collation="Latin1_General_CI_AS"))
 
 class APCS(Base):
     __tablename__ = "APCS"
