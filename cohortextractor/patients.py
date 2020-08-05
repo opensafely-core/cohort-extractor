@@ -356,6 +356,32 @@ def with_death_recorded_in_cpns(
     return "with_death_recorded_in_cpns", locals()
 
 
+def with_death_recorded_in_primary_care(
+    # Set date limits
+    on_or_before=None,
+    on_or_after=None,
+    between=None,
+    # Set return type
+    returning="binary_flag",
+    date_format=None,
+    return_expectations=None,
+):
+    """
+    Identify patients with a date-of-death in their primary care record.
+
+    There is generally a lag between the death being recorded in ONS data and
+    appearing in the primary care record, but the date itself is usually
+    reliable when it appears. By contrast, cause of death is often not accurate
+    in the primary care record so we don't make it available to query here.
+
+    Options for `returning` are:
+
+       binary_flag: If they died or not
+       date_of_death: Date of death
+    """
+    return "with_death_recorded_in_primary_care", locals()
+
+
 def date_of(
     source,
     date_format=None,
