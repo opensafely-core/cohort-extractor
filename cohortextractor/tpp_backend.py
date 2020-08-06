@@ -3,6 +3,7 @@ import datetime
 import enum
 import hashlib
 import re
+import uuid
 
 from .expressions import format_expression
 from .mssql_utils import (
@@ -114,6 +115,9 @@ class TPPBackend:
         query_hash = hashlib.sha1("\n".join(queries).encode("utf8")).hexdigest()
         output_table = f"{self.temporary_database}..DataExtract_{query_hash}"
         if not self.table_exists(output_table):
+            # We want to raise an error now, rather than waiting until we've
+            # run all the other queries
+            self.assert_database_exists_and_is_writable(self.temporary_database)
             queries = list(queries)
             final_query = queries.pop()
             self.execute_queries(queries)
@@ -147,6 +151,25 @@ class TPPBackend:
             # This is the error code for "Invalid object name"
             if e.args[0] == "42S02":
                 return False
+            else:
+                raise
+
+    def assert_database_exists_and_is_writable(self, db_name):
+        # As above, there's probably a better way of doing this
+        test_table = f"{db_name}..test_{uuid.uuid4().hex}"
+        cursor = self.get_db_connection().cursor()
+        try:
+            cursor.execute(f"SELECT 1 AS foo INTO {test_table}")
+            cursor.execute(f"DROP TABLE {test_table}")
+        # Really we ought to be catching `pyodbc.ProgrammingError` here, but
+        # for $REASONS we want to avoid depending on pyodbc directly in this
+        # module. Because we're checking a specific error code and re-raising
+        # otherwise, this overbroad exception handling shouldn't be a problem
+        # in practice.
+        except Exception as e:
+            # This is the error code for "Database does not exist"
+            if e.args[0] == "42000":
+                raise RuntimeError(f"Temporary database '{db_name}' does not exist")
             else:
                 raise
 
