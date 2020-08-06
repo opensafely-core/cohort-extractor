@@ -365,6 +365,12 @@ def main():
         choices=["all"] + [x[0] for x in list_study_definitions()],
         default="all",
     )
+    generate_cohort_parser.add_argument(
+        "--temp-database-name",
+        help="Name of database so store temporary results",
+        type=str,
+        default=os.environ.get("TEMP_DATABASE_NAME", ""),
+    )
     cohort_method_group = generate_cohort_parser.add_mutually_exclusive_group(
         required=True
     )
@@ -388,6 +394,8 @@ def main():
         parser.print_help()
     elif options.which == "generate_cohort":
         os.environ["DATABASE_URL"] = options.database_url
+        if options.temp_database_name:
+            os.environ["TEMP_DATABASE_NAME"] = options.temp_database_name
         generate_cohort(
             options.output_dir,
             options.expectations_population,
