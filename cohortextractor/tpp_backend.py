@@ -122,9 +122,12 @@ class TPPBackend:
             # https://docs.microsoft.com/en-us/sql/t-sql/queries/select-into-clause-transact-sql?view=sql-server-ver15#remarks
             conn = self.get_db_connection()
             conn.autocommit = False
+            self.log(f"Writing results into temporary table '{output_table}'")
             conn.execute(f"SELECT * INTO {output_table} FROM ({final_query}) t")
             conn.commit()
             conn.autocommit = True
+        else:
+            self.log(f"Downloading results from previous run in '{output_table}'")
         return [f"SELECT * FROM {output_table}"], [f"DROP TABLE {output_table}"]
 
     def table_exists(self, table_name):
