@@ -103,20 +103,15 @@ There are two ways to run your model:
   have Stata installed locally, just open `model.do` and run as normal
 * Via a docker image
 
-We use the Github Docker package repository, so you'll need to add a
-Personal Access Token with permissions to read packages. visit your
-personal Github "settings" page, find the *Developer > Developer
-Settings > Personal Access Tokens*, and add a token there (any name
-will do) with the permission `read:packages`. Take a note of the token
-(you only get a chance to see it once!).
+We use our own docker image repository, so you'll need to log into that.
 
-Now run
+Obtain credentials, then run
 
-    docker login docker.pkg.github.com -u <YourGithubUsername> --password <PersonalAccessToken>
+    docker login docker.opensafely.org -u <username> --password <password>
 
 You can check this worked by running
 
-    docker pull docker.pkg.github.com/opensafely/stata-docker/stata-mp:latest
+    docker pull docker.opensafely.org/stata-mp:latest
 
 And you can run it with
 
