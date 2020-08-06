@@ -2230,7 +2230,11 @@ def test_patients_attended_accident_and_emergency():
                         Arrival_Date="2020-05-01",
                         Discharge_Destination_SNOMED_CT=discharge_to_ward,
                         Diagnoses=[
-                            EC_Diagnosis(Patient_ID=3, EC_Diagnosis_01=covid_19, EC_Diagnosis_02=not_covid_19)
+                            EC_Diagnosis(
+                                Patient_ID=3,
+                                EC_Diagnosis_01=covid_19,
+                                EC_Diagnosis_02=not_covid_19,
+                            )
                         ],
                     ),
                     EC(
@@ -2238,7 +2242,11 @@ def test_patients_attended_accident_and_emergency():
                         Arrival_Date="2020-07-01",
                         Discharge_Destination_SNOMED_CT=discharge_to_ward,
                         Diagnoses=[
-                            EC_Diagnosis(Patient_ID=3, EC_Diagnosis_01=not_covid_19, EC_Diagnosis_02=covid_19)
+                            EC_Diagnosis(
+                                Patient_ID=3,
+                                EC_Diagnosis_01=not_covid_19,
+                                EC_Diagnosis_02=covid_19,
+                            )
                         ],
                     ),
                 ],

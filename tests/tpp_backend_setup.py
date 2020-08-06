@@ -169,9 +169,7 @@ class Patient(Base):
         "EC", back_populates="Patient", cascade="all, delete, delete-orphan",
     )
     ECDiagnoses = relationship(
-        "EC_Diagnosis",
-        back_populates="Patient",
-        cascade="all, delete, delete-orphan",
+        "EC_Diagnosis", back_populates="Patient", cascade="all, delete, delete-orphan",
     )
     APCSEpisodes = relationship(
         "APCS", back_populates="Patient", cascade="all, delete, delete-orphan",
@@ -480,6 +478,7 @@ class EC_Diagnosis(Base):
     EC_Diagnosis_22 = Column(String(collation="Latin1_General_CI_AS"))
     EC_Diagnosis_23 = Column(String(collation="Latin1_General_CI_AS"))
     EC_Diagnosis_24 = Column(String(collation="Latin1_General_CI_AS"))
+
 
 class APCS(Base):
     __tablename__ = "APCS"
