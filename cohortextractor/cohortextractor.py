@@ -106,7 +106,9 @@ def preflight_generation_check():
         raise RuntimeError(msg.format(", ".join(missing_paths)))
 
 
-def generate_cohort(output_dir, expectations_population, selected_study_name=None):
+def generate_cohort(
+    output_dir, expectations_population, selected_study_name=None, index_date_range=None
+):
     preflight_generation_check()
     study_definitions = list_study_definitions()
     if selected_study_name and selected_study_name != "all":
@@ -116,21 +118,90 @@ def generate_cohort(output_dir, expectations_population, selected_study_name=Non
                 break
     for study_name, suffix in study_definitions:
         print(f"Generating cohort for {study_name}...")
-        _generate_cohort(output_dir, study_name, suffix, expectations_population)
+        _generate_cohort(
+            output_dir,
+            study_name,
+            suffix,
+            expectations_population,
+            index_date_range=index_date_range,
+        )
 
 
-def _generate_cohort(output_dir, study_name, suffix, expectations_population):
+def _generate_cohort(
+    output_dir, study_name, suffix, expectations_population, index_date_range=None
+):
     print("Running. Please wait...")
     study = load_study_definition(study_name)
 
     os.makedirs(output_dir, exist_ok=True)
-    study.to_csv(
-        f"{output_dir}/input{suffix}.csv",
-        expectations_population=expectations_population,
-    )
-    print(
-        f"Successfully created cohort and covariates at {output_dir}/input{suffix}.csv"
-    )
+    for index_date in _generate_date_range(index_date_range):
+        if index_date is not None:
+            study.set_index_date(index_date)
+            date_suffix = f"_{index_date}"
+        else:
+            date_suffix = ""
+        output_file = f"{output_dir}/input{suffix}{date_suffix}.csv"
+        study.to_csv(
+            output_file,
+            expectations_population=expectations_population,
+        )
+        print(f"Successfully created cohort and covariates at {output_file}")
+
+
+def _generate_date_range(date_range_str):
+    # Bail out with an "empty" range: this means we don't need separate
+    # codepaths to handle the range, single date, and no date supplied cases
+    if not date_range_str:
+        return [None]
+    start, end, period = _parse_date_range(date_range_str)
+    if end < start:
+        raise ValueError(
+            f"Invalid date range '{date_range_str}': end cannot be earlier than start"
+        )
+    dates = []
+    while start <= end:
+        dates.append(start.isoformat())
+        start = _increment_date(start, period)
+    return dates
+
+
+def _parse_date_range(date_range_str):
+    period = "month"
+    if " to " in date_range_str:
+        start, end = date_range_str.split(" to ", 1)
+        if " by " in end:
+            end, period = end.split(" by ", 1)
+    else:
+        start = end = date_range_str
+    try:
+        start = _parse_date(start)
+        end = _parse_date(end)
+    except ValueError:
+        raise ValueError(
+            f"Invalid date range '{date_range_str}': Dates must be in YYYY-MM-DD "
+            f"format or 'today' and ranges must be in the form "
+            f"'DATE to DATE by (week|month)'"
+        )
+    return start, end, period
+
+
+def _parse_date(date_str):
+    if date_str == "today":
+        return datetime.date.today()
+    else:
+        return datetime.date.fromisoformat(date_str)
+
+
+def _increment_date(date, period):
+    if period == "week":
+        return date + datetime.timedelta(days=7)
+    elif period == "month":
+        if date.month < 12:
+            return date.replace(month=date.month + 1)
+        else:
+            return date.replace(month=1, year=date.year + 1)
+    else:
+        raise ValueError(f"Unknown time period '{period}': must be 'week' or 'month'")
 
 
 def make_cohort_report(input_dir, output_dir):
@@ -375,6 +446,12 @@ def main():
         type=str,
         default=os.environ.get("TEMP_DATABASE_NAME", ""),
     )
+    generate_cohort_parser.add_argument(
+        "--index-date-range",
+        help="Evaluate the study definition at a range of index dates",
+        type=str,
+        default="",
+    )
     cohort_method_group = generate_cohort_parser.add_mutually_exclusive_group()
     cohort_method_group.add_argument(
         "--expectations-population",
@@ -406,7 +483,8 @@ def main():
         generate_cohort(
             options.output_dir,
             options.expectations_population,
-            options.study_definition,
+            selected_study_name=options.study_definition,
+            index_date_range=options.index_date_range,
         )
     elif options.which == "cohort_report":
         make_cohort_report(options.input_dir, options.output_dir)
