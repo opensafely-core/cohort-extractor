@@ -24,7 +24,7 @@ from pandas.api.types import is_datetime64_dtype
 from pandas.api.types import is_numeric_dtype
 import yaml
 
-from datetime import datetime
+import datetime
 import seaborn as sns
 
 from cohortextractor.remotejobs import get_job_logs
@@ -39,8 +39,8 @@ def relative_dir():
 
 
 def make_chart(name, series, dtype):
-    FLOOR_DATE = datetime(1960, 1, 1)
-    CEILING_DATE = datetime.today()
+    FLOOR_DATE = datetime.datetime(1960, 1, 1)
+    CEILING_DATE = datetime.datetime.today()
     img = BytesIO()
     # Setting figure sizes in seaborn is a bit weird:
     # https://stackoverflow.com/a/23973562/559140
