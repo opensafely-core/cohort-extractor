@@ -371,7 +371,7 @@ def main():
     )
     generate_cohort_parser.add_argument(
         "--temp-database-name",
-        help="Name of database so store temporary results",
+        help="Name of database to store temporary results",
         type=str,
         default=os.environ.get("TEMP_DATABASE_NAME", ""),
     )
