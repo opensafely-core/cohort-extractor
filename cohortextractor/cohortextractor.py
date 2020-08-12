@@ -107,7 +107,11 @@ def preflight_generation_check():
 
 
 def generate_cohort(
-    output_dir, expectations_population, selected_study_name=None, index_date_range=None
+    output_dir,
+    expectations_population,
+    selected_study_name=None,
+    index_date_range=None,
+    skip_existing=False,
 ):
     preflight_generation_check()
     study_definitions = list_study_definitions()
@@ -124,11 +128,17 @@ def generate_cohort(
             suffix,
             expectations_population,
             index_date_range=index_date_range,
+            skip_existing=skip_existing,
         )
 
 
 def _generate_cohort(
-    output_dir, study_name, suffix, expectations_population, index_date_range=None
+    output_dir,
+    study_name,
+    suffix,
+    expectations_population,
+    index_date_range=None,
+    skip_existing=False,
 ):
     print("Running. Please wait...")
     study = load_study_definition(study_name)
@@ -141,11 +151,14 @@ def _generate_cohort(
         else:
             date_suffix = ""
         output_file = f"{output_dir}/input{suffix}{date_suffix}.csv"
-        study.to_csv(
-            output_file,
-            expectations_population=expectations_population,
-        )
-        print(f"Successfully created cohort and covariates at {output_file}")
+        if skip_existing and os.path.exists(output_file):
+            print(f"Not regenerating pre-existing file at {output_file}")
+        else:
+            study.to_csv(
+                output_file,
+                expectations_population=expectations_population,
+            )
+            print(f"Successfully created cohort and covariates at {output_file}")
 
 
 def _generate_date_range(date_range_str):
@@ -452,6 +465,11 @@ def main():
         type=str,
         default="",
     )
+    generate_cohort_parser.add_argument(
+        "--skip-existing",
+        help="Do not regenerate data if output file already exists",
+        action="store_true",
+    )
     cohort_method_group = generate_cohort_parser.add_mutually_exclusive_group()
     cohort_method_group.add_argument(
         "--expectations-population",
@@ -485,6 +503,7 @@ def main():
             options.expectations_population,
             selected_study_name=options.study_definition,
             index_date_range=options.index_date_range,
+            skip_existing=options.skip_existing,
         )
     elif options.which == "cohort_report":
         make_cohort_report(options.input_dir, options.output_dir)
