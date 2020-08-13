@@ -5,6 +5,8 @@ start a notebook, open a web browser on the correct port, and handle
 shutdowns gracefully
 """
 import cohortextractor
+from collections import defaultdict
+import csv
 import glob
 import importlib
 import os
@@ -243,11 +245,13 @@ def _generate_measures(output_dir, study_name, suffix, skip_existing=False):
             "  cohortextractor generate_cohort --index-date-range ..."
         )
         return
+    measure_outputs = defaultdict(list)
     for file in files:
         date = _get_date_from_filename(file)
         patient_df = None
         for measure in measures:
             output_file = f"{output_dir}/measure_{measure.id}_{date}.csv"
+            measure_outputs[measure.id].append(output_file)
             if skip_existing and os.path.exists(output_file):
                 print(f"Not generating pre-existing file {output_file}")
                 continue
@@ -264,6 +268,10 @@ def _generate_measures(output_dir, study_name, suffix, skip_existing=False):
             )
             measure_df.to_csv(output_file)
             print(f"Created measure output at {output_file}")
+    for measure in measures:
+        output_file = f"{output_dir}/measure_{measure.id}.csv"
+        _combine_csv_files_with_dates(output_file, measure_outputs[measure.id])
+        print(f"Combined measure output for all dates in {output_file}")
 
 
 def _get_date_from_filename(filename):
@@ -290,6 +298,31 @@ def _load_csv_for_measures(file, measures):
     df = pandas.read_csv(file, dtype=dtype, usecols=list(dtype.keys()))
     df["population"] = 1
     return df
+
+
+def _combine_csv_files_with_dates(filename, input_files):
+    """
+    Takes a list of CSV files which have dates in their filenames and combines
+    them into a single CSV file with an additional "date" column indicating the
+    date for each row
+    """
+    input_files = sorted(input_files)
+    with open(input_files[0]) as first_file:
+        reader = csv.reader(first_file)
+        headers = next(reader)
+    with open(filename, "w", newline="") as csvfile:
+        writer = csv.writer(csvfile)
+        writer.writerow(headers + ["date"])
+        for file in input_files:
+            date = _get_date_from_filename(file)
+            with open(file) as input_csvfile:
+                reader = csv.reader(input_csvfile)
+                if next(reader) != headers:
+                    raise RuntimeError(
+                        f"Files {input_files[0]} and {file} have different headers"
+                    )
+                for row in reader:
+                    writer.writerow(row + [date])
 
 
 def make_cohort_report(input_dir, output_dir):
