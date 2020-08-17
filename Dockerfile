@@ -25,6 +25,11 @@ ENV PYENV_SHELL=bash
 RUN pyenv install $PYTHON_VERSION
 RUN pyenv global $PYTHON_VERSION
 
+# Setting this in the environment takes precendence over
+# `.python-version` files, thus making a clash with any pyenv
+# configuration on the docker host less likely
+ENV PYENV_VERSION $PYTHON_VERSION
+
 # Install mssql
 RUN apt-get install -y gnupg
 RUN curl https://packages.microsoft.com/keys/microsoft.asc | apt-key add -
