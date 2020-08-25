@@ -1302,18 +1302,25 @@ def test_patients_admitted_to_icu():
 def test_patients_with_these_codes_on_death_certificate():
     code = "COVID"
     session = make_session()
+    patient_with_dupe = Patient()
     session.add_all(
         [
             # Not dead
             Patient(),
             # Died after date cutoff
-            Patient(ONSDeath=[ONSDeaths(dod="2021-01-01", icd10u=code)]),
+            ONSDeaths(Patient=Patient(), dod="2021-01-01", icd10u=code),
             # Died of something else
-            Patient(ONSDeath=[ONSDeaths(dod="2020-02-01", icd10u="MI")]),
+            ONSDeaths(Patient=Patient(), dod="2020-02-01", icd10u="MI"),
             # Covid underlying cause
-            Patient(ONSDeath=[ONSDeaths(dod="2020-02-01", icd10u=code, ICD10014="MI")]),
+            ONSDeaths(
+                Patient=patient_with_dupe, dod="2020-02-01", icd10u=code, ICD10014="MI"
+            ),
+            # A duplicate (the raw data does contain exact dupes, unfortunately)
+            ONSDeaths(
+                Patient=patient_with_dupe, dod="2020-02-01", icd10u=code, ICD10014="MI"
+            ),
             # Covid not underlying cause
-            Patient(ONSDeath=[ONSDeaths(dod="2020-03-01", icd10u="MI", ICD10014=code)]),
+            ONSDeaths(Patient=Patient(), dod="2020-03-01", icd10u="MI", ICD10014=code),
         ]
     )
     session.commit()
