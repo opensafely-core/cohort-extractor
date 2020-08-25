@@ -1122,8 +1122,10 @@ class TPPBackend:
             raise ValueError(f"Unsupported `returning` value: {returning}")
         return (
             ["patient_id", column_name],
+            # The SELECT DISTINCT is because completely duplicate rows have previously appeared
+            # in the underlying dataset.
             f"""
-            SELECT Patient_ID as patient_id, {column_definition} AS {column_name}
+            SELECT DISTINCT Patient_ID as patient_id, {column_definition} AS {column_name}
             FROM ONS_Deaths
             WHERE ({code_conditions}) AND {date_condition}
             """,
