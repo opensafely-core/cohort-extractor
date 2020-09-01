@@ -15,7 +15,7 @@ safe_punctation = r"_.-"
 SAFE_CHARS_RE = re.compile(f"^[a-zA-Z0-9{re.escape(safe_punctation)}]+$")
 
 
-class ACMEBackend:
+class EMISBackend:
     _db_connection = None
     _current_column_name = None
 

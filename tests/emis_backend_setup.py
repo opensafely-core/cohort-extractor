@@ -1,5 +1,5 @@
 """
-The ACME data is accessed via Presto which is a distributed query engine which
+The EMIS data is accessed via Presto which is a distributed query engine which
 runs over multiple backing data stores ("connectors" in Presto's parlance).
 The production configuration uses the following connectors:
 
@@ -10,8 +10,8 @@ The production configuration uses the following connectors:
 For immediate convenience while testing we use the SQL Server connector (as we
 already need an instance running for the TPP tests).
 
-This file defines the structure of the tables we expect to find in the ACME
-backend.  Because ACME tables have hyphens in their fieldnames, we cannot use
+This file defines the structure of the tables we expect to find in the EMIS
+backend.  Because EMIS tables have hyphens in their fieldnames, we cannot use
 SQLAlchemy's declarative mappings, and instead have to define tables and models
 separately.
 """
@@ -45,7 +45,7 @@ metadata = Base.metadata
 
 def make_engine():
     engine = mssql_sqlalchemy_engine_from_url(
-        os.environ["ACME_DATASOURCE_DATABASE_URL"]
+        os.environ["EMIS_DATASOURCE_DATABASE_URL"]
     )
     timeout = os.environ.get("CONNECTION_RETRY_TIMEOUT")
     timeout = float(timeout) if timeout else 60
@@ -61,7 +61,7 @@ def make_engine():
             else:
                 raise
     wait_for_presto_to_be_ready(
-        os.environ["ACME_DATABASE_URL"],
+        os.environ["EMIS_DATABASE_URL"],
         # Presto will show active nodes in its `system.runtime.nodes` table but
         # then throw a "no nodes available" error if you try to execute a query
         # which needs to touch the MSSQL instance. So to properly confirm that
@@ -119,7 +119,7 @@ patient = Table(
     Column("registration-end-date", DateTime),
 )
 
-# WARNING: This table does not correspond to a table in the ACME database!
+# WARNING: This table does not correspond to a table in the EMIS database!
 organisation = Table(
     "Organisation",
     metadata,
@@ -130,7 +130,7 @@ organisation = Table(
     Column("Region", String),
 )
 
-# WARNING: This table does not correspond to a table in the ACME database!
+# WARNING: This table does not correspond to a table in the EMIS database!
 patient_address = Table(
     "PatientAddress",
     metadata,
@@ -144,7 +144,7 @@ patient_address = Table(
     Column("MSOACode", String),
 )
 
-# WARNING: This table does not correspond to a table in the ACME database!
+# WARNING: This table does not correspond to a table in the EMIS database!
 icnarc = Table(
     "ICNARC",
     metadata,
@@ -157,7 +157,7 @@ icnarc = Table(
     Column("Ventilator", Integer),
 )
 
-# WARNING: This table does not correspond to a table in the ACME database!
+# WARNING: This table does not correspond to a table in the EMIS database!
 ons_deaths = Table(
     "ONS_Deaths",
     metadata,
@@ -186,7 +186,7 @@ ons_deaths = Table(
     Column("ICD10015", String),
 )
 
-# WARNING: This table does not correspond to a table in the ACME database!
+# WARNING: This table does not correspond to a table in the EMIS database!
 cpns = Table(
     "CPNS",
     metadata,
@@ -301,7 +301,7 @@ mapper(
         ),
         #
         # We won't create mappings for these tables until we know what fields
-        # they will have in the ACME backend.
+        # they will have in the EMIS backend.
         #
         # "Addresses": relationship(
         #     PatientAddress,
@@ -321,7 +321,7 @@ mapper(
 )
 
 # We won't create mappings for these tables until we know what fields they will
-# have in the ACME backend.
+# have in the EMIS backend.
 
 # mapper(
 #     Organisation,

@@ -5,8 +5,8 @@ import tempfile
 
 import pytest
 
-from tests.acme_backend_setup import make_database, make_session
-from tests.acme_backend_setup import (
+from tests.emis_backend_setup import make_database, make_session
+from tests.emis_backend_setup import (
     Observation,
     Medication,
     Patient,
@@ -22,7 +22,7 @@ from cohortextractor import (
     patients,
     codelist,
 )
-from cohortextractor.acme_backend import quote
+from cohortextractor.emis_backend import quote
 from cohortextractor.presto_utils import presto_connection_params_from_url
 
 
@@ -31,8 +31,8 @@ def set_database_url(monkeypatch):
     # The StudyDefinition code expects a single DATABASE_URL to tell it where
     # to connect to, but the test environment needs to supply multiple
     # connections (one for each backend type) so we copy the value in here
-    if "ACME_DATABASE_URL" in os.environ:
-        monkeypatch.setenv("DATABASE_URL", os.environ["ACME_DATABASE_URL"])
+    if "EMIS_DATABASE_URL" in os.environ:
+        monkeypatch.setenv("DATABASE_URL", os.environ["EMIS_DATABASE_URL"])
 
 
 def setup_module(module):
