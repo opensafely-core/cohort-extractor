@@ -9,11 +9,6 @@ The production configuration uses the following connectors:
 
 For immediate convenience while testing we use the SQL Server connector (as we
 already need an instance running for the TPP tests).
-
-This file defines the structure of the tables we expect to find in the EMIS
-backend.  Because EMIS tables have hyphens in their fieldnames, we cannot use
-SQLAlchemy's declarative mappings, and instead have to define tables and models
-separately.
 """
 import os
 import time
@@ -86,112 +81,118 @@ def make_database():
     Base.metadata.create_all(make_engine())
 
 
-# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-# Table definitions
-# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+class Medication(Base):
+    __tablename__ = "medication"
 
-medication = Table(
-    "medication",
-    metadata,
-    Column("id", Integer, primary_key=True),
-    Column("registration-id", Integer, ForeignKey("patient.id")),
-    Column("snomed-concept-id", BigInteger),
-    Column("effective-date", DateTime),
-)
+    id = Column(Integer, primary_key=True)
+    registration_id = Column(Integer, ForeignKey("patient.id"))
+    patient = relationship("Patient", back_populates="medications")
+    snomed_concept_id = Column(BigInteger)
+    effective_date = Column(DateTime)
 
-observation = Table(
-    "observation",
-    metadata,
-    Column("id", Integer, primary_key=True),
-    Column("registration-id", Integer, ForeignKey("patient.id")),
-    Column("snomed-concept-id", BigInteger),
-    Column("value-pq-1", Float),
-    Column("effective-date", DateTime),
-)
 
-patient = Table(
-    "patient",
-    metadata,
-    Column("id", Integer, primary_key=True),
-    Column("date-of-birth", DateTime),
-    Column("gender", Integer),
-    Column("registered-date", DateTime),
-    Column("registration-end-date", DateTime),
-)
+class Observation(Base):
+    __tablename__ = "observation"
 
-# WARNING: This table does not correspond to a table in the EMIS database!
-organisation = Table(
-    "Organisation",
-    metadata,
-    Column("Organisation_ID", Integer, primary_key=True),
-    Column("GoLiveDate", Date),
-    Column("STPCode", String),
-    Column("MSOACode", String),
-    Column("Region", String),
-)
+    id = Column(Integer, primary_key=True)
+    registration_id = Column(Integer, ForeignKey("patient.id"))
+    patient = relationship("Patient", back_populates="observations")
+    snomed_concept_id = Column(BigInteger)
+    value_pq_1 = Column(Float)
+    effective_date = Column(DateTime)
+
+
+class Patient(Base):
+    __tablename__ = "patient"
+
+    id = Column(Integer, primary_key=True)
+    date_of_birth = Column(DateTime)
+    gender = Column(Integer)
+    registered_date = Column(DateTime)
+    registration_end_date = Column(DateTime)
+
+    medications = relationship(
+        "Medication", back_populates="patient", cascade="all, delete, delete-orphan"
+    )
+    observations = relationship(
+        "Observation", back_populates="patient", cascade="all, delete, delete-orphan"
+    )
+
 
 # WARNING: This table does not correspond to a table in the EMIS database!
-patient_address = Table(
-    "PatientAddress",
+class Organisation(Base):
+    __tablename__ = "organisation"
+
     metadata,
-    Column("PatientAddress_ID", Integer, primary_key=True),
-    Column("registration-id", Integer, ForeignKey("patient.id")),
-    Column("StartDate", Date),
-    Column("EndDate", Date),
-    Column("AddressType", Integer),
-    Column("RuralUrbanClassificationCode", Integer),
-    Column("ImdRankRounded", Integer),
-    Column("MSOACode", String),
-)
+    Organisation_ID = Column(Integer, primary_key=True)
+    GoLiveDate = Column(Date)
+    STPCode = Column(String)
+    MSOACode = Column(String)
+    Region = Column(String)
+
 
 # WARNING: This table does not correspond to a table in the EMIS database!
-icnarc = Table(
-    "ICNARC",
-    metadata,
-    Column("ICNARC_ID", Integer, primary_key=True),
-    Column("registration-id", Integer, ForeignKey("patient.id")),
-    Column("IcuAdmissionDateTime", DateTime),
-    Column("OriginalIcuAdmissionDate", Date),
-    Column("BasicDays_RespiratorySupport", Integer),
-    Column("AdvancedDays_RespiratorySupport", Integer),
-    Column("Ventilator", Integer),
-)
+class PatientAddress(Base):
+    __tablename__ = "PatientAddress"
+
+    PatientAddress_ID = Column(Integer, primary_key=True)
+    registration_id = Column(Integer, ForeignKey("patient.id"))
+    StartDate = Column(Date)
+    EndDate = Column(Date)
+    AddressType = Column(Integer)
+    RuralUrbanClassificationCode = Column(Integer)
+    ImdRankRounded = Column(Integer)
+    MSOACode = Column(String)
+
 
 # WARNING: This table does not correspond to a table in the EMIS database!
-ons_deaths = Table(
-    "ONS_Deaths",
-    metadata,
+class ICNARC(Base):
+    __tablename__ = "ICNARC"
+
+    ICNARC_ID = Column(Integer, primary_key=True)
+    registration_id = Column(Integer, ForeignKey("patient.id"))
+    IcuAdmissionDateTime = Column(DateTime)
+    OriginalIcuAdmissionDate = Column(Date)
+    BasicDays_RespiratorySupport = Column(Integer)
+    AdvancedDays_RespiratorySupport = Column(Integer)
+    Ventilator = Column(Integer)
+
+
+# WARNING: This table does not correspond to a table in the EMIS database!
+class ONSDeaths(Base):
+    __tablename__ = "ONS_Deaths"
+
     # This column isn't in the actual database but SQLAlchemy gets a bit upset
     # if we don't give it a primary key
-    Column("id", Integer, primary_key=True),
-    Column("registration-id", Integer, ForeignKey("patient.id")),
-    Column("Sex", String),
-    Column("ageinyrs", Integer),
-    Column("dod", Date),
-    Column("icd10u", String),
-    Column("ICD10001", String),
-    Column("ICD10002", String),
-    Column("ICD10003", String),
-    Column("ICD10004", String),
-    Column("ICD10005", String),
-    Column("ICD10006", String),
-    Column("ICD10007", String),
-    Column("ICD10008", String),
-    Column("ICD10009", String),
-    Column("ICD10010", String),
-    Column("ICD10011", String),
-    Column("ICD10012", String),
-    Column("ICD10013", String),
-    Column("ICD10014", String),
-    Column("ICD10015", String),
-)
+    id = Column(Integer, primary_key=True)
+    registration_id = Column(Integer, ForeignKey("patient.id"))
+    Sex = Column(String)
+    ageinyrs = Column(Integer)
+    dod = Column(Date)
+    icd10u = Column(String)
+    ICD10001 = Column(String)
+    ICD10002 = Column(String)
+    ICD10003 = Column(String)
+    ICD10004 = Column(String)
+    ICD10005 = Column(String)
+    ICD10006 = Column(String)
+    ICD10007 = Column(String)
+    ICD10008 = Column(String)
+    ICD10009 = Column(String)
+    ICD10010 = Column(String)
+    ICD10011 = Column(String)
+    ICD10012 = Column(String)
+    ICD10013 = Column(String)
+    ICD10014 = Column(String)
+    ICD10015 = Column(String)
+
 
 # WARNING: This table does not correspond to a table in the EMIS database!
-cpns = Table(
-    "CPNS",
-    metadata,
-    Column("registration-id", Integer, ForeignKey("patient.id")),
-    Column("Id", Integer, primary_key=True),
+class CPNS(Base):
+    __tablename__ = "CPNS"
+
+    registration_id = Column(Integer, ForeignKey("patient.id"))
+    Id = Column(Integer, primary_key=True)
     # LocationOfDeath                                                 ITU
     # Sex                                                               M
     # DateOfAdmission                                          2020-04-02
@@ -210,156 +211,10 @@ cpns = Table(
     # NationalApprovedDate                                     2020-04-09
     # PreExistingCondition                                          False
     # Age                                                              57
-    Column("DateOfDeath", Date),
+    DateOfDeath = Column(Date)
     # snapDate                                                 2020-04-09
     # HadLearningDisability                                            NK
     # ReceivedTreatmentForMentalHealth                                 NK
     # Der_Ethnic_Category_Description                                None
     # Der_Latest_SUS_Attendance_Date_For_Ethnicity                   None
     # Der_Source_Dataset_For_Ethnicty                                None
-)
-
-# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-# Model definitions
-# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-
-class Model:
-    """Base class for a model."""
-
-    def __init__(self, **kwargs):
-        for k, v in kwargs.items():
-            if k in [
-                "date_of_birth",
-                "effective_date",
-                "registered_date",
-                "registration_end_date",
-                "snomed_concept_id",
-                "value_pq_1",
-            ]:
-                k = k.replace("_", "-")
-            setattr(self, k, v)
-
-
-class Medication(Model):
-    pass
-
-
-class Observation(Model):
-    pass
-
-
-class Patient(Model):
-    pass
-
-
-class Organisation(Model):
-    pass
-
-
-class PatientAddress(Model):
-    pass
-
-
-class ICNARC(Model):
-    pass
-
-
-class ONSDeaths(Model):
-    pass
-
-
-class CPNS(Model):
-    pass
-
-
-# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-# Definitions of mappings between models and tables
-# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-mapper(
-    Medication,
-    medication,
-    properties={"patient": relationship(Patient, back_populates="medications"),},
-)
-
-mapper(
-    Observation,
-    observation,
-    properties={"patient": relationship(Patient, back_populates="observations"),},
-)
-
-mapper(
-    Patient,
-    patient,
-    properties={
-        "medications": relationship(
-            Medication, back_populates="patient", cascade="all, delete, delete-orphan",
-        ),
-        "observations": relationship(
-            Observation, back_populates="patient", cascade="all, delete, delete-orphan"
-        ),
-        #
-        # We won't create mappings for these tables until we know what fields
-        # they will have in the EMIS backend.
-        #
-        # "Addresses": relationship(
-        #     PatientAddress,
-        #     back_populates="patient",
-        #     cascade="all, delete, delete-orphan",
-        # ),
-        # "ICNARC": relationship(
-        #     ICNARC, back_populates="patient", cascade="all, delete, delete-orphan"
-        # ),
-        # "ONSDeath": relationship(
-        #     ONSDeaths, back_populates="patient", cascade="all, delete, delete-orphan"
-        # ),
-        # "CPNS": relationship(
-        #     CPNS, back_populates="patient", cascade="all, delete, delete-orphan"
-        # ),
-    },
-)
-
-# We won't create mappings for these tables until we know what fields they will
-# have in the EMIS backend.
-
-# mapper(
-#     Organisation,
-#     organisation,
-# )
-
-# mapper(
-#     PatientAddress,
-#     patient_address,
-#     properties={
-#         "patient": relationship(
-#             Patient, back_populates="Addresses", cascade="all, delete"
-#         )
-#     },
-# )
-
-# mapper(
-#     ICNARC,
-#     icnarc,
-#     properties={
-#         "patient": relationship(Patient, back_populates="ICNARC", cascade="all, delete")
-#     },
-# )
-
-# mapper(
-#     ONSDeaths,
-#     ons_deaths,
-#     properties={
-#         "patient": relationship(
-#             Patient, back_populates="ONSDeath", cascade="all, delete"
-#         )
-#     },
-# )
-
-# mapper(
-#     CPNS,
-#     cpns,
-#     properties={
-#         "patient": relationship(Patient, back_populates="CPNS", cascade="all, delete")
-#     },
-# )
