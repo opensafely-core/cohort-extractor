@@ -43,9 +43,9 @@ def setup_function(function):
     """
     session = make_session()
     session.query(Observation).delete()
-    # session.query(ICNARC).delete()
-    # session.query(ONSDeaths).delete()
-    # session.query(CPNS).delete()
+    session.query(ICNARC).delete()
+    session.query(ONSDeaths).delete()
+    session.query(CPNS).delete()
     session.query(Medication).delete()
     session.query(Patient).delete()
     session.commit()
@@ -924,7 +924,6 @@ def test_patients_address_as_of():
     assert [i["rural_urban"] for i in results] == ["2", "0"]
 
 
-@pytest.mark.xfail
 def test_patients_admitted_to_icu():
     session = make_session()
     patient_1 = Patient()
@@ -1040,7 +1039,6 @@ def test_patients_admitted_to_icu():
     assert [i["icu"] for i in results] == ["1", "1", "0", "0", "1"]
 
 
-@pytest.mark.xfail
 def test_patients_with_these_codes_on_death_certificate():
     code = "COVID"
     session = make_session()
@@ -1089,7 +1087,6 @@ def test_patients_with_these_codes_on_death_certificate():
     assert [i["underlying_cause"] for i in results] == ["", "", "", code, "MI"]
 
 
-@pytest.mark.xfail
 def test_patients_died_from_any_cause():
     session = make_session()
     session.add_all(
@@ -1121,7 +1118,6 @@ def test_patients_died_from_any_cause():
     assert [i["underlying_cause"] for i in results] == ["", "", "A"]
 
 
-@pytest.mark.xfail
 def test_patients_with_death_recorded_in_cpns():
     session = make_session()
     session.add_all(
@@ -1159,7 +1155,6 @@ def test_patients_with_death_recorded_in_cpns():
     ]
 
 
-@pytest.mark.xfail
 def test_patients_with_death_recorded_in_cpns_raises_error_on_bad_data():
     session = make_session()
     session.add_all(

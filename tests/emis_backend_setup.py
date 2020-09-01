@@ -124,14 +124,23 @@ class Patient(Base):
     observations = relationship(
         "Observation", back_populates="patient", cascade="all, delete, delete-orphan"
     )
+    ICNARC = relationship(
+        "ICNARC", back_populates="patient", cascade="all, delete, delete-orphan"
+    )
+    ONSDeath = relationship(
+        "ONSDeaths", back_populates="patient", cascade="all, delete, delete-orphan"
+    )
+    CPNS = relationship(
+        "CPNS", back_populates="patient", cascade="all, delete, delete-orphan"
+    )
 
 
-# WARNING: This table does not correspond to a table in the EMIS database!
 class ICNARC(Base):
     __tablename__ = "ICNARC"
 
     ICNARC_ID = Column(Integer, primary_key=True)
     registration_id = Column(Integer, ForeignKey("patient.id"))
+    patient = relationship("Patient", back_populates="ICNARC")
     IcuAdmissionDateTime = Column(DateTime)
     OriginalIcuAdmissionDate = Column(Date)
     BasicDays_RespiratorySupport = Column(Integer)
@@ -139,7 +148,6 @@ class ICNARC(Base):
     Ventilator = Column(Integer)
 
 
-# WARNING: This table does not correspond to a table in the EMIS database!
 class ONSDeaths(Base):
     __tablename__ = "ONS_Deaths"
 
@@ -147,6 +155,7 @@ class ONSDeaths(Base):
     # if we don't give it a primary key
     id = Column(Integer, primary_key=True)
     registration_id = Column(Integer, ForeignKey("patient.id"))
+    patient = relationship("Patient", back_populates="ONSDeath")
     Sex = Column(String)
     ageinyrs = Column(Integer)
     dod = Column(Date)
@@ -168,11 +177,11 @@ class ONSDeaths(Base):
     ICD10015 = Column(String)
 
 
-# WARNING: This table does not correspond to a table in the EMIS database!
 class CPNS(Base):
     __tablename__ = "CPNS"
 
     registration_id = Column(Integer, ForeignKey("patient.id"))
+    patient = relationship("Patient", back_populates="CPNS")
     Id = Column(Integer, primary_key=True)
     # LocationOfDeath                                                 ITU
     # Sex                                                               M
