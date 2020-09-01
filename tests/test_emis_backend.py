@@ -75,8 +75,8 @@ def test_minimal_study_to_csv():
         study.to_csv(f.name)
         results = list(csv.DictReader(f))
         assert results == [
-            {"patient_id": str(patient_1.id), "sex": "M"},
-            {"patient_id": str(patient_2.id), "sex": "F"},
+            {"patient_id": str(patient_1.registration_id), "sex": "M"},
+            {"patient_id": str(patient_2.registration_id), "sex": "F"},
         ]
 
 
@@ -437,7 +437,9 @@ def test_patients_registered_with_one_practice_between():
         )
     )
     results = study.to_dicts()
-    assert [x["patient_id"] for x in results] == [str(patient_registered_in_2001.id)]
+    assert [x["patient_id"] for x in results] == [
+        str(patient_registered_in_2001.registration_id)
+    ]
 
 
 @pytest.mark.parametrize("include_dates", ["none", "year", "month", "day"])
@@ -929,60 +931,60 @@ def test_patients_admitted_to_icu():
     patient_1 = Patient()
     patient_1.ICNARC.append(
         ICNARC(
-            IcuAdmissionDateTime="2020-03-01",
-            OriginalIcuAdmissionDate="2020-03-01",
-            BasicDays_RespiratorySupport=2,
-            AdvancedDays_RespiratorySupport=2,
-            Ventilator=0,
+            icuadmissiondatetime="2020-03-01",
+            originalicuadmissiondate="2020-03-01",
+            basicdays_respiratorysupport=2,
+            advanceddays_respiratorysupport=2,
+            ventilator=0,
         )
     )
     patient_2 = Patient()
     patient_2.ICNARC.append(
         ICNARC(
-            IcuAdmissionDateTime="2020-03-01",
-            OriginalIcuAdmissionDate="2020-02-01",
-            BasicDays_RespiratorySupport=1,
-            AdvancedDays_RespiratorySupport=0,
-            Ventilator=1,
+            icuadmissiondatetime="2020-03-01",
+            originalicuadmissiondate="2020-02-01",
+            basicdays_respiratorysupport=1,
+            advanceddays_respiratorysupport=0,
+            ventilator=1,
         )
     )
     patient_3 = Patient()
     patient_3.ICNARC.append(
         ICNARC(
-            IcuAdmissionDateTime="2020-03-01",
-            OriginalIcuAdmissionDate="2020-02-01",
-            BasicDays_RespiratorySupport=0,
-            AdvancedDays_RespiratorySupport=0,
-            Ventilator=0,
+            icuadmissiondatetime="2020-03-01",
+            originalicuadmissiondate="2020-02-01",
+            basicdays_respiratorysupport=0,
+            advanceddays_respiratorysupport=0,
+            ventilator=0,
         )
     )
     patient_4 = Patient()
     patient_4.ICNARC.append(
         ICNARC(
-            IcuAdmissionDateTime="2020-01-01",
-            OriginalIcuAdmissionDate="2020-01-01",
-            BasicDays_RespiratorySupport=1,
-            AdvancedDays_RespiratorySupport=0,
-            Ventilator=1,
+            icuadmissiondatetime="2020-01-01",
+            originalicuadmissiondate="2020-01-01",
+            basicdays_respiratorysupport=1,
+            advanceddays_respiratorysupport=0,
+            ventilator=1,
         )
     )
     patient_5 = Patient()
     patient_5.ICNARC.append(
         ICNARC(
-            IcuAdmissionDateTime="2020-03-01",
-            OriginalIcuAdmissionDate=None,
-            BasicDays_RespiratorySupport=1,
-            AdvancedDays_RespiratorySupport=0,
-            Ventilator=1,
+            icuadmissiondatetime="2020-03-01",
+            originalicuadmissiondate=None,
+            basicdays_respiratorysupport=1,
+            advanceddays_respiratorysupport=0,
+            ventilator=1,
         )
     )
     patient_5.ICNARC.append(
         ICNARC(
-            IcuAdmissionDateTime="2020-04-01",
-            OriginalIcuAdmissionDate=None,
-            BasicDays_RespiratorySupport=0,
-            AdvancedDays_RespiratorySupport=0,
-            Ventilator=1,
+            icuadmissiondatetime="2020-04-01",
+            originalicuadmissiondate=None,
+            basicdays_respiratorysupport=0,
+            advanceddays_respiratorysupport=0,
+            ventilator=1,
         )
     )
     session.add_all([patient_1, patient_2, patient_3, patient_4, patient_5])
@@ -1051,9 +1053,9 @@ def test_patients_with_these_codes_on_death_certificate():
             # Died of something else
             Patient(ONSDeath=[ONSDeaths(dod="2020-02-01", icd10u="MI")]),
             # Covid underlying cause
-            Patient(ONSDeath=[ONSDeaths(dod="2020-02-01", icd10u=code, ICD10014="MI")]),
+            Patient(ONSDeath=[ONSDeaths(dod="2020-02-01", icd10u=code, icd10014="MI")]),
             # Covid not underlying cause
-            Patient(ONSDeath=[ONSDeaths(dod="2020-03-01", icd10u="MI", ICD10014=code)]),
+            Patient(ONSDeath=[ONSDeaths(dod="2020-03-01", icd10u="MI", icd10014=code)]),
         ]
     )
     session.commit()
@@ -1125,13 +1127,13 @@ def test_patients_with_death_recorded_in_cpns():
             # Not dead
             Patient(),
             # Died after date cutoff
-            Patient(CPNS=[CPNS(DateOfDeath="2021-01-01")]),
+            Patient(CPNS=[CPNS(dateofdeath="2021-01-01")]),
             # Patient should be included
-            Patient(CPNS=[CPNS(DateOfDeath="2020-02-01")]),
+            Patient(CPNS=[CPNS(dateofdeath="2020-02-01")]),
             # Patient has multple entries but with the same date of death so
             # should be handled correctly
             Patient(
-                CPNS=[CPNS(DateOfDeath="2020-03-01"), CPNS(DateOfDeath="2020-03-01")]
+                CPNS=[CPNS(dateofdeath="2020-03-01"), CPNS(dateofdeath="2020-03-01")]
             ),
         ]
     )
@@ -1160,7 +1162,7 @@ def test_patients_with_death_recorded_in_cpns_raises_error_on_bad_data():
     session.add_all(
         # Create a patient with duplicate CPNS entries recording an
         # inconsistent date of death
-        [Patient(CPNS=[CPNS(DateOfDeath="2020-03-01"), CPNS(DateOfDeath="2020-02-01")])]
+        [Patient(CPNS=[CPNS(dateofdeath="2020-03-01"), CPNS(dateofdeath="2020-02-01")])]
     )
     session.commit()
     study = StudyDefinition(

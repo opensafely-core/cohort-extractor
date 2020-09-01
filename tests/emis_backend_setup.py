@@ -81,31 +81,10 @@ def make_database():
     Base.metadata.create_all(make_engine())
 
 
-class Medication(Base):
-    __tablename__ = "medication"
-
-    id = Column(Integer, primary_key=True)
-    registration_id = Column(Integer, ForeignKey("patient.id"))
-    patient = relationship("Patient", back_populates="medications")
-    snomed_concept_id = Column(BigInteger)
-    effective_date = Column(DateTime)
-
-
-class Observation(Base):
-    __tablename__ = "observation"
-
-    id = Column(Integer, primary_key=True)
-    registration_id = Column(Integer, ForeignKey("patient.id"))
-    patient = relationship("Patient", back_populates="observations")
-    snomed_concept_id = Column(BigInteger)
-    value_pq_1 = Column(Float)
-    effective_date = Column(DateTime)
-
-
 class Patient(Base):
-    __tablename__ = "patient"
+    __tablename__ = "patient_view"
 
-    id = Column(Integer, primary_key=True)
+    registration_id = Column(Integer, primary_key=True)
     date_of_birth = Column(DateTime)
     gender = Column(Integer)
     registered_date = Column(DateTime)
@@ -135,76 +114,97 @@ class Patient(Base):
     )
 
 
-class ICNARC(Base):
-    __tablename__ = "ICNARC"
+class Medication(Base):
+    __tablename__ = "medication_view"
 
-    ICNARC_ID = Column(Integer, primary_key=True)
-    registration_id = Column(Integer, ForeignKey("patient.id"))
+    id = Column(Integer, primary_key=True)
+    registration_id = Column(Integer, ForeignKey("patient_view.registration_id"))
+    patient = relationship("Patient", back_populates="medications")
+    snomed_concept_id = Column(BigInteger)
+    effective_date = Column(DateTime)
+
+
+class Observation(Base):
+    __tablename__ = "observation_view"
+
+    id = Column(Integer, primary_key=True)
+    registration_id = Column(Integer, ForeignKey("patient_view.registration_id"))
+    patient = relationship("Patient", back_populates="observations")
+    snomed_concept_id = Column(BigInteger)
+    value_pq_1 = Column(Float)
+    effective_date = Column(DateTime)
+
+
+class ICNARC(Base):
+    __tablename__ = "icnarc_view"
+
+    icnarc_id = Column(Integer, primary_key=True)
+    registration_id = Column(Integer, ForeignKey("patient_view.registration_id"))
     patient = relationship("Patient", back_populates="ICNARC")
-    IcuAdmissionDateTime = Column(DateTime)
-    OriginalIcuAdmissionDate = Column(Date)
-    BasicDays_RespiratorySupport = Column(Integer)
-    AdvancedDays_RespiratorySupport = Column(Integer)
-    Ventilator = Column(Integer)
+    icuadmissiondatetime = Column(DateTime)
+    originalicuadmissiondate = Column(Date)
+    basicdays_respiratorysupport = Column(Integer)
+    advanceddays_respiratorysupport = Column(Integer)
+    ventilator = Column(Integer)
 
 
 class ONSDeaths(Base):
-    __tablename__ = "ONS_Deaths"
+    __tablename__ = "ons_view"
 
     # This column isn't in the actual database but SQLAlchemy gets a bit upset
     # if we don't give it a primary key
     id = Column(Integer, primary_key=True)
-    registration_id = Column(Integer, ForeignKey("patient.id"))
+    registration_id = Column(Integer, ForeignKey("patient_view.registration_id"))
     patient = relationship("Patient", back_populates="ONSDeath")
-    Sex = Column(String)
+    sex = Column(String)
     ageinyrs = Column(Integer)
     dod = Column(Date)
     icd10u = Column(String)
-    ICD10001 = Column(String)
-    ICD10002 = Column(String)
-    ICD10003 = Column(String)
-    ICD10004 = Column(String)
-    ICD10005 = Column(String)
-    ICD10006 = Column(String)
-    ICD10007 = Column(String)
-    ICD10008 = Column(String)
-    ICD10009 = Column(String)
-    ICD10010 = Column(String)
-    ICD10011 = Column(String)
-    ICD10012 = Column(String)
-    ICD10013 = Column(String)
-    ICD10014 = Column(String)
-    ICD10015 = Column(String)
+    icd10001 = Column(String)
+    icd10002 = Column(String)
+    icd10003 = Column(String)
+    icd10004 = Column(String)
+    icd10005 = Column(String)
+    icd10006 = Column(String)
+    icd10007 = Column(String)
+    icd10008 = Column(String)
+    icd10009 = Column(String)
+    icd10010 = Column(String)
+    icd10011 = Column(String)
+    icd10012 = Column(String)
+    icd10013 = Column(String)
+    icd10014 = Column(String)
+    icd10015 = Column(String)
 
 
 class CPNS(Base):
-    __tablename__ = "CPNS"
+    __tablename__ = "cpns_view"
 
-    registration_id = Column(Integer, ForeignKey("patient.id"))
+    registration_id = Column(Integer, ForeignKey("patient_view.registration_id"))
     patient = relationship("Patient", back_populates="CPNS")
-    Id = Column(Integer, primary_key=True)
-    # LocationOfDeath                                                 ITU
-    # Sex                                                               M
-    # DateOfAdmission                                          2020-04-02
-    # DateOfSwabbed                                            2020-04-02
-    # DateOfResult                                             2020-04-03
-    # RelativesAware                                                    Y
-    # TravelHistory                                                 False
-    # RegionCode                                                      Y62
-    # RegionName                                               North West
-    # OrganisationCode                                                ABC
-    # OrganisationName                                Test Hospital Trust
-    # OrganisationTypeLot                                        Hospital
-    # RegionApproved                                                 True
-    # RegionalApprovedDate                                     2020-04-09
-    # NationalApproved                                               True
-    # NationalApprovedDate                                     2020-04-09
-    # PreExistingCondition                                          False
-    # Age                                                              57
-    DateOfDeath = Column(Date)
-    # snapDate                                                 2020-04-09
-    # HadLearningDisability                                            NK
-    # ReceivedTreatmentForMentalHealth                                 NK
-    # Der_Ethnic_Category_Description                                None
-    # Der_Latest_SUS_Attendance_Date_For_Ethnicity                   None
-    # Der_Source_Dataset_For_Ethnicty                                None
+    id = Column(Integer, primary_key=True)
+    # locationofdeath                                                 ITU
+    # sex                                                               M
+    # dateofadmission                                          2020-04-02
+    # dateofswabbed                                            2020-04-02
+    # dateofresult                                             2020-04-03
+    # relativesaware                                                    Y
+    # travelhistory                                                 False
+    # regioncode                                                      Y62
+    # regionname                                               North West
+    # organisationcode                                                ABC
+    # organisationname                                Test Hospital Trust
+    # organisationtypelot                                        Hospital
+    # regionapproved                                                 True
+    # regionalapproveddate                                     2020-04-09
+    # nationalapproved                                               True
+    # nationalapproveddate                                     2020-04-09
+    # preexistingcondition                                          False
+    # age                                                              57
+    dateofdeath = Column(Date)
+    # snapdate                                                 2020-04-09
+    # hadlearningdisability                                            NK
+    # receivedtreatmentformentalhealth                                 NK
+    # der_ethnic_category_description                                None
+    # der_latest_sus_attendance_date_for_ethnicity                   None
+    # der_source_dataset_for_ethnicty                                None

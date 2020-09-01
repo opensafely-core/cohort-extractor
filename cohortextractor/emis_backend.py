@@ -110,8 +110,8 @@ class EMISBackend:
             primary_table = self.make_temp_table_name("population")
             patient_id_expr = f"{primary_table}.patient_id"
         else:
-            primary_table = "patient"
-            patient_id_expr = "patient.id"
+            primary_table = "patient_view"
+            patient_id_expr = "patient_view.registration_id"
         # Insert `patient_id` as the first column
         output_columns = dict(patient_id=patient_id_expr, **output_columns)
         output_columns_str = ",\n          ".join(
@@ -256,7 +256,7 @@ class EMISBackend:
             ["patient_id", "age"],
             f"""
             SELECT
-              id AS patient_id,
+              registration_id AS patient_id,
               CASE WHEN
                  date_add('year', date_diff('year', "date_of_birth", {quoted_date}), "date_of_birth") > {quoted_date}
               THEN
@@ -264,7 +264,7 @@ class EMISBackend:
               ELSE
                  date_diff('year', "date_of_birth", {quoted_date})
               END AS age
-            FROM patient
+            FROM patient_view
             """,
         )
 
@@ -273,14 +273,14 @@ class EMISBackend:
             ["patient_id", "sex"],
             """
           SELECT
-            id AS patient_id,
+            registration_id AS patient_id,
             CASE gender
               -- See https://www.datadictionary.nhs.uk/data_dictionary/attributes/p/person/person_gender_code_de.asp?shownav=1
               WHEN 1 THEN 'M'
               WHEN 2 THEN 'F'
               ELSE ''
             END AS sex
-          FROM patient""",
+          FROM patient_view""",
         )
 
     def patients_all(self):
@@ -290,8 +290,8 @@ class EMISBackend:
         return (
             ["patient_id", "is_included"],
             """
-            SELECT id AS patient_id, 1 AS is_included
-            FROM patient
+            SELECT registration_id AS patient_id, 1 AS is_included
+            FROM patient_view
             """,
         )
 
@@ -346,15 +346,15 @@ class EMISBackend:
         FROM (
           SELECT "registration_id", "value_pq_1" AS BMI, "effective_date",
           ROW_NUMBER() OVER (PARTITION BY "registration_id" ORDER BY "effective_date" DESC) AS rownum
-          FROM observation
+          FROM observation_view
           WHERE "snomed_concept_id" = {quote(bmi_code)} AND {date_condition}
         ) t
         WHERE t.rownum = 1
         """
 
         patients_cte = """
-           SELECT id, "date_of_birth"
-           FROM patient
+           SELECT registration_id, "date_of_birth"
+           FROM patient_view
         """
         weight_codes_sql = codelist_to_sql(weight_codes)
         weights_cte = f"""
@@ -362,7 +362,7 @@ class EMISBackend:
           FROM (
             SELECT "registration_id", "value_pq_1" AS weight, "effective_date",
             ROW_NUMBER() OVER (PARTITION BY "registration_id" ORDER BY "effective_date" DESC) AS rownum
-            FROM observation
+            FROM observation_view
             WHERE "snomed_concept_id" IN ({weight_codes_sql}) AND {date_condition}
           ) t
           WHERE t.rownum = 1
@@ -380,7 +380,7 @@ class EMISBackend:
           FROM (
             SELECT "registration_id", "value_pq_1" AS height, "effective_date",
             ROW_NUMBER() OVER (PARTITION BY "registration_id" ORDER BY "effective_date" DESC) AS rownum
-            FROM observation
+            FROM observation_view
             WHERE "snomed_concept_id" IN ({height_codes_sql}) AND {height_date_condition}
           ) t
           WHERE t.rownum = 1
@@ -390,7 +390,7 @@ class EMISBackend:
 
         sql = f"""
         SELECT
-          patients.id AS patient_id,
+          patients.registration_id AS patient_id,
           CASE
             WHEN height = 0 THEN NULL
             ELSE ROUND(COALESCE(weight/(height*height), bmis.BMI), 1)
@@ -401,11 +401,11 @@ class EMISBackend:
           END AS date
         FROM ({patients_cte}) AS patients
         LEFT JOIN ({weights_cte}) AS weights
-        ON weights."registration_id" = patients.id AND date_diff('year', patients."date_of_birth", weights."effective_date") >= {min_age}
+        ON weights."registration_id" = patients.registration_id AND date_diff('year', patients."date_of_birth", weights."effective_date") >= {min_age}
         LEFT JOIN ({heights_cte}) AS heights
-        ON heights."registration_id" = patients.id AND date_diff('year', patients."date_of_birth", heights."effective_date") >= {min_age}
+        ON heights."registration_id" = patients.registration_id AND date_diff('year', patients."date_of_birth", heights."effective_date") >= {min_age}
         LEFT JOIN ({bmi_cte}) AS bmis
-        ON bmis."registration_id" = patients.id AND date_diff('year', patients."date_of_birth", bmis."effective_date") >= {min_age}
+        ON bmis."registration_id" = patients.registration_id AND date_diff('year', patients."date_of_birth", bmis."effective_date") >= {min_age}
         -- XXX maybe add a "WHERE NULL..." here
         """
         columns = ["patient_id", "BMI"]
@@ -435,19 +435,19 @@ class EMISBackend:
         sql = f"""
         SELECT
           days."registration_id" AS patient_id,
-          AVG(observation."value_pq_1") AS mean_value,
+          AVG(observation_view."value_pq_1") AS mean_value,
           days.date_measured AS date
         FROM (
             SELECT "registration_id", CAST(MAX("effective_date") AS date) AS date_measured
-            FROM observation
+            FROM observation_view
             WHERE "snomed_concept_id" IN ({codelist_sql}) AND {date_condition}
             GROUP BY "registration_id"
         ) AS days
-        LEFT JOIN observation
+        LEFT JOIN observation_view
         ON (
-          observation."registration_id" = days."registration_id"
-          AND observation."snomed_concept_id" IN ({codelist_sql})
-          AND CAST(observation."effective_date" AS date) = days.date_measured
+          observation_view."registration_id" = days."registration_id"
+          AND observation_view."snomed_concept_id" IN ({codelist_sql})
+          AND CAST(observation_view."effective_date" AS date) = days.date_measured
         )
         GROUP BY days."registration_id", days.date_measured
         """
@@ -463,8 +463,8 @@ class EMISBackend:
         return (
             ["patient_id", "is_registered"],
             f"""
-            SELECT DISTINCT patient.id AS patient_id, 1 AS is_registered
-            FROM patient
+            SELECT DISTINCT patient_view.registration_id AS patient_id, 1 AS is_registered
+            FROM patient_view
             WHERE "registered_date" <= {quote(start_date)}
               AND ("registration_end_date" > {quote(end_date)} OR "registration_end_date" IS NULL)
             """,
@@ -491,7 +491,7 @@ class EMISBackend:
             # Remove unhandled arguments and check they are unused
             assert not kwargs.pop("episode_defined_as", None)
             return self._patients_with_events(
-                "medication", "", '"snomed_concept_id"', **kwargs,
+                "medication_view", "", '"snomed_concept_id"', **kwargs,
             )
 
     def patients_with_these_clinical_events(self, **kwargs):
@@ -512,7 +512,7 @@ class EMISBackend:
         else:
             assert not kwargs.pop("episode_defined_as", None)
             return self._patients_with_events(
-                "observation", "", '"snomed_concept_id"', **kwargs,
+                "observation_view", "", '"snomed_concept_id"', **kwargs,
             )
 
     def _patients_with_events(
@@ -630,7 +630,7 @@ class EMISBackend:
         codelist_table = self.create_codelist_table(codelist)
         date_condition = make_date_filter('"effective_date"', between)
         not_an_ignored_day_condition = self._none_of_these_codes_occur_on_same_day(
-            "medication", ignore_days_where_these_codes_occur
+            "medication_view", ignore_days_where_these_codes_occur
         )
         if episode_defined_as is not None:
             pattern = r"^series of events each <= (\d+) days apart$"
@@ -660,7 +660,7 @@ class EMISBackend:
                 THEN 0
                 ELSE 1
               END AS is_new_episode
-            FROM medication
+            FROM medication_view
             INNER JOIN {codelist_table}
             ON "snomed_concept_id" = {codelist_table}.code
             WHERE {date_condition} AND {not_an_ignored_day_condition}
@@ -680,7 +680,7 @@ class EMISBackend:
         codelist_table = self.create_codelist_table(codelist)
         date_condition = make_date_filter('"effective_date"', between)
         not_an_ignored_day_condition = self._none_of_these_codes_occur_on_same_day(
-            "observation", ignore_days_where_these_codes_occur
+            "observation_view", ignore_days_where_these_codes_occur
         )
         if episode_defined_as is not None:
             pattern = r"^series of events each <= (\d+) days apart$"
@@ -710,7 +710,7 @@ class EMISBackend:
                 THEN 0
                 ELSE 1
               END AS is_new_episode
-            FROM observation
+            FROM observation_view
             INNER JOIN {codelist_table}
             ON "snomed_concept_id" = {codelist_table}.code
             WHERE {date_condition} AND {not_an_ignored_day_condition}
@@ -734,7 +734,7 @@ class EMISBackend:
         codelist_table = self.create_codelist_table(codelist)
         return f"""
         NOT EXISTS (
-          SELECT * FROM observation AS sameday
+          SELECT * FROM observation_view AS sameday
           INNER JOIN {codelist_table}
           ON sameday."snomed_concept_id" = {codelist_table}.code
           WHERE
@@ -759,10 +759,10 @@ class EMISBackend:
             ["patient_id", returning],
             f"""
             SELECT
-              id AS patient_id,
+              registration_id AS patient_id,
               {column} AS {returning}
             FROM
-              patient
+              patient_view
             """,
         )
 
@@ -785,10 +785,10 @@ class EMISBackend:
             ["patient_id", returning],
             f"""
             SELECT
-              id AS patient_id,
+              registration_id AS patient_id,
               {column} AS {returning}
             FROM
-              patient
+              patient_view
             """,
         )
 
@@ -810,11 +810,11 @@ class EMISBackend:
         {date_aggregate}(
         CASE
         WHEN
-          COALESCE(date_format(IcuAdmissionDateTime, '%Y-%m-%d'), '9999-01-01') < COALESCE(date_format(OriginalIcuAdmissionDate, '%Y-%m-%d'), '9999-01-01')
+          COALESCE(date_format(icuadmissiondatetime, '%Y-%m-%d'), '9999-01-01') < COALESCE(date_format(originalicuadmissiondate, '%Y-%m-%d'), '9999-01-01')
         THEN
-          DATE(IcuAdmissionDateTime)
+          DATE(icuadmissiondatetime)
         ELSE
-          DATE(OriginalIcuAdmissionDate)
+          DATE(originalicuadmissiondate)
         END)"""
         date_condition = make_date_filter(date_expression, between)
 
@@ -834,10 +834,10 @@ class EMISBackend:
               {column_definition} AS {column_name},
               MAX(Ventilator) AS ventilated -- apparently can be 0, 1 or NULL
             FROM
-              ICNARC
+              icnarc_view
             GROUP BY "registration_id"
             HAVING
-              {date_condition} AND SUM(BasicDays_RespiratorySupport) + SUM(AdvancedDays_RespiratorySupport) >= 1
+              {date_condition} AND SUM(basicdays_respiratorysupport) + SUM(advanceddays_respiratorysupport) >= 1
             """,
         )
 
@@ -857,7 +857,7 @@ class EMISBackend:
             codelist_sql = codelist_to_sql(codelist)
             code_columns = ["icd10u"]
             if not match_only_underlying_cause:
-                code_columns.extend([f"ICD10{i:03d}" for i in range(1, 16)])
+                code_columns.extend([f"icd10{i:03d}" for i in range(1, 16)])
             code_conditions = " OR ".join(
                 f"{column} IN ({codelist_sql})" for column in code_columns
             )
@@ -878,7 +878,7 @@ class EMISBackend:
             ["patient_id", column_name],
             f"""
             SELECT "registration_id" as patient_id, {column_definition} AS {column_name}
-            FROM ONS_Deaths
+            FROM ons_view
             WHERE ({code_conditions}) AND {date_condition}
             """,
         )
@@ -901,12 +901,12 @@ class EMISBackend:
         # Set return type
         returning="binary_flag",
     ):
-        date_condition = make_date_filter("DateOfDeath", between)
+        date_condition = make_date_filter("dateofdeath", between)
         if returning == "binary_flag":
             column_definition = "1"
             column_name = "died"
         elif returning == "date_of_death":
-            column_definition = "MAX(DateOfDeath)"
+            column_definition = "MAX(dateofdeath)"
             column_name = "date_of_death"
         else:
             raise ValueError(f"Unsupported `returning` value: {returning}")
@@ -917,8 +917,8 @@ class EMISBackend:
               "registration_id" as patient_id,
               {column_definition} AS {column_name},
               -- Crude error check so we blow up in the case of inconsistent dates
-              1 / CASE WHEN MAX(DateOfDeath) = MIN(DateOfDeath) THEN 1 ELSE 0 END AS _e
-            FROM CPNS
+              1 / CASE WHEN MAX(dateofdeath) = MIN(dateofdeath) THEN 1 ELSE 0 END AS _e
+            FROM cpns_view
             WHERE {date_condition}
             GROUP BY "registration_id"
             """,
