@@ -229,6 +229,7 @@ class EMISBackend:
         # but has no significance for the database
         table_name = self.make_temp_table_name(f"{table_number}_{column_name}")
         cast = int if codelist.system in ("snomed", "snomedct") else str
+        organisation_hash = quote(get_organisation_hash())
         if codelist.has_categories:
             values = ", ".join(
                 f"({quote(cast(code))}, {quote(category)})"
@@ -237,7 +238,7 @@ class EMISBackend:
             self.codelist_tables.append(
                 f"""
                     CREATE TABLE {table_name} AS
-                    SELECT * FROM (
+                    SELECT code, category, {organisation_hash} AS hashed_organisation FROM (
                       VALUES {values}
                     ) AS t (code, category)
                     """
@@ -247,7 +248,7 @@ class EMISBackend:
             self.codelist_tables.append(
                 f"""
                     CREATE TABLE {table_name} AS
-                    SELECT * FROM (
+                    SELECT code, {organisation_hash} AS hashed_organisation FROM (
                       VALUES {values}
                     ) AS t (code)
                     """
@@ -442,14 +443,17 @@ class EMISBackend:
         sql = f"""
         SELECT
           days."registration_id" AS patient_id,
-          hashed_organisation,
+          days.hashed_organisation,
           AVG(observation_view."value_pq_1") AS mean_value,
           days.date_measured AS date
         FROM (
-            SELECT "registration_id", CAST(MAX("effective_date") AS date) AS date_measured
+            SELECT
+                "registration_id",
+                hashed_organisation,
+                CAST(MAX("effective_date") AS date) AS date_measured
             FROM observation_view
             WHERE "snomed_concept_id" IN ({codelist_sql}) AND {date_condition}
-            GROUP BY "registration_id"
+            GROUP BY "registration_id", hashed_organisation
         ) AS days
         LEFT JOIN observation_view
         ON (
@@ -457,7 +461,7 @@ class EMISBackend:
           AND observation_view."snomed_concept_id" IN ({codelist_sql})
           AND CAST(observation_view."effective_date" AS date) = days.date_measured
         )
-        GROUP BY days."registration_id", hashed_organisation, days.date_measured
+        GROUP BY days."registration_id", days.hashed_organisation, days.date_measured
         """
         columns = ["patient_id", "mean_value"]
         if include_date_of_match:
@@ -599,10 +603,14 @@ class EMISBackend:
               {column_definition} AS {column_name},
               DATE("effective_date") AS date
             FROM (
-              SELECT "registration_id", hashed_organisation, {query_column}, "effective_date",
-              ROW_NUMBER() OVER (
-                PARTITION BY "registration_id" ORDER BY "effective_date" {ordering}
-              ) AS rownum
+              SELECT
+                "registration_id",
+                {from_table}.hashed_organisation,
+                {query_column},
+                "effective_date",
+                ROW_NUMBER() OVER (
+                  PARTITION BY "registration_id" ORDER BY "effective_date" {ordering}
+                ) AS rownum
               FROM {from_table}{additional_join}
               INNER JOIN {codelist_table}
               ON {code_column} = {codelist_table}.code
@@ -614,14 +622,14 @@ class EMISBackend:
             sql = f"""
             SELECT
               "registration_id" AS patient_id,
-              hashed_organisation,
+              {from_table}.hashed_organisation,
               {column_definition} AS {column_name},
               {date_aggregate}(DATE("effective_date")) AS date
             FROM {from_table}{additional_join}
             INNER JOIN {codelist_table}
             ON {code_column} = {codelist_table}.code
             WHERE {date_condition} AND {not_an_ignored_day_condition}
-            GROUP BY "registration_id", hashed_organisation
+            GROUP BY "registration_id", {from_table}.hashed_organisation
             """
 
         if returning == "date":
@@ -664,7 +672,7 @@ class EMISBackend:
         FROM (
             SELECT
               "registration_id",
-              hashed_organisation,
+              medication_view.hashed_organisation,
               CASE
                 WHEN
                   date_diff(
@@ -716,7 +724,7 @@ class EMISBackend:
         FROM (
             SELECT
               "registration_id",
-              hashed_organisation,
+              observation_view.hashed_organisation,
               CASE
                 WHEN
                   date_diff(
@@ -1063,3 +1071,7 @@ def pop_keys_from_dict(dictionary, keys):
         if key in dictionary:
             new_dict[key] = dictionary.pop(key)
     return new_dict
+
+
+def get_organisation_hash():
+    return os.environ["EMIS_ORGANISATION_HASH"]
