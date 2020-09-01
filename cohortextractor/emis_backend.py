@@ -744,73 +744,51 @@ class EMISBackend:
         """
 
     def patients_registered_practice_as_of(self, date, returning=None):
+        # At the moment we can only return current values for the fields in question.
+
         if returning == "stp_code":
-            column = "STPCode"
+            column = "stp_code"
         elif returning == "msoa_code":
-            column = "MSOACode"
-        elif returning == "nhse_region_name":
-            column = "Region"
-        elif returning == "pseudo_id":
-            column = "Organisation_ID"
+            column = "msoa"
+        elif returning == "nuts1_region_name":
+            column = "english_region_name"
         else:
             raise ValueError(f"Unsupported `returning` value: {returning}")
-        # Note that current registrations are recorded with an EndDate of
-        # 9999-12-31. Where registration periods overlap we use the one with
-        # the most recent start date. If there are several with the same start
-        # date we use the longest one (i.e. with the latest end date).
+
         return (
             ["patient_id", returning],
             f"""
             SELECT
-              "registration_id" AS patient_id,
-              Organisation.{column} AS {returning}
-            FROM (
-              SELECT "registration_id", Organisation_ID,
-              ROW_NUMBER() OVER (
-                PARTITION BY "registration_id" ORDER BY StartDate DESC, EndDate DESC
-              ) AS rownum
-              FROM RegistrationHistory
-              WHERE StartDate <= {quote(date)} AND EndDate > {quote(date)}
-            ) t
-            LEFT JOIN Organisation
-            ON Organisation.Organisation_ID = t.Organisation_ID
-            WHERE t.rownum = 1
+              id AS patient_id,
+              {column} AS {returning}
+            FROM
+              patient
             """,
         )
 
     def patients_address_as_of(self, date, returning=None, round_to_nearest=None):
-        # N.B. A value of -1 indicates no postcode recorded on the
-        # record, an invalid postcode, or no fixed abode.
-        #
-        # Related, there is a column in the address table to indicate
-        # NP for no postcode or NFA for no fixed abode
+        # At the moment we can only return current values for the fields in question.
+
+        if date != "today":
+            raise ValueError("patients.address_as_of only supports a date of 'today'")
+
         if returning == "index_of_multiple_deprivation":
             assert round_to_nearest == 100
-            column = "ImdRankRounded"
+            column = "imd_rank"
         elif returning == "rural_urban_classification":
             assert round_to_nearest is None
-            column = "RuralUrbanClassificationCode"
+            column = "rural_urban"
         else:
             raise ValueError(f"Unsupported `returning` value: {returning}")
-        # Note that current addresses are recorded with an EndDate of
-        # 9999-12-31. Where address periods overlap we use the one with the
-        # most recent start date. If there are several with the same start date
-        # we use the longest one (i.e. with the latest end date).
+
         return (
             ["patient_id", returning],
             f"""
             SELECT
-              "registration_id" AS patient_id,
+              id AS patient_id,
               {column} AS {returning}
-            FROM (
-              SELECT "registration_id", {column},
-              ROW_NUMBER() OVER (
-                PARTITION BY "registration_id" ORDER BY StartDate DESC, EndDate DESC
-              ) AS rownum
-              FROM PatientAddress
-              WHERE StartDate <= {quote(date)} AND EndDate > {quote(date)}
-            ) t
-            WHERE rownum = 1
+            FROM
+              patient
             """,
         )
 

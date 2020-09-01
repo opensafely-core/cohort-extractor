@@ -110,6 +110,13 @@ class Patient(Base):
     gender = Column(Integer)
     registered_date = Column(DateTime)
     registration_end_date = Column(DateTime)
+    rural_urban = Column(Integer)
+    imd_rank = Column(Integer)
+    msoa = Column(String)
+    stp_code = Column(String)
+    stp_name = Column(String)
+    english_region_code = Column(String)
+    english_region_name = Column(String)
 
     medications = relationship(
         "Medication", back_populates="patient", cascade="all, delete, delete-orphan"
@@ -117,32 +124,6 @@ class Patient(Base):
     observations = relationship(
         "Observation", back_populates="patient", cascade="all, delete, delete-orphan"
     )
-
-
-# WARNING: This table does not correspond to a table in the EMIS database!
-class Organisation(Base):
-    __tablename__ = "organisation"
-
-    metadata,
-    Organisation_ID = Column(Integer, primary_key=True)
-    GoLiveDate = Column(Date)
-    STPCode = Column(String)
-    MSOACode = Column(String)
-    Region = Column(String)
-
-
-# WARNING: This table does not correspond to a table in the EMIS database!
-class PatientAddress(Base):
-    __tablename__ = "PatientAddress"
-
-    PatientAddress_ID = Column(Integer, primary_key=True)
-    registration_id = Column(Integer, ForeignKey("patient.id"))
-    StartDate = Column(Date)
-    EndDate = Column(Date)
-    AddressType = Column(Integer)
-    RuralUrbanClassificationCode = Column(Integer)
-    ImdRankRounded = Column(Integer)
-    MSOACode = Column(String)
 
 
 # WARNING: This table does not correspond to a table in the EMIS database!

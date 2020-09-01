@@ -10,8 +10,6 @@ from tests.emis_backend_setup import (
     Observation,
     Medication,
     Patient,
-    Organisation,
-    PatientAddress,
     ICNARC,
     ONSDeaths,
     CPNS,
@@ -49,8 +47,6 @@ def setup_function(function):
     # session.query(ONSDeaths).delete()
     # session.query(CPNS).delete()
     session.query(Medication).delete()
-    # session.query(Organisation).delete()
-    # session.query(PatientAddress).delete()
     session.query(Patient).delete()
     session.commit()
 
@@ -888,138 +884,44 @@ def test_patients_categorised_as():
     assert "has_bar" not in results[0].keys()
 
 
-@pytest.mark.xfail
 def test_patients_registered_practice_as_of():
     session = make_session()
-    org_1 = Organisation(
-        STPCode="123", MSOACode="E0201", Region="East of England", Organisation_ID=1
-    )
-    org_2 = Organisation(
-        STPCode="456", MSOACode="E0202", Region="Midlands", Organisation_ID=2
-    )
-    org_3 = Organisation(
-        STPCode="789", MSOACode="E0203", Region="London", Organisation_ID=3
-    )
-    org_4 = Organisation(
-        STPCode="910", MSOACode="E0204", Region="North West", Organisation_ID=4
-    )
-    patient = Patient()
-    patient.RegistrationHistory.append(
-        RegistrationHistory(
-            StartDate="1990-01-01", EndDate="2018-01-01", Organisation=org_1
-        )
-    )
-    # We deliberately create overlapping registration periods so we can check
-    # that we handle these correctly
-    patient.RegistrationHistory.append(
-        RegistrationHistory(
-            StartDate="2018-01-01", EndDate="2022-01-01", Organisation=org_2
-        )
-    )
-    patient.RegistrationHistory.append(
-        RegistrationHistory(
-            StartDate="2019-09-01", EndDate="2020-05-01", Organisation=org_3
-        )
-    )
-    patient.RegistrationHistory.append(
-        RegistrationHistory(
-            StartDate="2022-01-01", EndDate="9999-12-31", Organisation=org_4
-        )
-    )
-    patient_2 = Patient()
-    patient_2.RegistrationHistory.append(
-        RegistrationHistory(
-            StartDate="2010-01-01", EndDate="9999-12-31", Organisation=org_1
-        )
-    )
-    patient_3 = Patient()
-    patient_3.RegistrationHistory.append(
-        RegistrationHistory(StartDate="2010-01-01", EndDate="9999-12-31")
-    )
-    session.add_all([patient, patient_2, patient_3])
+    patient = Patient(stp_code="789", msoa="E0203", english_region_name="London")
+
+    session.add_all([patient])
     session.commit()
     study = StudyDefinition(
         population=patients.all(),
-        stp=patients.registered_practice_as_of("2020-01-01", returning="stp_code"),
-        msoa=patients.registered_practice_as_of("2020-01-01", returning="msoa_code"),
+        stp=patients.registered_practice_as_of("today", returning="stp_code"),
+        msoa=patients.registered_practice_as_of("today", returning="msoa_code"),
         region=patients.registered_practice_as_of(
-            "2020-01-01", returning="nhse_region_name"
-        ),
-        pseudo_id=patients.registered_practice_as_of(
-            "2020-01-01", returning="pseudo_id"
+            "today", returning="nuts1_region_name"
         ),
     )
     results = study.to_dicts()
-    assert [i["stp"] for i in results] == ["789", "123", ""]
-    assert [i["msoa"] for i in results] == ["E0203", "E0201", ""]
-    assert [i["region"] for i in results] == ["London", "East of England", ""]
-    assert [i["pseudo_id"] for i in results] == ["3", "1", "0"]
+    assert [i["stp"] for i in results] == ["789"]
+    assert [i["msoa"] for i in results] == ["E0203"]
+    assert [i["region"] for i in results] == ["London" ""]
 
 
-@pytest.mark.xfail
 def test_patients_address_as_of():
     session = make_session()
-    patient = Patient()
-    patient.Addresses.append(
-        PatientAddress(
-            StartDate="1990-01-01",
-            EndDate="2018-01-01",
-            ImdRankRounded=100,
-            RuralUrbanClassificationCode=1,
-        )
-    )
-    # We deliberately create overlapping address periods here to check that we
-    # handle these correctly
-    patient.Addresses.append(
-        PatientAddress(
-            StartDate="2018-01-01",
-            EndDate="2020-02-01",
-            ImdRankRounded=200,
-            RuralUrbanClassificationCode=1,
-        )
-    )
-    patient.Addresses.append(
-        PatientAddress(
-            StartDate="2019-01-01",
-            EndDate="2022-01-01",
-            ImdRankRounded=300,
-            RuralUrbanClassificationCode=2,
-        )
-    )
-    patient.Addresses.append(
-        PatientAddress(
-            StartDate="2022-01-01",
-            EndDate="9999-12-31",
-            ImdRankRounded=500,
-            RuralUrbanClassificationCode=3,
-        )
-    )
+    patient = Patient(imd_rank=300, rural_urban=2)
     patient_no_address = Patient()
-    patient_only_old_address = Patient()
-    patient_only_old_address.Addresses.append(
-        PatientAddress(
-            StartDate="2010-01-01",
-            EndDate="2015-01-01",
-            ImdRankRounded=100,
-            RuralUrbanClassificationCode=1,
-        )
-    )
-    session.add_all([patient, patient_no_address, patient_only_old_address])
+    session.add_all([patient, patient_no_address])
     session.commit()
     study = StudyDefinition(
         population=patients.all(),
         imd=patients.address_as_of(
-            "2020-01-01",
-            returning="index_of_multiple_deprivation",
-            round_to_nearest=100,
+            "today", returning="index_of_multiple_deprivation", round_to_nearest=100,
         ),
         rural_urban=patients.address_as_of(
-            "2020-01-01", returning="rural_urban_classification"
+            "today", returning="rural_urban_classification"
         ),
     )
     results = study.to_dicts()
-    assert [i["imd"] for i in results] == ["300", "0", "0"]
-    assert [i["rural_urban"] for i in results] == ["2", "0", "0"]
+    assert [i["imd"] for i in results] == ["300", "0"]
+    assert [i["rural_urban"] for i in results] == ["2", "0"]
 
 
 @pytest.mark.xfail
