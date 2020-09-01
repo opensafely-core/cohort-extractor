@@ -200,6 +200,8 @@ def _parse_date_range(date_range_str):
             f"format or 'today' and ranges must be in the form "
             f"'DATE to DATE by (week|month)'"
         )
+    if period not in ("week", "month"):
+        raise ValueError(f"Unknown time period '{period}': must be 'week' or 'month'")
     return start, end, period
 
 
@@ -219,7 +221,7 @@ def _increment_date(date, period):
         else:
             return date.replace(month=1, year=date.year + 1)
     else:
-        raise ValueError(f"Unknown time period '{period}': must be 'week' or 'month'")
+        raise ValueError(f"Unknown time period '{period}'")
 
 
 def generate_measures(output_dir, selected_study_name=None, skip_existing=False):
@@ -285,14 +287,14 @@ def _load_csv_for_measures(file, measures):
     dataframe with types as appropriate for the supplied measures
     """
     numeric_columns = set()
-    other_columns = set()
+    group_by_columns = set()
     for measure in measures:
         numeric_columns.update([measure.numerator, measure.denominator])
-        other_columns.add(measure.group_by)
-    # This is a special column which we don't load form the CSV but whose value
+        group_by_columns.add(measure.group_by)
+    # This is a special column which we don't load from the CSV but whose value
     # is always set to 1 for every row
     numeric_columns.discard("population")
-    dtype = {col: "str" for col in other_columns}
+    dtype = {col: "category" for col in group_by_columns}
     for col in numeric_columns:
         dtype[col] = "float64"
     df = pandas.read_csv(file, dtype=dtype, usecols=list(dtype.keys()))
