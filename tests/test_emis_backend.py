@@ -66,8 +66,8 @@ def delete_temporary_tables():
 
 def test_minimal_study_to_csv():
     session = make_session()
-    patient_1 = Patient(date_of_birth="1900-01-01", gender=1)
-    patient_2 = Patient(date_of_birth="1900-01-01", gender=2)
+    patient_1 = Patient(date_of_birth="1900-01-01", gender=1, hashed_organisation="abc")
+    patient_2 = Patient(date_of_birth="1900-01-01", gender=2, hashed_organisation="abc")
     session.add_all([patient_1, patient_2])
     session.commit()
     study = StudyDefinition(population=patients.all(), sex=patients.sex())
@@ -75,8 +75,16 @@ def test_minimal_study_to_csv():
         study.to_csv(f.name)
         results = list(csv.DictReader(f))
         assert results == [
-            {"patient_id": str(patient_1.registration_id), "sex": "M"},
-            {"patient_id": str(patient_2.registration_id), "sex": "F"},
+            {
+                "patient_id": str(patient_1.registration_id),
+                "sex": "M",
+                "hashed_organisation": "abc",
+            },
+            {
+                "patient_id": str(patient_2.registration_id),
+                "sex": "F",
+                "hashed_organisation": "abc",
+            },
         ]
 
 
@@ -1257,7 +1265,7 @@ def test_using_expression_in_population_definition():
         age=patients.age_as_of("2020-01-01"),
     )
     results = study.to_dicts()
-    assert results[0].keys() == {"patient_id", "age"}
+    assert results[0].keys() == {"patient_id", "age", "hashed_organisation"}
     assert [i["age"] for i in results] == ["50"]
 
 

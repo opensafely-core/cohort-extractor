@@ -119,6 +119,7 @@ class EMISBackend:
             for (name, expr) in output_columns.items()
             if not is_hidden.get(name) and name != "population"
         )
+        output_columns_str += f",\n          {primary_table}.hashed_organisation"
         joins = []
         for name in table_queries:
             if name == "population":
@@ -213,9 +214,12 @@ class EMISBackend:
         method = getattr(self, method_name)
         # Keep track of the current column name for debugging purposes
         self._current_column_name = column_name
-        return_value = method(**query_args)
+        cols, sql = method(**query_args)
+        assert (
+            "hashed_organisation" in sql
+        ), f"SQL for `{column_name}` must contain 'hashed_organisation'"
         self._current_column_name = None
-        return return_value
+        return cols, sql
 
     def create_codelist_table(self, codelist):
         table_number = len(self.codelist_tables) + 1
@@ -257,6 +261,7 @@ class EMISBackend:
             f"""
             SELECT
               registration_id AS patient_id,
+              hashed_organisation,
               CASE WHEN
                  date_add('year', date_diff('year', "date_of_birth", {quoted_date}), "date_of_birth") > {quoted_date}
               THEN
@@ -274,6 +279,7 @@ class EMISBackend:
             """
           SELECT
             registration_id AS patient_id,
+            hashed_organisation,
             CASE gender
               -- See https://www.datadictionary.nhs.uk/data_dictionary/attributes/p/person/person_gender_code_de.asp?shownav=1
               WHEN 1 THEN 'M'
@@ -290,7 +296,7 @@ class EMISBackend:
         return (
             ["patient_id", "is_included"],
             """
-            SELECT registration_id AS patient_id, 1 AS is_included
+            SELECT registration_id AS patient_id, hashed_organisation, 1 AS is_included
             FROM patient_view
             """,
         )
@@ -353,7 +359,7 @@ class EMISBackend:
         """
 
         patients_cte = """
-           SELECT registration_id, "date_of_birth"
+           SELECT registration_id, hashed_organisation, "date_of_birth"
            FROM patient_view
         """
         weight_codes_sql = codelist_to_sql(weight_codes)
@@ -391,6 +397,7 @@ class EMISBackend:
         sql = f"""
         SELECT
           patients.registration_id AS patient_id,
+          hashed_organisation,
           CASE
             WHEN height = 0 THEN NULL
             ELSE ROUND(COALESCE(weight/(height*height), bmis.BMI), 1)
@@ -435,6 +442,7 @@ class EMISBackend:
         sql = f"""
         SELECT
           days."registration_id" AS patient_id,
+          hashed_organisation,
           AVG(observation_view."value_pq_1") AS mean_value,
           days.date_measured AS date
         FROM (
@@ -449,7 +457,7 @@ class EMISBackend:
           AND observation_view."snomed_concept_id" IN ({codelist_sql})
           AND CAST(observation_view."effective_date" AS date) = days.date_measured
         )
-        GROUP BY days."registration_id", days.date_measured
+        GROUP BY days."registration_id", hashed_organisation, days.date_measured
         """
         columns = ["patient_id", "mean_value"]
         if include_date_of_match:
@@ -463,7 +471,10 @@ class EMISBackend:
         return (
             ["patient_id", "is_registered"],
             f"""
-            SELECT DISTINCT patient_view.registration_id AS patient_id, 1 AS is_registered
+            SELECT
+                patient_view.registration_id AS patient_id,
+                hashed_organisation,
+                1 AS is_registered
             FROM patient_view
             WHERE "registered_date" <= {quote(start_date)}
               AND ("registration_end_date" > {quote(end_date)} OR "registration_end_date" IS NULL)
@@ -584,10 +595,11 @@ class EMISBackend:
             sql = f"""
             SELECT
               "registration_id" AS patient_id,
+              hashed_organisation,
               {column_definition} AS {column_name},
               DATE("effective_date") AS date
             FROM (
-              SELECT "registration_id", {query_column}, "effective_date",
+              SELECT "registration_id", hashed_organisation, {query_column}, "effective_date",
               ROW_NUMBER() OVER (
                 PARTITION BY "registration_id" ORDER BY "effective_date" {ordering}
               ) AS rownum
@@ -602,13 +614,14 @@ class EMISBackend:
             sql = f"""
             SELECT
               "registration_id" AS patient_id,
+              hashed_organisation,
               {column_definition} AS {column_name},
               {date_aggregate}(DATE("effective_date")) AS date
             FROM {from_table}{additional_join}
             INNER JOIN {codelist_table}
             ON {code_column} = {codelist_table}.code
             WHERE {date_condition} AND {not_an_ignored_day_condition}
-            GROUP BY "registration_id"
+            GROUP BY "registration_id", hashed_organisation
             """
 
         if returning == "date":
@@ -646,10 +659,12 @@ class EMISBackend:
         sql = f"""
         SELECT
           "registration_id" AS patient_id,
+          hashed_organisation,
           SUM(is_new_episode) AS episode_count
         FROM (
             SELECT
               "registration_id",
+              hashed_organisation,
               CASE
                 WHEN
                   date_diff(
@@ -665,7 +680,7 @@ class EMISBackend:
             ON "snomed_concept_id" = {codelist_table}.code
             WHERE {date_condition} AND {not_an_ignored_day_condition}
         ) t
-        GROUP BY "registration_id"
+        GROUP BY "registration_id", hashed_organisation
         """
         return ["patient_id", "episode_count"], sql
 
@@ -696,10 +711,12 @@ class EMISBackend:
         sql = f"""
         SELECT
           "registration_id" AS patient_id,
+          hashed_organisation,
           SUM(is_new_episode) AS episode_count
         FROM (
             SELECT
               "registration_id",
+              hashed_organisation,
               CASE
                 WHEN
                   date_diff(
@@ -715,7 +732,7 @@ class EMISBackend:
             ON "snomed_concept_id" = {codelist_table}.code
             WHERE {date_condition} AND {not_an_ignored_day_condition}
         ) t
-        GROUP BY "registration_id"
+        GROUP BY "registration_id", hashed_organisation
         """
         return ["patient_id", "episode_count"], sql
 
@@ -760,6 +777,7 @@ class EMISBackend:
             f"""
             SELECT
               registration_id AS patient_id,
+              hashed_organisation,
               {column} AS {returning}
             FROM
               patient_view
@@ -786,6 +804,7 @@ class EMISBackend:
             f"""
             SELECT
               registration_id AS patient_id,
+              hashed_organisation,
               {column} AS {returning}
             FROM
               patient_view
@@ -831,11 +850,12 @@ class EMISBackend:
             f"""
             SELECT
               "registration_id" AS patient_id,
+              hashed_organisation,
               {column_definition} AS {column_name},
               MAX(Ventilator) AS ventilated -- apparently can be 0, 1 or NULL
             FROM
               icnarc_view
-            GROUP BY "registration_id"
+            GROUP BY "registration_id", hashed_organisation
             HAVING
               {date_condition} AND SUM(basicdays_respiratorysupport) + SUM(advanceddays_respiratorysupport) >= 1
             """,
@@ -877,7 +897,10 @@ class EMISBackend:
         return (
             ["patient_id", column_name],
             f"""
-            SELECT "registration_id" as patient_id, {column_definition} AS {column_name}
+            SELECT
+                "registration_id" as patient_id,
+                hashed_organisation,
+                {column_definition} AS {column_name}
             FROM ons_view
             WHERE ({code_conditions}) AND {date_condition}
             """,
@@ -915,12 +938,13 @@ class EMISBackend:
             f"""
             SELECT
               "registration_id" as patient_id,
+              hashed_organisation,
               {column_definition} AS {column_name},
               -- Crude error check so we blow up in the case of inconsistent dates
               1 / CASE WHEN MAX(dateofdeath) = MIN(dateofdeath) THEN 1 ELSE 0 END AS _e
             FROM cpns_view
             WHERE {date_condition}
-            GROUP BY "registration_id"
+            GROUP BY "registration_id", hashed_organisation
             """,
         )
 

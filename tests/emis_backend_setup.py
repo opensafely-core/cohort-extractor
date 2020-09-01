@@ -85,6 +85,7 @@ class Patient(Base):
     __tablename__ = "patient_view"
 
     registration_id = Column(Integer, primary_key=True)
+    hashed_organisation = Column(String)
     date_of_birth = Column(DateTime)
     gender = Column(Integer)
     registered_date = Column(DateTime)
@@ -119,6 +120,7 @@ class Medication(Base):
 
     id = Column(Integer, primary_key=True)
     registration_id = Column(Integer, ForeignKey("patient_view.registration_id"))
+    hashed_organisation = Column(String)
     patient = relationship("Patient", back_populates="medications")
     snomed_concept_id = Column(BigInteger)
     effective_date = Column(DateTime)
@@ -129,6 +131,7 @@ class Observation(Base):
 
     id = Column(Integer, primary_key=True)
     registration_id = Column(Integer, ForeignKey("patient_view.registration_id"))
+    hashed_organisation = Column(String)
     patient = relationship("Patient", back_populates="observations")
     snomed_concept_id = Column(BigInteger)
     value_pq_1 = Column(Float)
@@ -140,6 +143,7 @@ class ICNARC(Base):
 
     icnarc_id = Column(Integer, primary_key=True)
     registration_id = Column(Integer, ForeignKey("patient_view.registration_id"))
+    hashed_organisation = Column(String)
     patient = relationship("Patient", back_populates="ICNARC")
     icuadmissiondatetime = Column(DateTime)
     originalicuadmissiondate = Column(Date)
@@ -155,6 +159,7 @@ class ONSDeaths(Base):
     # if we don't give it a primary key
     id = Column(Integer, primary_key=True)
     registration_id = Column(Integer, ForeignKey("patient_view.registration_id"))
+    hashed_organisation = Column(String)
     patient = relationship("Patient", back_populates="ONSDeath")
     sex = Column(String)
     ageinyrs = Column(Integer)
@@ -181,6 +186,7 @@ class CPNS(Base):
     __tablename__ = "cpns_view"
 
     registration_id = Column(Integer, ForeignKey("patient_view.registration_id"))
+    hashed_organisation = Column(String)
     patient = relationship("Patient", back_populates="CPNS")
     id = Column(Integer, primary_key=True)
     # locationofdeath                                                 ITU
