@@ -2,6 +2,7 @@ import csv
 import datetime
 import enum
 import hashlib
+import os
 import re
 import uuid
 
@@ -40,11 +41,21 @@ class TPPBackend:
             queries, cleanup_queries = self.save_results_to_temporary_db(queries)
         else:
             cleanup_queries = []
-        for patient_id in self._to_csv(filename, queries, with_sqlcmd=with_sqlcmd):
+        temp_filename = self._get_temp_filename(filename)
+        for patient_id in self._to_csv(temp_filename, queries, with_sqlcmd=with_sqlcmd):
             unique_check.add(patient_id)
         if cleanup_queries:
             self.execute_queries(cleanup_queries)
         unique_check.assert_unique_ids()
+        # If the extraction doesn't complete successfully we still want to keep
+        # the output file for debugging purposes, just under a name which makes
+        # it clear that it's not complete
+        os.rename(temp_filename, filename)
+
+    def _get_temp_filename(self, filename):
+        root, extension = os.path.splitext(filename)
+        timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+        return f"{root}.partial.{timestamp}{extension}"
 
     def _to_csv(self, filename, queries, with_sqlcmd=False):
         if with_sqlcmd:

@@ -1,4 +1,5 @@
 import csv
+import glob
 from unittest.mock import patch
 import os
 import subprocess
@@ -1495,6 +1496,12 @@ def test_duplicate_id_checking(tmp_path):
         study.to_dicts()
     with pytest.raises(RuntimeError):
         study.to_csv(tmp_path / "test.csv")
+    # Check that we don't produce a normal output file but we do leave a
+    # partial file
+    assert not os.path.exists(tmp_path / "test.csv")
+    partial_files = glob.glob(f"{tmp_path}/test.partial.*.csv")
+    print(partial_files)
+    assert len(partial_files) == 1
 
 
 def test_sqlcmd_and_odbc_outputs_match(tmp_path):
