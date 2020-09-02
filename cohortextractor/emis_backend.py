@@ -771,6 +771,9 @@ class EMISBackend:
     def patients_registered_practice_as_of(self, date, returning=None):
         # At the moment we can only return current values for the fields in question.
 
+        if date != "today":
+            raise ValueError("patients.address_as_of only supports a date of 'today'")
+
         if returning == "stp_code":
             column = "stp_code"
         elif returning == "msoa_code":
