@@ -1500,7 +1500,6 @@ def test_duplicate_id_checking(tmp_path):
     # partial file
     assert not os.path.exists(tmp_path / "test.csv")
     partial_files = glob.glob(f"{tmp_path}/test.partial.*.csv")
-    print(partial_files)
     assert len(partial_files) == 1
 
 
