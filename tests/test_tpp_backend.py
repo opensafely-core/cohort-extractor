@@ -2130,14 +2130,18 @@ def test_patients_household_as_of():
             Patient(
                 HouseholdMemberships=[
                     HouseholdMember(
-                        Household=Household(Household_ID=123, HouseholdSize=2)
+                        Household=Household(
+                            Household_ID=123, HouseholdSize=2, Prison=True
+                        )
                     )
                 ]
             ),
             Patient(
                 HouseholdMemberships=[
                     HouseholdMember(
-                        Household=Household(Household_ID=456, HouseholdSize=3)
+                        Household=Household(
+                            Household_ID=456, HouseholdSize=3, Prison=False
+                        )
                     )
                 ]
             ),
@@ -2147,7 +2151,10 @@ def test_patients_household_as_of():
                 HouseholdMemberships=[
                     HouseholdMember(
                         Household=Household(
-                            Household_ID=789, HouseholdSize=4, NFA_Unknown=True
+                            Household_ID=789,
+                            HouseholdSize=4,
+                            NFA_Unknown=True,
+                            Prison=False,
                         )
                     )
                 ]
@@ -2161,10 +2168,14 @@ def test_patients_household_as_of():
         household_size=patients.household_as_of(
             "2020-02-01", returning="household_size"
         ),
+        is_prison=patients.household_as_of(
+            "2020-02-01", returning="is_prison"
+        ),
     )
     results = study.to_dicts()
     assert [x["household_id"] for x in results] == ["0", "123", "456", "0"]
     assert [x["household_size"] for x in results] == ["0", "2", "3", "0"]
+    assert [x["is_prison"] for x in results] == ["0", "1", "0", "0"]
     # We currently only accept one specific date
     with pytest.raises(ValueError):
         StudyDefinition(

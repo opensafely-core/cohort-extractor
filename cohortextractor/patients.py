@@ -573,6 +573,10 @@ def household_as_of(reference_date, returning=None, return_expectations=None):
         household_size: the number of individuals in the household (0 if no
                         household information available)
 
+        is_prison: Boolean indicating whether household is a prison.  See
+                   https://github.com/opensafely/cohort-extractor/issues/271#issuecomment-679069981
+                   for details of how this is determined.
+
     Examples:
 
         household_id=patients.household_as_of(
