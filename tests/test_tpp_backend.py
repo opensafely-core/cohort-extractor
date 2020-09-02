@@ -1189,7 +1189,6 @@ def test_patients_admitted_to_icu():
             OriginalIcuAdmissionDate="2020-03-01",
             BasicDays_RespiratorySupport=2,
             AdvancedDays_RespiratorySupport=2,
-            Ventilator=0,
         )
     )
     patient_2 = Patient()
@@ -1199,19 +1198,9 @@ def test_patients_admitted_to_icu():
             OriginalIcuAdmissionDate="2020-02-01",
             BasicDays_RespiratorySupport=1,
             AdvancedDays_RespiratorySupport=0,
-            Ventilator=1,
         )
     )
     patient_3 = Patient()
-    patient_3.ICNARC.append(
-        ICNARC(
-            IcuAdmissionDateTime="2020-03-01",
-            OriginalIcuAdmissionDate="2020-02-01",
-            BasicDays_RespiratorySupport=0,
-            AdvancedDays_RespiratorySupport=0,
-            Ventilator=0,
-        )
-    )
     patient_4 = Patient()
     patient_4.ICNARC.append(
         ICNARC(
@@ -1219,7 +1208,6 @@ def test_patients_admitted_to_icu():
             OriginalIcuAdmissionDate="2020-01-01",
             BasicDays_RespiratorySupport=1,
             AdvancedDays_RespiratorySupport=0,
-            Ventilator=1,
         )
     )
     patient_5 = Patient()
@@ -1229,7 +1217,6 @@ def test_patients_admitted_to_icu():
             OriginalIcuAdmissionDate=None,
             BasicDays_RespiratorySupport=1,
             AdvancedDays_RespiratorySupport=0,
-            Ventilator=1,
         )
     )
     patient_5.ICNARC.append(
@@ -1238,7 +1225,6 @@ def test_patients_admitted_to_icu():
             OriginalIcuAdmissionDate=None,
             BasicDays_RespiratorySupport=0,
             AdvancedDays_RespiratorySupport=0,
-            Ventilator=1,
         )
     )
     session.add_all([patient_1, patient_2, patient_3, patient_4, patient_5])
@@ -1297,7 +1283,7 @@ def test_patients_admitted_to_icu():
         ),
     )
     results = study.to_dicts()
-    assert [i["icu"] for i in results] == ["0", "1", "0", "0", "1"]
+    assert [i["icu"] for i in results] == ["1", "1", "0", "0", "1"]
 
 
 def test_patients_with_these_codes_on_death_certificate():

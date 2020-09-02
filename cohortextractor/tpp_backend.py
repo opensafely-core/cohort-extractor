@@ -1081,7 +1081,15 @@ class TPPBackend:
             column_definition = 1
         elif returning == "was_ventilated":
             column_name = "ventilated"
-            column_definition = "MAX(Ventilator)"  # apparently can be 0, 1 or NULL
+            column_definition = """
+            CASE WHEN
+              SUM(BasicDays_RespiratorySupport) + SUM(AdvancedDays_RespiratorySupport) > 0
+            THEN
+              1
+            ELSE
+              0
+            END
+            """
         else:
             assert False, "`returning` must be one of `binary_flag` or `date_admitted`"
         return (
@@ -1093,8 +1101,7 @@ class TPPBackend:
             FROM
               ICNARC
             GROUP BY Patient_ID
-            HAVING
-              {date_condition} AND SUM(BasicDays_RespiratorySupport) + SUM(AdvancedDays_RespiratorySupport) >= 1
+            HAVING {date_condition}
             """,
         )
 
