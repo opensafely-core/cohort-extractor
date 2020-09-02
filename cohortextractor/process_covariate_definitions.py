@@ -343,6 +343,7 @@ class GetColumnType:
             "was_ventilated": "bool",
             "underlying_cause_of_death": "str",
             "primary_diagnosis": "str",
+            "is_prison": "bool",
         }
         try:
             return mapping[returning]
