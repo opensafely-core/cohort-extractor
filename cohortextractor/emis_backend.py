@@ -329,7 +329,7 @@ class EMISBackend:
         # 2) If height and weight is not available, then take latest
         # recorded BMI. Both values must be recorded when the patient
         # is >=16, weight must be within the last 10 years
-        date_condition = make_date_filter('effective_date', between)
+        date_condition = make_date_filter("effective_date", between)
 
         # TODO these codes need validating
         bmi_code = 301331008  #  Finding of body mass index (finding)
@@ -380,7 +380,7 @@ class EMISBackend:
         # mind using old values as long as the patient was old enough when they
         # were taken.
         height_date_condition = make_date_filter(
-            'effective_date', between, upper_bound_only=True,
+            "effective_date", between, upper_bound_only=True,
         )
         heights_cte = f"""
           SELECT t.registration_id, t.height, t.effective_date
@@ -433,7 +433,7 @@ class EMISBackend:
     ):
         # We only support this option for now
         assert on_most_recent_day_of_measurement
-        date_condition = make_date_filter('effective_date', between)
+        date_condition = make_date_filter("effective_date", between)
         codelist_sql = codelist_to_sql(codelist)
         # The subquery finds, for each patient, the most recent day on which
         # they've had a measurement. The outer query selects, for each patient,
@@ -506,7 +506,7 @@ class EMISBackend:
             # Remove unhandled arguments and check they are unused
             assert not kwargs.pop("episode_defined_as", None)
             return self._patients_with_events(
-                "medication_view", "", 'snomed_concept_id', **kwargs,
+                "medication_view", "", "snomed_concept_id", **kwargs,
             )
 
     def patients_with_these_clinical_events(self, **kwargs):
@@ -527,7 +527,7 @@ class EMISBackend:
         else:
             assert not kwargs.pop("episode_defined_as", None)
             return self._patients_with_events(
-                "observation_view", "", 'snomed_concept_id', **kwargs,
+                "observation_view", "", "snomed_concept_id", **kwargs,
             )
 
     def _patients_with_events(
@@ -549,7 +549,7 @@ class EMISBackend:
         include_date_of_match=False,
     ):
         codelist_table = self.create_codelist_table(codelist)
-        date_condition = make_date_filter('effective_date', between)
+        date_condition = make_date_filter("effective_date", between)
         not_an_ignored_day_condition = self._none_of_these_codes_occur_on_same_day(
             from_table, ignore_days_where_these_codes_occur
         )
@@ -649,7 +649,7 @@ class EMISBackend:
         episode_defined_as=None,
     ):
         codelist_table = self.create_codelist_table(codelist)
-        date_condition = make_date_filter('effective_date', between)
+        date_condition = make_date_filter("effective_date", between)
         not_an_ignored_day_condition = self._none_of_these_codes_occur_on_same_day(
             "medication_view", ignore_days_where_these_codes_occur
         )
@@ -701,7 +701,7 @@ class EMISBackend:
         episode_defined_as=None,
     ):
         codelist_table = self.create_codelist_table(codelist)
-        date_condition = make_date_filter('effective_date', between)
+        date_condition = make_date_filter("effective_date", between)
         not_an_ignored_day_condition = self._none_of_these_codes_occur_on_same_day(
             "observation_view", ignore_days_where_these_codes_occur
         )
