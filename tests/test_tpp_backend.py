@@ -1182,122 +1182,96 @@ def test_patients_care_home_status_as_of():
 
 def test_patients_admitted_to_icu():
     session = make_session()
-    patient_1 = Patient()
-    patient_1.ICNARC.append(
-        ICNARC(
-            IcuAdmissionDateTime="2020-03-01",
-            OriginalIcuAdmissionDate="2020-03-01",
-            BasicDays_RespiratorySupport=2,
-            AdvancedDays_RespiratorySupport=2,
-            Ventilator=0,
-        )
+    session.add_all(
+        [
+            Patient(
+                ICNARC=[
+                    ICNARC(
+                        IcuAdmissionDateTime="2020-03-01",
+                        OriginalIcuAdmissionDate="2020-03-01",
+                        BasicDays_RespiratorySupport=2,
+                        AdvancedDays_RespiratorySupport=2,
+                    )
+                ]
+            ),
+            Patient(
+                ICNARC=[
+                    ICNARC(
+                        IcuAdmissionDateTime="2020-03-01",
+                        OriginalIcuAdmissionDate="2020-02-01",
+                        BasicDays_RespiratorySupport=1,
+                        AdvancedDays_RespiratorySupport=0,
+                    )
+                ]
+            ),
+            Patient(),
+            Patient(
+                ICNARC=[
+                    ICNARC(
+                        IcuAdmissionDateTime="2020-01-01",
+                        OriginalIcuAdmissionDate="2020-01-01",
+                        BasicDays_RespiratorySupport=1,
+                        AdvancedDays_RespiratorySupport=0,
+                    )
+                ]
+            ),
+            Patient(
+                ICNARC=[
+                    ICNARC(
+                        IcuAdmissionDateTime="2020-03-01",
+                        OriginalIcuAdmissionDate=None,
+                        BasicDays_RespiratorySupport=0,
+                        AdvancedDays_RespiratorySupport=1,
+                    ),
+                    ICNARC(
+                        IcuAdmissionDateTime="2020-04-01",
+                        OriginalIcuAdmissionDate=None,
+                        BasicDays_RespiratorySupport=0,
+                        AdvancedDays_RespiratorySupport=0,
+                    ),
+                ]
+            ),
+        ]
     )
-    patient_2 = Patient()
-    patient_2.ICNARC.append(
-        ICNARC(
-            IcuAdmissionDateTime="2020-03-01",
-            OriginalIcuAdmissionDate="2020-02-01",
-            BasicDays_RespiratorySupport=1,
-            AdvancedDays_RespiratorySupport=0,
-            Ventilator=1,
-        )
-    )
-    patient_3 = Patient()
-    patient_3.ICNARC.append(
-        ICNARC(
-            IcuAdmissionDateTime="2020-03-01",
-            OriginalIcuAdmissionDate="2020-02-01",
-            BasicDays_RespiratorySupport=0,
-            AdvancedDays_RespiratorySupport=0,
-            Ventilator=0,
-        )
-    )
-    patient_4 = Patient()
-    patient_4.ICNARC.append(
-        ICNARC(
-            IcuAdmissionDateTime="2020-01-01",
-            OriginalIcuAdmissionDate="2020-01-01",
-            BasicDays_RespiratorySupport=1,
-            AdvancedDays_RespiratorySupport=0,
-            Ventilator=1,
-        )
-    )
-    patient_5 = Patient()
-    patient_5.ICNARC.append(
-        ICNARC(
-            IcuAdmissionDateTime="2020-03-01",
-            OriginalIcuAdmissionDate=None,
-            BasicDays_RespiratorySupport=1,
-            AdvancedDays_RespiratorySupport=0,
-            Ventilator=1,
-        )
-    )
-    patient_5.ICNARC.append(
-        ICNARC(
-            IcuAdmissionDateTime="2020-04-01",
-            OriginalIcuAdmissionDate=None,
-            BasicDays_RespiratorySupport=0,
-            AdvancedDays_RespiratorySupport=0,
-            Ventilator=1,
-        )
-    )
-    session.add_all([patient_1, patient_2, patient_3, patient_4, patient_5])
     session.commit()
 
     study = StudyDefinition(
         population=patients.all(),
-        icu=patients.admitted_to_icu(
+        icu_first=patients.admitted_to_icu(
             on_or_after="2020-02-01",
             include_day=True,
             returning="date_admitted",
             find_first_match_in_period=True,
         ),
-    )
-    results = study.to_dicts()
-
-    assert [i["icu"] for i in results] == [
-        "2020-03-01",
-        "2020-02-01",
-        "",
-        "",
-        "2020-03-01",
-    ]
-
-    study = StudyDefinition(
-        population=patients.all(),
-        icu=patients.admitted_to_icu(
+        icu_last=patients.admitted_to_icu(
             on_or_after="2020-02-01",
             include_day=True,
             returning="date_admitted",
             find_last_match_in_period=True,
         ),
-    )
-    results = study.to_dicts()
-
-    assert [i["icu"] for i in results] == [
-        "2020-03-01",
-        "2020-02-01",
-        "",
-        "",
-        "2020-04-01",
-    ]
-
-    study = StudyDefinition(
-        population=patients.all(),
-        icu=patients.admitted_to_icu(on_or_after="2020-02-01", returning="binary_flag"),
-    )
-    results = study.to_dicts()
-
-    assert [i["icu"] for i in results] == ["1", "1", "0", "0", "1"]
-
-    study = StudyDefinition(
-        population=patients.all(),
-        icu=patients.admitted_to_icu(
-            on_or_after="2020-02-01", returning="was_ventilated",
+        icu_flag=patients.admitted_to_icu(
+            on_or_after="2020-02-01", returning="binary_flag"
+        ),
+        resp_support=patients.admitted_to_icu(
+            on_or_after="2020-02-01", returning="had_respiratory_support",
+        ),
+        basic_support=patients.admitted_to_icu(
+            on_or_after="2020-02-01", returning="had_basic_respiratory_support",
+        ),
+        advanced_support=patients.admitted_to_icu(
+            on_or_after="2020-02-01", returning="had_advanced_respiratory_support",
         ),
     )
-    results = study.to_dicts()
-    assert [i["icu"] for i in results] == ["0", "1", "0", "0", "1"]
+
+    assert_results(
+        study.to_dicts(),
+        icu_first=["2020-03-01", "2020-02-01", "", "", "2020-03-01",],
+        icu_last=["2020-03-01", "2020-02-01", "", "", "2020-04-01",],
+        icu_flag=["1", "1", "0", "0", "1"],
+        resp_support=["1", "1", "0", "0", "1"],
+        basic_support=["1", "1", "0", "0", "0"],
+        advanced_support=["1", "0", "0", "0", "1"],
+    )
 
 
 def test_patients_with_these_codes_on_death_certificate():
@@ -1500,7 +1474,6 @@ def test_duplicate_id_checking(tmp_path):
     # partial file
     assert not os.path.exists(tmp_path / "test.csv")
     partial_files = glob.glob(f"{tmp_path}/test.partial.*.csv")
-    print(partial_files)
     assert len(partial_files) == 1
 
 

@@ -1073,17 +1073,31 @@ class TPPBackend:
         END)"""
         date_condition = make_date_filter(date_expression, between)
 
+        greater_than_zero_expr = "CASE WHEN {} > 0 THEN 1 ELSE 0 END"
+
         if returning == "date_admitted":
             column_name = date_column_name
             column_definition = date_expression
         elif returning == "binary_flag":
             column_name = "was_admitted"
             column_definition = 1
-        elif returning == "was_ventilated":
-            column_name = "ventilated"
-            column_definition = "MAX(Ventilator)"  # apparently can be 0, 1 or NULL
+        elif returning == "had_respiratory_support":
+            column_name = returning
+            column_definition = greater_than_zero_expr.format(
+                "SUM(BasicDays_RespiratorySupport) + SUM(AdvancedDays_RespiratorySupport)"
+            )
+        elif returning == "had_basic_respiratory_support":
+            column_name = returning
+            column_definition = greater_than_zero_expr.format(
+                "SUM(BasicDays_RespiratorySupport)"
+            )
+        elif returning == "had_advanced_respiratory_support":
+            column_name = returning
+            column_definition = greater_than_zero_expr.format(
+                "SUM(AdvancedDays_RespiratorySupport)"
+            )
         else:
-            assert False, "`returning` must be one of `binary_flag` or `date_admitted`"
+            raise ValueError(f"Unsupported `returning` value: {returning}")
         return (
             ["patient_id", column_name],
             f"""
@@ -1093,8 +1107,7 @@ class TPPBackend:
             FROM
               ICNARC
             GROUP BY Patient_ID
-            HAVING
-              {date_condition} AND SUM(BasicDays_RespiratorySupport) + SUM(AdvancedDays_RespiratorySupport) >= 1
+            HAVING {date_condition}
             """,
         )
 
