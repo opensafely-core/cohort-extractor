@@ -1215,8 +1215,8 @@ def test_patients_admitted_to_icu():
         ICNARC(
             IcuAdmissionDateTime="2020-03-01",
             OriginalIcuAdmissionDate=None,
-            BasicDays_RespiratorySupport=1,
-            AdvancedDays_RespiratorySupport=0,
+            BasicDays_RespiratorySupport=0,
+            AdvancedDays_RespiratorySupport=1,
         )
     )
     patient_5.ICNARC.append(
@@ -1279,11 +1279,29 @@ def test_patients_admitted_to_icu():
     study = StudyDefinition(
         population=patients.all(),
         icu=patients.admitted_to_icu(
-            on_or_after="2020-02-01", returning="was_ventilated",
+            on_or_after="2020-02-01", returning="had_respiratory_support",
         ),
     )
     results = study.to_dicts()
     assert [i["icu"] for i in results] == ["1", "1", "0", "0", "1"]
+
+    study = StudyDefinition(
+        population=patients.all(),
+        icu=patients.admitted_to_icu(
+            on_or_after="2020-02-01", returning="had_basic_respiratory_support",
+        ),
+    )
+    results = study.to_dicts()
+    assert [i["icu"] for i in results] == ["1", "1", "0", "0", "0"]
+
+    study = StudyDefinition(
+        population=patients.all(),
+        icu=patients.admitted_to_icu(
+            on_or_after="2020-02-01", returning="had_advanced_respiratory_support",
+        ),
+    )
+    results = study.to_dicts()
+    assert [i["icu"] for i in results] == ["1", "0", "0", "0", "1"]
 
 
 def test_patients_with_these_codes_on_death_certificate():

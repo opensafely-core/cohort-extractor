@@ -340,7 +340,9 @@ class GetColumnType:
             "household_size": "int",
             "date_arrived": "date",
             "discharge_destination": "str",
-            "was_ventilated": "bool",
+            "had_respiratory_support": "bool",
+            "had_basic_respiratory_support": "bool",
+            "had_advanced_respiratory_support": "bool",
             "underlying_cause_of_death": "str",
             "primary_diagnosis": "str",
         }
