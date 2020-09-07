@@ -5,7 +5,7 @@ import os
 import random
 import tempfile
 
-from cohortextractor.mssql_utils import mssql_pyodbc_connection_from_url
+from cohortextractor.mssql_utils import mssql_dbapi_connection_from_url
 from .vaccinations_extract import (
     patients_with_ages_and_practices_sql,
     vaccination_events_sql,
@@ -252,7 +252,7 @@ def add_months(date, months):
 
 
 def mssql_query_to_csv_file(database_url, query, filename):
-    conn = mssql_pyodbc_connection_from_url(database_url)
+    conn = mssql_dbapi_connection_from_url(database_url)
     cursor = conn.cursor()
     cursor.execute(query)
     with open(filename, "w", newline="") as csvfile:

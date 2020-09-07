@@ -7,7 +7,7 @@ import re
 import uuid
 
 from .expressions import format_expression
-from .mssql_utils import mssql_pyodbc_connection_from_url
+from .mssql_utils import mssql_dbapi_connection_from_url
 
 
 # Characters that are safe to interpolate into SQL (see
@@ -122,12 +122,16 @@ class TPPBackend:
             conn = self.get_db_connection()
             conn.autocommit = False
             self.log(f"Writing results into temporary table '{output_table}'")
-            conn.execute(f"SELECT * INTO {output_table} FROM ({final_query}) t")
-            conn.commit()
+            cursor = conn.cursor()
+            cursor.execute(f"SELECT * INTO {output_table} FROM ({final_query}) t")
+            cursor.execute("COMMIT")
             conn.autocommit = True
         else:
             self.log(f"Downloading results from previous run in '{output_table}'")
-        return [f"SELECT * FROM {output_table}"], [f"DROP TABLE {output_table}"]
+        return (
+            [f"SELECT * FROM {output_table}"],
+            [f"-- Deleting '{output_table}'\nDROP TABLE {output_table}", "COMMIT",],
+        )
 
     def table_exists(self, table_name):
         # We don't have access to sys.tables so this seems like the simplest
@@ -137,14 +141,10 @@ class TPPBackend:
             cursor.execute(f"SELECT 1 FROM {table_name}")
             list(cursor)
             return True
-        # Really we ought to be catching `pyodbc.ProgrammingError` here, but
-        # for $REASONS we want to avoid depending on pyodbc directly in this
-        # module. Because we're checking a specific error code and re-raising
-        # otherwise, this overbroad exception handling shouldn't be a problem
-        # in practice.
+        # Because we don't want to depend on a specific database driver we
+        # can't catch a specific exception class here
         except Exception as e:
-            # This is the error code for "Invalid object name"
-            if e.args[0] == "42S02":
+            if "Invalid object name" in str(e):
                 return False
             else:
                 raise
@@ -156,14 +156,10 @@ class TPPBackend:
         try:
             cursor.execute(f"SELECT 1 AS foo INTO {test_table}")
             cursor.execute(f"DROP TABLE {test_table}")
-        # Really we ought to be catching `pyodbc.ProgrammingError` here, but
-        # for $REASONS we want to avoid depending on pyodbc directly in this
-        # module. Because we're checking a specific error code and re-raising
-        # otherwise, this overbroad exception handling shouldn't be a problem
-        # in practice.
+        # Because we don't want to depend on a specific database driver we
+        # can't catch a specific exception class here
         except Exception as e:
-            # This is the error code for "Database does not exist"
-            if e.args[0] == "42000":
+            if "Database does not exist" in str(e):
                 raise RuntimeError(f"Temporary database '{db_name}' does not exist")
             else:
                 raise
@@ -1680,7 +1676,7 @@ class TPPBackend:
     def get_db_connection(self):
         if self._db_connection:
             return self._db_connection
-        self._db_connection = mssql_pyodbc_connection_from_url(self.database_url)
+        self._db_connection = mssql_dbapi_connection_from_url(self.database_url)
         return self._db_connection
 
 

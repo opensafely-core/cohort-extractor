@@ -17,7 +17,7 @@ def mssql_connection_params_from_url(url):
     }
 
 
-def mssql_pyodbc_connection_from_url(url):
+def mssql_dbapi_connection_from_url(url):
     # We avoid importing this immediately because we're using the TPPBackend
     # code for error checking (as a hopefully temporary shortcut) and so want
     # to be able to create a TPPBackend instance without needing pyodbc

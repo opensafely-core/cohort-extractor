@@ -4,7 +4,6 @@ from unittest.mock import patch
 import os
 import subprocess
 
-import pyodbc
 import pytest
 
 from tests.tpp_backend_setup import make_database, make_session
@@ -105,7 +104,7 @@ def test_sql_error_propagates(tmp_path):
     # A bit hacky: fiddle with the list of queries to insert a deliberate error
     # at the end
     study.backend.queries[-1] = ("test", "SELECT Foo FROM Bar")
-    with pytest.raises(pyodbc.ProgrammingError) as excinfo:
+    with pytest.raises(Exception) as excinfo:
         study.to_csv(tmp_path / "test.csv")
     assert "Invalid object name 'Bar'" in str(excinfo.value)
 
@@ -2535,11 +2534,12 @@ def test_temporary_database(tmp_path, monkeypatch):
         ]
     )
     session.commit()
-    study = StudyDefinition(
+    study_args = dict(
         population=patients.all(),
         sex=patients.sex(),
         age=patients.age_as_of("2000-01-01"),
     )
+    study = StudyDefinition(**study_args)
     initial_temporary_tables = _list_table_in_db(session, temporary_database)
     # Trigger error during data download process
     with patch("cohortextractor.tpp_backend.csv") as csv_module:
@@ -2553,8 +2553,10 @@ def test_temporary_database(tmp_path, monkeypatch):
     # re-running the query
     session.query(Patient).delete()
     session.commit()
-    # Now try downloading again and check we have correct results
-    study.to_csv(tmp_path / "test.csv")
+    # Now try making a new study with the same definition, downloading again
+    # and check we have correct results
+    new_study = StudyDefinition(**study_args)
+    new_study.to_csv(tmp_path / "test.csv")
     with open(tmp_path / "test.csv") as f:
         results = list(csv.DictReader(f))
     assert_results(results, sex=["M", "F"], age=["40", "20"])
