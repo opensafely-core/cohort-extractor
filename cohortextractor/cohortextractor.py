@@ -245,16 +245,23 @@ def load_study_definition(name):
     return importlib.import_module(name).study
 
 
-def list_study_definitions():
+def list_study_definitions(ignore_errors=False):
     pattern = re.compile(r"^(study_definition(_\w+)?)\.py$")
     matches = []
-    for name in sorted(os.listdir(os.path.join(relative_dir(), "analysis"))):
+    try:
+        analysis_files = os.listdir(os.path.join(relative_dir(), "analysis"))
+    except OSError:
+        if not ignore_errors:
+            raise
+        else:
+            analysis_files = []
+    for name in sorted(analysis_files):
         match = pattern.match(name)
         if match:
             name = match.group(1)
             suffix = match.group(2) or ""
             matches.append((name, suffix))
-    if not matches:
+    if not matches and not ignore_errors:
         raise RuntimeError(f"No study definitions found in {relative_dir()}")
     return matches
 
@@ -362,7 +369,7 @@ def main():
         "--study-definition",
         help="Study definition to use",
         type=str,
-        choices=["all"] + [x[0] for x in list_study_definitions()],
+        choices=["all"] + [x[0] for x in list_study_definitions(ignore_errors=True)],
         default="all",
     )
     generate_cohort_parser.add_argument(
