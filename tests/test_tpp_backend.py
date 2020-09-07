@@ -39,7 +39,6 @@ from cohortextractor import (
     codelist,
 )
 from cohortextractor.mssql_utils import mssql_connection_params_from_url
-from cohortextractor.mssql_utils import mssql_query_to_csv_file
 from cohortextractor.tpp_backend import quote, AppointmentStatus
 
 
@@ -101,32 +100,13 @@ def test_minimal_study_to_csv(tmp_path):
     ]
 
 
-def test_sql_error_propagates_with_sqlcmd(tmp_path):
-    study = StudyDefinition(population=patients.all(), sex=patients.sex())
-    # A bit hacky: fiddle with the list of queries to insert a deliberate error
-    # at the end
-    study.backend.queries[-1] = ("test", "SELECT Foo FROM Bar")
-    with pytest.raises(ValueError) as excinfo:
-        study.to_csv(tmp_path / "test.csv", with_sqlcmd=True)
-    assert "Invalid object name 'Bar'" in str(excinfo.value)
-
-
-def test_credentials_error_propagates_with_sqlcmd(monkeypatch, tmp_path):
-    failing_db_url = os.environ["TPP_DATABASE_URL"].replace("pass", "fail")
-    with pytest.raises(ValueError) as excinfo:
-        mssql_query_to_csv_file(
-            failing_db_url, "SELECT * FROM foo", tmp_path / "test.csv"
-        )
-    assert "Login failed" in str(excinfo.value)
-
-
-def test_sql_error_propagates_without_sqlcmd(tmp_path):
+def test_sql_error_propagates(tmp_path):
     study = StudyDefinition(population=patients.all(), sex=patients.sex())
     # A bit hacky: fiddle with the list of queries to insert a deliberate error
     # at the end
     study.backend.queries[-1] = ("test", "SELECT Foo FROM Bar")
     with pytest.raises(pyodbc.ProgrammingError) as excinfo:
-        study.to_csv(tmp_path / "test.csv", with_sqlcmd=False)
+        study.to_csv(tmp_path / "test.csv")
     assert "Invalid object name 'Bar'" in str(excinfo.value)
 
 
@@ -1477,31 +1457,6 @@ def test_duplicate_id_checking(tmp_path):
     assert len(partial_files) == 1
 
 
-def test_sqlcmd_and_odbc_outputs_match(tmp_path):
-    session = make_session()
-    patient = Patient(DateOfBirth="1950-01-01")
-    patient.CodedEvents.append(
-        CodedEvent(CTV3Code="XYZ", NumericValue=50, ConsultationDate="2002-06-01")
-    )
-    session.add(patient)
-    session.commit()
-
-    study = StudyDefinition(
-        population=patients.with_these_clinical_events(codelist(["XYZ"], "ctv3"))
-    )
-    input_csv_odbc = tmp_path / "odbc.csv"
-    input_csv_sqlcmd = tmp_path / "sqlcmd.csv"
-    # windows line endings
-    study.to_csv(input_csv_odbc, with_sqlcmd=False)
-    # unix line endings
-    study.to_csv(input_csv_sqlcmd, with_sqlcmd=True)
-    with open(input_csv_odbc) as f:
-        odbc_output = f.read()
-    with open(input_csv_sqlcmd) as f:
-        sqlcmd_output = f.read()
-    assert odbc_output == sqlcmd_output
-
-
 def test_using_expression_in_population_definition():
     session = make_session()
     session.add_all(
@@ -2587,10 +2542,10 @@ def test_temporary_database(tmp_path, monkeypatch):
     )
     initial_temporary_tables = _list_table_in_db(session, temporary_database)
     # Trigger error during data download process
-    with patch("cohortextractor.tpp_backend.mssql_query_to_csv_file") as query_fn:
-        query_fn.side_effect = ValueError("deliberate error")
+    with patch("cohortextractor.tpp_backend.csv") as csv_module:
+        csv_module.writer.side_effect = ValueError("deliberate error")
         with pytest.raises(ValueError, match="deliberate error"):
-            study.to_csv(tmp_path / "fail.csv", with_sqlcmd=True)
+            study.to_csv(tmp_path / "fail.csv")
     # Check that we've created one extra temporary table
     temporary_tables = _list_table_in_db(session, temporary_database)
     assert len(set(temporary_tables) - set(initial_temporary_tables)) == 1
@@ -2599,7 +2554,7 @@ def test_temporary_database(tmp_path, monkeypatch):
     session.query(Patient).delete()
     session.commit()
     # Now try downloading again and check we have correct results
-    study.to_csv(tmp_path / "test.csv", with_sqlcmd=True)
+    study.to_csv(tmp_path / "test.csv")
     with open(tmp_path / "test.csv") as f:
         results = list(csv.DictReader(f))
     assert_results(results, sex=["M", "F"], age=["40", "20"])

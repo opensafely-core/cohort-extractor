@@ -7,10 +7,7 @@ import re
 import uuid
 
 from .expressions import format_expression
-from .mssql_utils import (
-    mssql_pyodbc_connection_from_url,
-    mssql_query_to_csv_file,
-)
+from .mssql_utils import mssql_pyodbc_connection_from_url
 
 
 # Characters that are safe to interpolate into SQL (see
@@ -30,8 +27,7 @@ class TPPBackend:
         self.codelist_tables = []
         self.queries = self.get_queries(self.covariate_definitions)
 
-    def to_csv(self, filename, with_sqlcmd=False):
-        unique_check = UniqueCheck()
+    def to_csv(self, filename):
         queries = self.to_sql_list()
         # If we have a temporary database available we write results to a table
         # there, download them, and then delete the table. This allows us to
@@ -42,8 +38,15 @@ class TPPBackend:
         else:
             cleanup_queries = []
         temp_filename = self._get_temp_filename(filename)
-        for patient_id in self._to_csv(temp_filename, queries, with_sqlcmd=with_sqlcmd):
-            unique_check.add(patient_id)
+        unique_check = UniqueCheck()
+        result = self.execute_queries(queries)
+        with open(temp_filename, "w", newline="") as csvfile:
+            writer = csv.writer(csvfile)
+            writer.writerow([x[0] for x in result.description])
+            for row in result:
+                writer.writerow(row)
+                # The first column contains IDs
+                unique_check.add(row[0])
         if cleanup_queries:
             self.execute_queries(cleanup_queries)
         unique_check.assert_unique_ids()
@@ -56,25 +59,6 @@ class TPPBackend:
         root, extension = os.path.splitext(filename)
         timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
         return f"{root}.partial.{timestamp}{extension}"
-
-    def _to_csv(self, filename, queries, with_sqlcmd=False):
-        if with_sqlcmd:
-            sql = "\nGO\n\n".join(queries)
-            lines = mssql_query_to_csv_file(
-                self.database_url, sql, filename, yield_output_lines=True
-            )
-            for line in lines:
-                patient_id = line.split(",")[0]
-                yield patient_id
-        else:
-            result = self.execute_queries(queries)
-            with open(filename, "w", newline="") as csvfile:
-                writer = csv.writer(csvfile)
-                writer.writerow([x[0] for x in result.description])
-                for row in result:
-                    writer.writerow(row)
-                    patient_id = row[0]
-                    yield patient_id
 
     def to_dicts(self):
         result = self.execute_queries(self.to_sql_list())

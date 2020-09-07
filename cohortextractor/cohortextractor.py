@@ -10,7 +10,6 @@ import importlib
 import os
 import re
 import requests
-import shutil
 import sys
 
 
@@ -124,12 +123,10 @@ def _generate_cohort(output_dir, study_name, suffix, expectations_population):
     print("Running. Please wait...")
     study = load_study_definition(study_name)
 
-    with_sqlcmd = shutil.which("sqlcmd") is not None
     os.makedirs(output_dir, exist_ok=True)
     study.to_csv(
         f"{output_dir}/input{suffix}.csv",
         expectations_population=expectations_population,
-        with_sqlcmd=with_sqlcmd,
     )
     print(
         f"Successfully created cohort and covariates at {output_dir}/input{suffix}.csv"
