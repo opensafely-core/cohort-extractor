@@ -1,7 +1,15 @@
+import re
 from urllib.parse import urlparse, unquote
+import warnings
 
 import sqlalchemy
 from sqlalchemy.engine.url import URL
+
+
+# Some drivers warn about the use of features marked "optional" in the DB-ABI
+# spec, using a standardised set of warnings. See:
+# https://www.python.org/dev/peps/pep-0249/#optional-db-api-extensions
+warnings.filterwarnings("ignore", re.escape("DB-API extension cursor.__iter__() used"))
 
 
 def mssql_connection_params_from_url(url):
