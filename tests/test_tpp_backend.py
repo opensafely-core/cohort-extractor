@@ -109,6 +109,14 @@ def test_sql_error_propagates(tmp_path):
     assert "Invalid object name 'Bar'" in str(excinfo.value)
 
 
+def test_correct_driver_used():
+    # We support multiple drivers but we want to make sure our tests are
+    # running against the same driver we use in production
+    study = StudyDefinition(population=patients.all())
+    module = study.backend.get_db_connection().__class__.__module__
+    assert module == "ctds"
+
+
 def test_meds():
     session = make_session()
 

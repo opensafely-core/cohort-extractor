@@ -70,7 +70,7 @@ def test_errors_are_triggered_without_database_url(monkeypatch):
         )
 
 
-def test_pyodbc_not_accidentally_imported(tmp_path):
+def test_drivers_not_accidentally_imported(tmp_path):
     # Make a test script to be executed in a separate process so we can see
     # what gets imported
     def test_script():
@@ -88,15 +88,16 @@ def test_pyodbc_not_accidentally_imported(tmp_path):
             ),
         )
         study.to_csv("/dev/null", expectations_population=10)
-        status = "is" if "pyodbc" in sys.modules else "is not"
-        print(f"pyodbc {status} imported")
+        pyodbc = "yes" if "pyodbc" in sys.modules else "no"
+        ctds = "yes" if "ctds" in sys.modules else "no"
+        print(f"pyodbc: {pyodbc}, ctds: {ctds}")
 
     # Convert the code in `test_script` to a standalone script by removing the
     # function definition line and stripping the indentation
     source = inspect.getsource(test_script).splitlines()[1:]
     source = textwrap.dedent("\n".join(source))
     result = subprocess.check_output([sys.executable, "-c", source]).strip()
-    assert result == b"pyodbc is not imported"
+    assert result == b"pyodbc: no, ctds: no"
 
 
 def test_column_name_clashes_produce_errors():
