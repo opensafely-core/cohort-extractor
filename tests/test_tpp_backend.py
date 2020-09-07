@@ -2148,9 +2148,7 @@ def test_patients_household_as_of():
         household_size=patients.household_as_of(
             "2020-02-01", returning="household_size"
         ),
-        is_prison=patients.household_as_of(
-            "2020-02-01", returning="is_prison"
-        ),
+        is_prison=patients.household_as_of("2020-02-01", returning="is_prison"),
     )
     results = study.to_dicts()
     assert [x["household_id"] for x in results] == ["0", "123", "456", "0"]

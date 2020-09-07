@@ -281,8 +281,8 @@ def admitted_to_icu(
         binary_flag: Whether patient attended A&E
         date_admitted: Date patient arrived in A&E
         had_respiratory_support: Whether patient received any form of respiratory support
-        had_basic_respiratory_support": Whether patient received "basic" respiratory support
-        had_advanced_respiratory_support": Whether patient received "advanced" respiratory support
+        had_basic_respiratory_support: Whether patient received "basic" respiratory support
+        had_advanced_respiratory_support: Whether patient received "advanced" respiratory support
 
         (Note that the terms "basic" and "advanced" are derived from the underlying ICNARC data.)
     """
