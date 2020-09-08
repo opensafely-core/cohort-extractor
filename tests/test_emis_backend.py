@@ -5,13 +5,11 @@ import tempfile
 
 import pytest
 
-from tests.acme_backend_setup import make_database, make_session
-from tests.acme_backend_setup import (
+from tests.emis_backend_setup import make_database, make_session
+from tests.emis_backend_setup import (
     Observation,
     Medication,
     Patient,
-    Organisation,
-    PatientAddress,
     ICNARC,
     ONSDeaths,
     CPNS,
@@ -22,7 +20,7 @@ from cohortextractor import (
     patients,
     codelist,
 )
-from cohortextractor.acme_backend import quote
+from cohortextractor.emis_backend import quote
 from cohortextractor.presto_utils import presto_connection_params_from_url
 
 
@@ -31,8 +29,8 @@ def set_database_url(monkeypatch):
     # The StudyDefinition code expects a single DATABASE_URL to tell it where
     # to connect to, but the test environment needs to supply multiple
     # connections (one for each backend type) so we copy the value in here
-    if "ACME_DATABASE_URL" in os.environ:
-        monkeypatch.setenv("DATABASE_URL", os.environ["ACME_DATABASE_URL"])
+    if "EMIS_DATABASE_URL" in os.environ:
+        monkeypatch.setenv("DATABASE_URL", os.environ["EMIS_DATABASE_URL"])
 
 
 def setup_module(module):
@@ -45,12 +43,10 @@ def setup_function(function):
     """
     session = make_session()
     session.query(Observation).delete()
-    # session.query(ICNARC).delete()
-    # session.query(ONSDeaths).delete()
-    # session.query(CPNS).delete()
+    session.query(ICNARC).delete()
+    session.query(ONSDeaths).delete()
+    session.query(CPNS).delete()
     session.query(Medication).delete()
-    # session.query(Organisation).delete()
-    # session.query(PatientAddress).delete()
     session.query(Patient).delete()
     session.commit()
 
@@ -70,8 +66,8 @@ def delete_temporary_tables():
 
 def test_minimal_study_to_csv():
     session = make_session()
-    patient_1 = Patient(date_of_birth="1900-01-01", gender=1)
-    patient_2 = Patient(date_of_birth="1900-01-01", gender=2)
+    patient_1 = Patient(date_of_birth="1900-01-01", gender=1, hashed_organisation="abc")
+    patient_2 = Patient(date_of_birth="1900-01-01", gender=2, hashed_organisation="abc")
     session.add_all([patient_1, patient_2])
     session.commit()
     study = StudyDefinition(population=patients.all(), sex=patients.sex())
@@ -79,8 +75,16 @@ def test_minimal_study_to_csv():
         study.to_csv(f.name)
         results = list(csv.DictReader(f))
         assert results == [
-            {"patient_id": str(patient_1.id), "sex": "M"},
-            {"patient_id": str(patient_2.id), "sex": "F"},
+            {
+                "patient_id": str(patient_1.registration_id),
+                "sex": "M",
+                "hashed_organisation": "abc",
+            },
+            {
+                "patient_id": str(patient_2.registration_id),
+                "sex": "F",
+                "hashed_organisation": "abc",
+            },
         ]
 
 
@@ -441,7 +445,9 @@ def test_patients_registered_with_one_practice_between():
         )
     )
     results = study.to_dicts()
-    assert [x["patient_id"] for x in results] == [str(patient_registered_in_2001.id)]
+    assert [x["patient_id"] for x in results] == [
+        str(patient_registered_in_2001.registration_id)
+    ]
 
 
 @pytest.mark.parametrize("include_dates", ["none", "year", "month", "day"])
@@ -888,200 +894,125 @@ def test_patients_categorised_as():
     assert "has_bar" not in results[0].keys()
 
 
-@pytest.mark.xfail
-def test_patients_registered_practice_as_of():
+def test_patients_registered_practice_as_of(freezer):
+    # Ensure that registered_practice_as_of dates are recent
+    freezer.move_to("2020-03-01")
+
     session = make_session()
-    org_1 = Organisation(
-        STPCode="123", MSOACode="E0201", Region="East of England", Organisation_ID=1
-    )
-    org_2 = Organisation(
-        STPCode="456", MSOACode="E0202", Region="Midlands", Organisation_ID=2
-    )
-    org_3 = Organisation(
-        STPCode="789", MSOACode="E0203", Region="London", Organisation_ID=3
-    )
-    org_4 = Organisation(
-        STPCode="910", MSOACode="E0204", Region="North West", Organisation_ID=4
-    )
-    patient = Patient()
-    patient.RegistrationHistory.append(
-        RegistrationHistory(
-            StartDate="1990-01-01", EndDate="2018-01-01", Organisation=org_1
-        )
-    )
-    # We deliberately create overlapping registration periods so we can check
-    # that we handle these correctly
-    patient.RegistrationHistory.append(
-        RegistrationHistory(
-            StartDate="2018-01-01", EndDate="2022-01-01", Organisation=org_2
-        )
-    )
-    patient.RegistrationHistory.append(
-        RegistrationHistory(
-            StartDate="2019-09-01", EndDate="2020-05-01", Organisation=org_3
-        )
-    )
-    patient.RegistrationHistory.append(
-        RegistrationHistory(
-            StartDate="2022-01-01", EndDate="9999-12-31", Organisation=org_4
-        )
-    )
-    patient_2 = Patient()
-    patient_2.RegistrationHistory.append(
-        RegistrationHistory(
-            StartDate="2010-01-01", EndDate="9999-12-31", Organisation=org_1
-        )
-    )
-    patient_3 = Patient()
-    patient_3.RegistrationHistory.append(
-        RegistrationHistory(StartDate="2010-01-01", EndDate="9999-12-31")
-    )
-    session.add_all([patient, patient_2, patient_3])
+    patient = Patient(stp_code="789", msoa="E0203", english_region_name="London")
+
+    session.add_all([patient])
     session.commit()
     study = StudyDefinition(
         population=patients.all(),
-        stp=patients.registered_practice_as_of("2020-01-01", returning="stp_code"),
-        msoa=patients.registered_practice_as_of("2020-01-01", returning="msoa_code"),
+        stp=patients.registered_practice_as_of("2020-02-01", returning="stp_code"),
+        msoa=patients.registered_practice_as_of("2020-02-01", returning="msoa_code"),
         region=patients.registered_practice_as_of(
-            "2020-01-01", returning="nhse_region_name"
-        ),
-        pseudo_id=patients.registered_practice_as_of(
-            "2020-01-01", returning="pseudo_id"
+            "2020-02-01", returning="nuts1_region_name"
         ),
     )
     results = study.to_dicts()
-    assert [i["stp"] for i in results] == ["789", "123", ""]
-    assert [i["msoa"] for i in results] == ["E0203", "E0201", ""]
-    assert [i["region"] for i in results] == ["London", "East of England", ""]
-    assert [i["pseudo_id"] for i in results] == ["3", "1", "0"]
+    assert [i["stp"] for i in results] == ["789"]
+    assert [i["msoa"] for i in results] == ["E0203"]
+    assert [i["region"] for i in results] == ["London" ""]
+
+    # Now jump forwards in time and check that an error is raised
+    freezer.move_to("2021-03-01")
+    with pytest.raises(ValueError):
+        StudyDefinition(
+            population=patients.all(),
+            stp=patients.registered_practice_as_of("2020-02-01", returning="stp_code"),
+            msoa=patients.registered_practice_as_of("2020-02-01", returning="msoa_code"),
+            region=patients.registered_practice_as_of(
+                "2020-02-01", returning="nuts1_region_name"
+            ),
+        )
 
 
-@pytest.mark.xfail
-def test_patients_address_as_of():
+def test_patients_address_as_of(freezer):
+    # Ensure that registered_practice_as_of dates are recent
+    freezer.move_to("2020-03-01")
+
     session = make_session()
-    patient = Patient()
-    patient.Addresses.append(
-        PatientAddress(
-            StartDate="1990-01-01",
-            EndDate="2018-01-01",
-            ImdRankRounded=100,
-            RuralUrbanClassificationCode=1,
-        )
-    )
-    # We deliberately create overlapping address periods here to check that we
-    # handle these correctly
-    patient.Addresses.append(
-        PatientAddress(
-            StartDate="2018-01-01",
-            EndDate="2020-02-01",
-            ImdRankRounded=200,
-            RuralUrbanClassificationCode=1,
-        )
-    )
-    patient.Addresses.append(
-        PatientAddress(
-            StartDate="2019-01-01",
-            EndDate="2022-01-01",
-            ImdRankRounded=300,
-            RuralUrbanClassificationCode=2,
-        )
-    )
-    patient.Addresses.append(
-        PatientAddress(
-            StartDate="2022-01-01",
-            EndDate="9999-12-31",
-            ImdRankRounded=500,
-            RuralUrbanClassificationCode=3,
-        )
-    )
+    patient = Patient(imd_rank=300, rural_urban=2)
     patient_no_address = Patient()
-    patient_only_old_address = Patient()
-    patient_only_old_address.Addresses.append(
-        PatientAddress(
-            StartDate="2010-01-01",
-            EndDate="2015-01-01",
-            ImdRankRounded=100,
-            RuralUrbanClassificationCode=1,
-        )
-    )
-    session.add_all([patient, patient_no_address, patient_only_old_address])
+    session.add_all([patient, patient_no_address])
     session.commit()
     study = StudyDefinition(
         population=patients.all(),
         imd=patients.address_as_of(
-            "2020-01-01",
+            "2020-02-01",
             returning="index_of_multiple_deprivation",
             round_to_nearest=100,
         ),
         rural_urban=patients.address_as_of(
-            "2020-01-01", returning="rural_urban_classification"
+            "2020-02-01", returning="rural_urban_classification"
         ),
     )
     results = study.to_dicts()
-    assert [i["imd"] for i in results] == ["300", "0", "0"]
-    assert [i["rural_urban"] for i in results] == ["2", "0", "0"]
+    assert [i["imd"] for i in results] == ["300", "0"]
+    assert [i["rural_urban"] for i in results] == ["2", "0"]
 
 
-@pytest.mark.xfail
 def test_patients_admitted_to_icu():
     session = make_session()
     patient_1 = Patient()
     patient_1.ICNARC.append(
         ICNARC(
-            IcuAdmissionDateTime="2020-03-01",
-            OriginalIcuAdmissionDate="2020-03-01",
-            BasicDays_RespiratorySupport=2,
-            AdvancedDays_RespiratorySupport=2,
-            Ventilator=0,
+            icuadmissiondatetime="2020-03-01",
+            originalicuadmissiondate="2020-03-01",
+            basicdays_respiratorysupport=2,
+            advanceddays_respiratorysupport=2,
+            ventilator=0,
         )
     )
     patient_2 = Patient()
     patient_2.ICNARC.append(
         ICNARC(
-            IcuAdmissionDateTime="2020-03-01",
-            OriginalIcuAdmissionDate="2020-02-01",
-            BasicDays_RespiratorySupport=1,
-            AdvancedDays_RespiratorySupport=0,
-            Ventilator=1,
+            icuadmissiondatetime="2020-03-01",
+            originalicuadmissiondate="2020-02-01",
+            basicdays_respiratorysupport=1,
+            advanceddays_respiratorysupport=0,
+            ventilator=1,
         )
     )
     patient_3 = Patient()
     patient_3.ICNARC.append(
         ICNARC(
-            IcuAdmissionDateTime="2020-03-01",
-            OriginalIcuAdmissionDate="2020-02-01",
-            BasicDays_RespiratorySupport=0,
-            AdvancedDays_RespiratorySupport=0,
-            Ventilator=0,
+            icuadmissiondatetime="2020-03-01",
+            originalicuadmissiondate="2020-02-01",
+            basicdays_respiratorysupport=0,
+            advanceddays_respiratorysupport=0,
+            ventilator=0,
         )
     )
     patient_4 = Patient()
     patient_4.ICNARC.append(
         ICNARC(
-            IcuAdmissionDateTime="2020-01-01",
-            OriginalIcuAdmissionDate="2020-01-01",
-            BasicDays_RespiratorySupport=1,
-            AdvancedDays_RespiratorySupport=0,
-            Ventilator=1,
+            icuadmissiondatetime="2020-01-01",
+            originalicuadmissiondate="2020-01-01",
+            basicdays_respiratorysupport=1,
+            advanceddays_respiratorysupport=0,
+            ventilator=1,
         )
     )
     patient_5 = Patient()
     patient_5.ICNARC.append(
         ICNARC(
-            IcuAdmissionDateTime="2020-03-01",
-            OriginalIcuAdmissionDate=None,
-            BasicDays_RespiratorySupport=1,
-            AdvancedDays_RespiratorySupport=0,
-            Ventilator=1,
+            icuadmissiondatetime="2020-03-01",
+            originalicuadmissiondate=None,
+            basicdays_respiratorysupport=1,
+            advanceddays_respiratorysupport=0,
+            ventilator=1,
         )
     )
     patient_5.ICNARC.append(
         ICNARC(
-            IcuAdmissionDateTime="2020-04-01",
-            OriginalIcuAdmissionDate=None,
-            BasicDays_RespiratorySupport=0,
-            AdvancedDays_RespiratorySupport=0,
-            Ventilator=1,
+            icuadmissiondatetime="2020-04-01",
+            originalicuadmissiondate=None,
+            basicdays_respiratorysupport=0,
+            advanceddays_respiratorysupport=0,
+            ventilator=1,
         )
     )
     session.add_all([patient_1, patient_2, patient_3, patient_4, patient_5])
@@ -1138,7 +1069,6 @@ def test_patients_admitted_to_icu():
     assert [i["icu"] for i in results] == ["1", "1", "0", "0", "1"]
 
 
-@pytest.mark.xfail
 def test_patients_with_these_codes_on_death_certificate():
     code = "COVID"
     session = make_session()
@@ -1151,9 +1081,9 @@ def test_patients_with_these_codes_on_death_certificate():
             # Died of something else
             Patient(ONSDeath=[ONSDeaths(dod="2020-02-01", icd10u="MI")]),
             # Covid underlying cause
-            Patient(ONSDeath=[ONSDeaths(dod="2020-02-01", icd10u=code, ICD10014="MI")]),
+            Patient(ONSDeath=[ONSDeaths(dod="2020-02-01", icd10u=code, icd10014="MI")]),
             # Covid not underlying cause
-            Patient(ONSDeath=[ONSDeaths(dod="2020-03-01", icd10u="MI", ICD10014=code)]),
+            Patient(ONSDeath=[ONSDeaths(dod="2020-03-01", icd10u="MI", icd10014=code)]),
         ]
     )
     session.commit()
@@ -1187,7 +1117,6 @@ def test_patients_with_these_codes_on_death_certificate():
     assert [i["underlying_cause"] for i in results] == ["", "", "", code, "MI"]
 
 
-@pytest.mark.xfail
 def test_patients_died_from_any_cause():
     session = make_session()
     session.add_all(
@@ -1219,7 +1148,6 @@ def test_patients_died_from_any_cause():
     assert [i["underlying_cause"] for i in results] == ["", "", "A"]
 
 
-@pytest.mark.xfail
 def test_patients_with_death_recorded_in_cpns():
     session = make_session()
     session.add_all(
@@ -1227,13 +1155,13 @@ def test_patients_with_death_recorded_in_cpns():
             # Not dead
             Patient(),
             # Died after date cutoff
-            Patient(CPNS=[CPNS(DateOfDeath="2021-01-01")]),
+            Patient(CPNS=[CPNS(dateofdeath="2021-01-01")]),
             # Patient should be included
-            Patient(CPNS=[CPNS(DateOfDeath="2020-02-01")]),
+            Patient(CPNS=[CPNS(dateofdeath="2020-02-01")]),
             # Patient has multple entries but with the same date of death so
             # should be handled correctly
             Patient(
-                CPNS=[CPNS(DateOfDeath="2020-03-01"), CPNS(DateOfDeath="2020-03-01")]
+                CPNS=[CPNS(dateofdeath="2020-03-01"), CPNS(dateofdeath="2020-03-01")]
             ),
         ]
     )
@@ -1257,13 +1185,12 @@ def test_patients_with_death_recorded_in_cpns():
     ]
 
 
-@pytest.mark.xfail
 def test_patients_with_death_recorded_in_cpns_raises_error_on_bad_data():
     session = make_session()
     session.add_all(
         # Create a patient with duplicate CPNS entries recording an
         # inconsistent date of death
-        [Patient(CPNS=[CPNS(DateOfDeath="2020-03-01"), CPNS(DateOfDeath="2020-02-01")])]
+        [Patient(CPNS=[CPNS(dateofdeath="2020-03-01"), CPNS(dateofdeath="2020-02-01")])]
     )
     session.commit()
     study = StudyDefinition(
@@ -1358,7 +1285,7 @@ def test_using_expression_in_population_definition():
         age=patients.age_as_of("2020-01-01"),
     )
     results = study.to_dicts()
-    assert results[0].keys() == {"patient_id", "age"}
+    assert results[0].keys() == {"patient_id", "age", "hashed_organisation"}
     assert [i["age"] for i in results] == ["50"]
 
 

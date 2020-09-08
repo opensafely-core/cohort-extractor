@@ -15,7 +15,7 @@ safe_punctation = r"_.-"
 SAFE_CHARS_RE = re.compile(f"^[a-zA-Z0-9{re.escape(safe_punctation)}]+$")
 
 
-class ACMEBackend:
+class EMISBackend:
     _db_connection = None
     _current_column_name = None
 
@@ -110,8 +110,8 @@ class ACMEBackend:
             primary_table = self.make_temp_table_name("population")
             patient_id_expr = f"{primary_table}.patient_id"
         else:
-            primary_table = "patient"
-            patient_id_expr = "patient.id"
+            primary_table = "patient_view"
+            patient_id_expr = "patient_view.registration_id"
         # Insert `patient_id` as the first column
         output_columns = dict(patient_id=patient_id_expr, **output_columns)
         output_columns_str = ",\n          ".join(
@@ -119,6 +119,7 @@ class ACMEBackend:
             for (name, expr) in output_columns.items()
             if not is_hidden.get(name) and name != "population"
         )
+        output_columns_str += f",\n          {primary_table}.hashed_organisation"
         joins = []
         for name in table_queries:
             if name == "population":
@@ -213,9 +214,12 @@ class ACMEBackend:
         method = getattr(self, method_name)
         # Keep track of the current column name for debugging purposes
         self._current_column_name = column_name
-        return_value = method(**query_args)
+        cols, sql = method(**query_args)
+        assert (
+            "hashed_organisation" in sql
+        ), f"SQL for `{column_name}` must contain 'hashed_organisation'"
         self._current_column_name = None
-        return return_value
+        return cols, sql
 
     def create_codelist_table(self, codelist):
         table_number = len(self.codelist_tables) + 1
@@ -225,6 +229,7 @@ class ACMEBackend:
         # but has no significance for the database
         table_name = self.make_temp_table_name(f"{table_number}_{column_name}")
         cast = int if codelist.system in ("snomed", "snomedct") else str
+        organisation_hash = quote(get_organisation_hash())
         if codelist.has_categories:
             values = ", ".join(
                 f"({quote(cast(code))}, {quote(category)})"
@@ -233,7 +238,7 @@ class ACMEBackend:
             self.codelist_tables.append(
                 f"""
                     CREATE TABLE {table_name} AS
-                    SELECT * FROM (
+                    SELECT code, category, {organisation_hash} AS hashed_organisation FROM (
                       VALUES {values}
                     ) AS t (code, category)
                     """
@@ -243,7 +248,7 @@ class ACMEBackend:
             self.codelist_tables.append(
                 f"""
                     CREATE TABLE {table_name} AS
-                    SELECT * FROM (
+                    SELECT code, {organisation_hash} AS hashed_organisation FROM (
                       VALUES {values}
                     ) AS t (code)
                     """
@@ -256,15 +261,16 @@ class ACMEBackend:
             ["patient_id", "age"],
             f"""
             SELECT
-              id AS patient_id,
+              registration_id AS patient_id,
+              hashed_organisation,
               CASE WHEN
-                 date_add('year', date_diff('year', "date-of-birth", {quoted_date}), "date-of-birth") > {quoted_date}
+                 date_add('year', date_diff('year', date_of_birth, {quoted_date}), date_of_birth) > {quoted_date}
               THEN
-                 date_diff('year', "date-of-birth", {quoted_date}) - 1
+                 date_diff('year', date_of_birth, {quoted_date}) - 1
               ELSE
-                 date_diff('year', "date-of-birth", {quoted_date})
+                 date_diff('year', date_of_birth, {quoted_date})
               END AS age
-            FROM patient
+            FROM patient_view
             """,
         )
 
@@ -273,14 +279,15 @@ class ACMEBackend:
             ["patient_id", "sex"],
             """
           SELECT
-            id AS patient_id,
+            registration_id AS patient_id,
+            hashed_organisation,
             CASE gender
               -- See https://www.datadictionary.nhs.uk/data_dictionary/attributes/p/person/person_gender_code_de.asp?shownav=1
               WHEN 1 THEN 'M'
               WHEN 2 THEN 'F'
               ELSE ''
             END AS sex
-          FROM patient""",
+          FROM patient_view""",
         )
 
     def patients_all(self):
@@ -290,8 +297,8 @@ class ACMEBackend:
         return (
             ["patient_id", "is_included"],
             """
-            SELECT id AS patient_id, 1 AS is_included
-            FROM patient
+            SELECT registration_id AS patient_id, hashed_organisation, 1 AS is_included
+            FROM patient_view
             """,
         )
 
@@ -322,7 +329,7 @@ class ACMEBackend:
         # 2) If height and weight is not available, then take latest
         # recorded BMI. Both values must be recorded when the patient
         # is >=16, weight must be within the last 10 years
-        date_condition = make_date_filter('"effective-date"', between)
+        date_condition = make_date_filter("effective_date", between)
 
         # TODO these codes need validating
         bmi_code = 301331008  #  Finding of body mass index (finding)
@@ -342,28 +349,28 @@ class ACMEBackend:
         )
 
         bmi_cte = f"""
-        SELECT t."registration-id", t.BMI, t."effective-date"
+        SELECT t.registration_id, t.BMI, t.effective_date
         FROM (
-          SELECT "registration-id", "value-pq-1" AS BMI, "effective-date",
-          ROW_NUMBER() OVER (PARTITION BY "registration-id" ORDER BY "effective-date" DESC) AS rownum
-          FROM observation
-          WHERE "snomed-concept-id" = {quote(bmi_code)} AND {date_condition}
+          SELECT registration_id, "value_pq_1" AS BMI, effective_date,
+          ROW_NUMBER() OVER (PARTITION BY registration_id ORDER BY effective_date DESC) AS rownum
+          FROM observation_view
+          WHERE snomed_concept_id = {quote(bmi_code)} AND {date_condition}
         ) t
         WHERE t.rownum = 1
         """
 
         patients_cte = """
-           SELECT id, "date-of-birth"
-           FROM patient
+           SELECT registration_id, hashed_organisation, date_of_birth
+           FROM patient_view
         """
         weight_codes_sql = codelist_to_sql(weight_codes)
         weights_cte = f"""
-          SELECT t."registration-id", t.weight, t."effective-date"
+          SELECT t.registration_id, t.weight, t.effective_date
           FROM (
-            SELECT "registration-id", "value-pq-1" AS weight, "effective-date",
-            ROW_NUMBER() OVER (PARTITION BY "registration-id" ORDER BY "effective-date" DESC) AS rownum
-            FROM observation
-            WHERE "snomed-concept-id" IN ({weight_codes_sql}) AND {date_condition}
+            SELECT registration_id, "value_pq_1" AS weight, effective_date,
+            ROW_NUMBER() OVER (PARTITION BY registration_id ORDER BY effective_date DESC) AS rownum
+            FROM observation_view
+            WHERE snomed_concept_id IN ({weight_codes_sql}) AND {date_condition}
           ) t
           WHERE t.rownum = 1
         """
@@ -373,15 +380,15 @@ class ACMEBackend:
         # mind using old values as long as the patient was old enough when they
         # were taken.
         height_date_condition = make_date_filter(
-            '"effective-date"', between, upper_bound_only=True,
+            "effective_date", between, upper_bound_only=True,
         )
         heights_cte = f"""
-          SELECT t."registration-id", t.height, t."effective-date"
+          SELECT t.registration_id, t.height, t.effective_date
           FROM (
-            SELECT "registration-id", "value-pq-1" AS height, "effective-date",
-            ROW_NUMBER() OVER (PARTITION BY "registration-id" ORDER BY "effective-date" DESC) AS rownum
-            FROM observation
-            WHERE "snomed-concept-id" IN ({height_codes_sql}) AND {height_date_condition}
+            SELECT registration_id, "value_pq_1" AS height, effective_date,
+            ROW_NUMBER() OVER (PARTITION BY registration_id ORDER BY effective_date DESC) AS rownum
+            FROM observation_view
+            WHERE snomed_concept_id IN ({height_codes_sql}) AND {height_date_condition}
           ) t
           WHERE t.rownum = 1
         """
@@ -390,22 +397,23 @@ class ACMEBackend:
 
         sql = f"""
         SELECT
-          patients.id AS patient_id,
+          patients.registration_id AS patient_id,
+          hashed_organisation,
           CASE
             WHEN height = 0 THEN NULL
             ELSE ROUND(COALESCE(weight/(height*height), bmis.BMI), 1)
           END AS BMI,
           CASE
-            WHEN weight IS NULL OR height IS NULL THEN DATE(bmis."effective-date")
-            ELSE DATE(weights."effective-date")
+            WHEN weight IS NULL OR height IS NULL THEN DATE(bmis.effective_date)
+            ELSE DATE(weights.effective_date)
           END AS date
         FROM ({patients_cte}) AS patients
         LEFT JOIN ({weights_cte}) AS weights
-        ON weights."registration-id" = patients.id AND date_diff('year', patients."date-of-birth", weights."effective-date") >= {min_age}
+        ON weights.registration_id = patients.registration_id AND date_diff('year', patients.date_of_birth, weights.effective_date) >= {min_age}
         LEFT JOIN ({heights_cte}) AS heights
-        ON heights."registration-id" = patients.id AND date_diff('year', patients."date-of-birth", heights."effective-date") >= {min_age}
+        ON heights.registration_id = patients.registration_id AND date_diff('year', patients.date_of_birth, heights.effective_date) >= {min_age}
         LEFT JOIN ({bmi_cte}) AS bmis
-        ON bmis."registration-id" = patients.id AND date_diff('year', patients."date-of-birth", bmis."effective-date") >= {min_age}
+        ON bmis.registration_id = patients.registration_id AND date_diff('year', patients.date_of_birth, bmis.effective_date) >= {min_age}
         -- XXX maybe add a "WHERE NULL..." here
         """
         columns = ["patient_id", "BMI"]
@@ -425,7 +433,7 @@ class ACMEBackend:
     ):
         # We only support this option for now
         assert on_most_recent_day_of_measurement
-        date_condition = make_date_filter('"effective-date"', between)
+        date_condition = make_date_filter("effective_date", between)
         codelist_sql = codelist_to_sql(codelist)
         # The subquery finds, for each patient, the most recent day on which
         # they've had a measurement. The outer query selects, for each patient,
@@ -434,22 +442,26 @@ class ACMEBackend:
         # use an index for this. See: https://stackoverflow.com/a/25564539
         sql = f"""
         SELECT
-          days."registration-id" AS patient_id,
-          AVG(observation."value-pq-1") AS mean_value,
+          days.registration_id AS patient_id,
+          days.hashed_organisation,
+          AVG(observation_view."value_pq_1") AS mean_value,
           days.date_measured AS date
         FROM (
-            SELECT "registration-id", CAST(MAX("effective-date") AS date) AS date_measured
-            FROM observation
-            WHERE "snomed-concept-id" IN ({codelist_sql}) AND {date_condition}
-            GROUP BY "registration-id"
+            SELECT
+                registration_id,
+                hashed_organisation,
+                CAST(MAX(effective_date) AS date) AS date_measured
+            FROM observation_view
+            WHERE snomed_concept_id IN ({codelist_sql}) AND {date_condition}
+            GROUP BY registration_id, hashed_organisation
         ) AS days
-        LEFT JOIN observation
+        LEFT JOIN observation_view
         ON (
-          observation."registration-id" = days."registration-id"
-          AND observation."snomed-concept-id" IN ({codelist_sql})
-          AND CAST(observation."effective-date" AS date) = days.date_measured
+          observation_view.registration_id = days.registration_id
+          AND observation_view.snomed_concept_id IN ({codelist_sql})
+          AND CAST(observation_view.effective_date AS date) = days.date_measured
         )
-        GROUP BY days."registration-id", days.date_measured
+        GROUP BY days.registration_id, days.hashed_organisation, days.date_measured
         """
         columns = ["patient_id", "mean_value"]
         if include_date_of_match:
@@ -463,10 +475,13 @@ class ACMEBackend:
         return (
             ["patient_id", "is_registered"],
             f"""
-            SELECT DISTINCT patient.id AS patient_id, 1 AS is_registered
-            FROM patient
-            WHERE "registered-date" <= {quote(start_date)}
-              AND ("registration-end-date" > {quote(end_date)} OR "registration-end-date" IS NULL)
+            SELECT
+                patient_view.registration_id AS patient_id,
+                hashed_organisation,
+                1 AS is_registered
+            FROM patient_view
+            WHERE registered_date <= {quote(start_date)}
+              AND (registration_end_date > {quote(end_date)} OR registration_end_date IS NULL)
             """,
         )
 
@@ -491,7 +506,7 @@ class ACMEBackend:
             # Remove unhandled arguments and check they are unused
             assert not kwargs.pop("episode_defined_as", None)
             return self._patients_with_events(
-                "medication", "", '"snomed-concept-id"', **kwargs,
+                "medication_view", "", "snomed_concept_id", **kwargs,
             )
 
     def patients_with_these_clinical_events(self, **kwargs):
@@ -512,7 +527,7 @@ class ACMEBackend:
         else:
             assert not kwargs.pop("episode_defined_as", None)
             return self._patients_with_events(
-                "observation", "", '"snomed-concept-id"', **kwargs,
+                "observation_view", "", "snomed_concept_id", **kwargs,
             )
 
     def _patients_with_events(
@@ -534,7 +549,7 @@ class ACMEBackend:
         include_date_of_match=False,
     ):
         codelist_table = self.create_codelist_table(codelist)
-        date_condition = make_date_filter('"effective-date"', between)
+        date_condition = make_date_filter("effective_date", between)
         not_an_ignored_day_condition = self._none_of_these_codes_occur_on_same_day(
             from_table, ignore_days_where_these_codes_occur
         )
@@ -558,7 +573,7 @@ class ACMEBackend:
             use_partition_query = False
         elif returning == "numeric_value":
             column_name = "value"
-            column_definition = '"value-pq-1"'
+            column_definition = '"value_pq_1"'
             use_partition_query = True
         elif returning == "code":
             column_name = "code"
@@ -583,14 +598,19 @@ class ACMEBackend:
         if use_partition_query:
             sql = f"""
             SELECT
-              "registration-id" AS patient_id,
+              registration_id AS patient_id,
+              hashed_organisation,
               {column_definition} AS {column_name},
-              DATE("effective-date") AS date
+              DATE(effective_date) AS date
             FROM (
-              SELECT "registration-id", {query_column}, "effective-date",
-              ROW_NUMBER() OVER (
-                PARTITION BY "registration-id" ORDER BY "effective-date" {ordering}
-              ) AS rownum
+              SELECT
+                registration_id,
+                {from_table}.hashed_organisation,
+                {query_column},
+                effective_date,
+                ROW_NUMBER() OVER (
+                  PARTITION BY registration_id ORDER BY effective_date {ordering}
+                ) AS rownum
               FROM {from_table}{additional_join}
               INNER JOIN {codelist_table}
               ON {code_column} = {codelist_table}.code
@@ -601,14 +621,15 @@ class ACMEBackend:
         else:
             sql = f"""
             SELECT
-              "registration-id" AS patient_id,
+              registration_id AS patient_id,
+              {from_table}.hashed_organisation,
               {column_definition} AS {column_name},
-              {date_aggregate}(DATE("effective-date")) AS date
+              {date_aggregate}(DATE(effective_date)) AS date
             FROM {from_table}{additional_join}
             INNER JOIN {codelist_table}
             ON {code_column} = {codelist_table}.code
             WHERE {date_condition} AND {not_an_ignored_day_condition}
-            GROUP BY "registration-id"
+            GROUP BY registration_id, {from_table}.hashed_organisation
             """
 
         if returning == "date":
@@ -628,9 +649,9 @@ class ACMEBackend:
         episode_defined_as=None,
     ):
         codelist_table = self.create_codelist_table(codelist)
-        date_condition = make_date_filter('"effective-date"', between)
+        date_condition = make_date_filter("effective_date", between)
         not_an_ignored_day_condition = self._none_of_these_codes_occur_on_same_day(
-            "medication", ignore_days_where_these_codes_occur
+            "medication_view", ignore_days_where_these_codes_occur
         )
         if episode_defined_as is not None:
             pattern = r"^series of events each <= (\d+) days apart$"
@@ -645,27 +666,29 @@ class ACMEBackend:
 
         sql = f"""
         SELECT
-          "registration-id" AS patient_id,
+          registration_id AS patient_id,
+          hashed_organisation,
           SUM(is_new_episode) AS episode_count
         FROM (
             SELECT
-              "registration-id",
+              registration_id,
+              medication_view.hashed_organisation,
               CASE
                 WHEN
                   date_diff(
                     'day',
-                    LAG("effective-date") OVER (PARTITION BY "registration-id" ORDER BY "effective-date"),
-                    "effective-date"
+                    LAG(effective_date) OVER (PARTITION BY registration_id ORDER BY effective_date),
+                    effective_date
                   ) <= {washout_period}
                 THEN 0
                 ELSE 1
               END AS is_new_episode
-            FROM medication
+            FROM medication_view
             INNER JOIN {codelist_table}
-            ON "snomed-concept-id" = {codelist_table}.code
+            ON snomed_concept_id = {codelist_table}.code
             WHERE {date_condition} AND {not_an_ignored_day_condition}
         ) t
-        GROUP BY "registration-id"
+        GROUP BY registration_id, hashed_organisation
         """
         return ["patient_id", "episode_count"], sql
 
@@ -678,9 +701,9 @@ class ACMEBackend:
         episode_defined_as=None,
     ):
         codelist_table = self.create_codelist_table(codelist)
-        date_condition = make_date_filter('"effective-date"', between)
+        date_condition = make_date_filter("effective_date", between)
         not_an_ignored_day_condition = self._none_of_these_codes_occur_on_same_day(
-            "observation", ignore_days_where_these_codes_occur
+            "observation_view", ignore_days_where_these_codes_occur
         )
         if episode_defined_as is not None:
             pattern = r"^series of events each <= (\d+) days apart$"
@@ -695,27 +718,29 @@ class ACMEBackend:
 
         sql = f"""
         SELECT
-          "registration-id" AS patient_id,
+          registration_id AS patient_id,
+          hashed_organisation,
           SUM(is_new_episode) AS episode_count
         FROM (
             SELECT
-              "registration-id",
+              registration_id,
+              observation_view.hashed_organisation,
               CASE
                 WHEN
                   date_diff(
                     'day',
-                    LAG("effective-date") OVER (PARTITION BY "registration-id" ORDER BY "effective-date"),
-                    "effective-date"
+                    LAG(effective_date) OVER (PARTITION BY registration_id ORDER BY effective_date),
+                    effective_date
                   ) <= {washout_period}
                 THEN 0
                 ELSE 1
               END AS is_new_episode
-            FROM observation
+            FROM observation_view
             INNER JOIN {codelist_table}
-            ON "snomed-concept-id" = {codelist_table}.code
+            ON snomed_concept_id = {codelist_table}.code
             WHERE {date_condition} AND {not_an_ignored_day_condition}
         ) t
-        GROUP BY "registration-id"
+        GROUP BY registration_id, hashed_organisation
         """
         return ["patient_id", "episode_count"], sql
 
@@ -734,83 +759,62 @@ class ACMEBackend:
         codelist_table = self.create_codelist_table(codelist)
         return f"""
         NOT EXISTS (
-          SELECT * FROM observation AS sameday
+          SELECT * FROM observation_view AS sameday
           INNER JOIN {codelist_table}
-          ON sameday."snomed-concept-id" = {codelist_table}.code
+          ON sameday.snomed_concept_id = {codelist_table}.code
           WHERE
-            sameday."registration-id" = {joined_table}."registration-id"
-            AND CAST(sameday."effective-date" AS date) = CAST({joined_table}."effective-date" AS date)
+            sameday.registration_id = {joined_table}.registration_id
+            AND CAST(sameday.effective_date AS date) = CAST({joined_table}.effective_date AS date)
         )
         """
 
     def patients_registered_practice_as_of(self, date, returning=None):
+        # At the moment we can only return current values for the fields in question.
+        self.validate_recent_date(date)
+
         if returning == "stp_code":
-            column = "STPCode"
+            column = "stp_code"
         elif returning == "msoa_code":
-            column = "MSOACode"
-        elif returning == "nhse_region_name":
-            column = "Region"
-        elif returning == "pseudo_id":
-            column = "Organisation_ID"
+            column = "msoa"
+        elif returning == "nuts1_region_name":
+            column = "english_region_name"
         else:
             raise ValueError(f"Unsupported `returning` value: {returning}")
-        # Note that current registrations are recorded with an EndDate of
-        # 9999-12-31. Where registration periods overlap we use the one with
-        # the most recent start date. If there are several with the same start
-        # date we use the longest one (i.e. with the latest end date).
+
         return (
             ["patient_id", returning],
             f"""
             SELECT
-              "registration-id" AS patient_id,
-              Organisation.{column} AS {returning}
-            FROM (
-              SELECT "registration-id", Organisation_ID,
-              ROW_NUMBER() OVER (
-                PARTITION BY "registration-id" ORDER BY StartDate DESC, EndDate DESC
-              ) AS rownum
-              FROM RegistrationHistory
-              WHERE StartDate <= {quote(date)} AND EndDate > {quote(date)}
-            ) t
-            LEFT JOIN Organisation
-            ON Organisation.Organisation_ID = t.Organisation_ID
-            WHERE t.rownum = 1
+              registration_id AS patient_id,
+              hashed_organisation,
+              {column} AS {returning}
+            FROM
+              patient_view
             """,
         )
 
     def patients_address_as_of(self, date, returning=None, round_to_nearest=None):
-        # N.B. A value of -1 indicates no postcode recorded on the
-        # record, an invalid postcode, or no fixed abode.
-        #
-        # Related, there is a column in the address table to indicate
-        # NP for no postcode or NFA for no fixed abode
+        # At the moment we can only return current values for the fields in question.
+        self.validate_recent_date(date)
+
         if returning == "index_of_multiple_deprivation":
             assert round_to_nearest == 100
-            column = "ImdRankRounded"
+            column = "imd_rank"
         elif returning == "rural_urban_classification":
             assert round_to_nearest is None
-            column = "RuralUrbanClassificationCode"
+            column = "rural_urban"
         else:
             raise ValueError(f"Unsupported `returning` value: {returning}")
-        # Note that current addresses are recorded with an EndDate of
-        # 9999-12-31. Where address periods overlap we use the one with the
-        # most recent start date. If there are several with the same start date
-        # we use the longest one (i.e. with the latest end date).
+
         return (
             ["patient_id", returning],
             f"""
             SELECT
-              "registration-id" AS patient_id,
+              registration_id AS patient_id,
+              hashed_organisation,
               {column} AS {returning}
-            FROM (
-              SELECT "registration-id", {column},
-              ROW_NUMBER() OVER (
-                PARTITION BY "registration-id" ORDER BY StartDate DESC, EndDate DESC
-              ) AS rownum
-              FROM PatientAddress
-              WHERE StartDate <= {quote(date)} AND EndDate > {quote(date)}
-            ) t
-            WHERE rownum = 1
+            FROM
+              patient_view
             """,
         )
 
@@ -832,11 +836,11 @@ class ACMEBackend:
         {date_aggregate}(
         CASE
         WHEN
-          COALESCE(date_format(IcuAdmissionDateTime, '%Y-%m-%d'), '9999-01-01') < COALESCE(date_format(OriginalIcuAdmissionDate, '%Y-%m-%d'), '9999-01-01')
+          COALESCE(date_format(icuadmissiondatetime, '%Y-%m-%d'), '9999-01-01') < COALESCE(date_format(originalicuadmissiondate, '%Y-%m-%d'), '9999-01-01')
         THEN
-          DATE(IcuAdmissionDateTime)
+          DATE(icuadmissiondatetime)
         ELSE
-          DATE(OriginalIcuAdmissionDate)
+          DATE(originalicuadmissiondate)
         END)"""
         date_condition = make_date_filter(date_expression, between)
 
@@ -852,14 +856,15 @@ class ACMEBackend:
             ["patient_id", column_name],
             f"""
             SELECT
-              "registration-id" AS patient_id,
+              registration_id AS patient_id,
+              hashed_organisation,
               {column_definition} AS {column_name},
               MAX(Ventilator) AS ventilated -- apparently can be 0, 1 or NULL
             FROM
-              ICNARC
-            GROUP BY "registration-id"
+              icnarc_view
+            GROUP BY registration_id, hashed_organisation
             HAVING
-              {date_condition} AND SUM(BasicDays_RespiratorySupport) + SUM(AdvancedDays_RespiratorySupport) >= 1
+              {date_condition} AND SUM(basicdays_respiratorysupport) + SUM(advanceddays_respiratorysupport) >= 1
             """,
         )
 
@@ -879,7 +884,7 @@ class ACMEBackend:
             codelist_sql = codelist_to_sql(codelist)
             code_columns = ["icd10u"]
             if not match_only_underlying_cause:
-                code_columns.extend([f"ICD10{i:03d}" for i in range(1, 16)])
+                code_columns.extend([f"icd10{i:03d}" for i in range(1, 16)])
             code_conditions = " OR ".join(
                 f"{column} IN ({codelist_sql})" for column in code_columns
             )
@@ -891,13 +896,19 @@ class ACMEBackend:
         elif returning == "date_of_death":
             column_definition = "dod"
             column_name = "date_of_death"
+        elif returning == "underlying_cause_of_death":
+            column_definition = "icd10u"
+            column_name = "underlying_cause_of_death"
         else:
             raise ValueError(f"Unsupported `returning` value: {returning}")
         return (
             ["patient_id", column_name],
             f"""
-            SELECT "registration-id" as patient_id, {column_definition} AS {column_name}
-            FROM ONS_Deaths
+            SELECT
+                registration_id as patient_id,
+                hashed_organisation,
+                {column_definition} AS {column_name}
+            FROM ons_view
             WHERE ({code_conditions}) AND {date_condition}
             """,
         )
@@ -920,12 +931,12 @@ class ACMEBackend:
         # Set return type
         returning="binary_flag",
     ):
-        date_condition = make_date_filter("DateOfDeath", between)
+        date_condition = make_date_filter("dateofdeath", between)
         if returning == "binary_flag":
             column_definition = "1"
             column_name = "died"
         elif returning == "date_of_death":
-            column_definition = "MAX(DateOfDeath)"
+            column_definition = "MAX(dateofdeath)"
             column_name = "date_of_death"
         else:
             raise ValueError(f"Unsupported `returning` value: {returning}")
@@ -933,13 +944,14 @@ class ACMEBackend:
             ["patient_id", column_name],
             f"""
             SELECT
-              "registration-id" as patient_id,
+              registration_id as patient_id,
+              hashed_organisation,
               {column_definition} AS {column_name},
               -- Crude error check so we blow up in the case of inconsistent dates
-              1 / CASE WHEN MAX(DateOfDeath) = MIN(DateOfDeath) THEN 1 ELSE 0 END AS _e
-            FROM CPNS
+              1 / CASE WHEN MAX(dateofdeath) = MIN(dateofdeath) THEN 1 ELSE 0 END AS _e
+            FROM cpns_view
             WHERE {date_condition}
-            GROUP BY "registration-id"
+            GROUP BY registration_id, hashed_organisation
             """,
         )
 
@@ -982,6 +994,13 @@ class ACMEBackend:
             return self._db_connection
         self._db_connection = presto_connection_from_url(self.database_url)
         return self._db_connection
+
+    def validate_recent_date(self, date, max_delta_days=30):
+        date = datetime.datetime.strptime(date, "%Y-%m-%d").date()
+        delta = datetime.date.today() - date
+        if delta.days > max_delta_days:
+            msg = f"{self._current_column_name} must be passed a date more recent than {max_delta_days} days in the past"
+            raise ValueError(msg)
 
 
 def codelist_to_sql(codelist):
@@ -1058,3 +1077,7 @@ def pop_keys_from_dict(dictionary, keys):
         if key in dictionary:
             new_dict[key] = dictionary.pop(key)
     return new_dict
+
+
+def get_organisation_hash():
+    return os.environ["EMIS_ORGANISATION_HASH"]

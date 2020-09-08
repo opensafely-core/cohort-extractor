@@ -89,7 +89,7 @@ class CursorProxy:
     * the .description attribute is set immediately after calling .execute()
     * you can iterate over it to yield rows
     * .fetchone()/.fetchmany()/.fetchall() are disabled (they are not currently
-      used by ACMEBackend, although they could be implemented if required)
+      used by EMISBackend, although they could be implemented if required)
     """
 
     _rows = None
