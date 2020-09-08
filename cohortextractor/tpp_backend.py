@@ -120,17 +120,20 @@ class TPPBackend:
             # with an empty output table in the event that the query fails. See:
             # https://docs.microsoft.com/en-us/sql/t-sql/queries/select-into-clause-transact-sql?view=sql-server-ver15#remarks
             conn = self.get_db_connection()
-            conn.autocommit = False
             self.log(f"Writing results into temporary table '{output_table}'")
+            previous_autocommit = conn.autocommit
+            conn.autocommit = False
             cursor = conn.cursor()
+            cursor.execute("BEGIN TRANSACTION")
             cursor.execute(f"SELECT * INTO {output_table} FROM ({final_query}) t")
             cursor.execute("COMMIT")
-            conn.autocommit = True
+            conn.autocommit = previous_autocommit
+            self.log(f"Downloading results from '{output_table}'")
         else:
             self.log(f"Downloading results from previous run in '{output_table}'")
         return (
             [f"SELECT * FROM {output_table}"],
-            [f"-- Deleting '{output_table}'\nDROP TABLE {output_table}", "COMMIT",],
+            [f"-- Deleting '{output_table}'\nDROP TABLE {output_table}"],
         )
 
     def table_exists(self, table_name):

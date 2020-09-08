@@ -2531,7 +2531,33 @@ def assert_results(results, **expected_values):
         assert col_values == expected_col_values, f"Unexpected results for {col_name}"
 
 
-def test_temporary_database(tmp_path, monkeypatch):
+def test_temporary_database_happy_path(tmp_path, monkeypatch):
+    temporary_database = os.environ["TPP_TEMP_DATABASE_NAME"]
+    monkeypatch.setenv("TEMP_DATABASE_NAME", temporary_database)
+    session = make_session()
+    session.add_all(
+        [
+            Patient(DateOfBirth="1960-01-01", Sex="M"),
+            Patient(DateOfBirth="1980-01-01", Sex="F"),
+        ]
+    )
+    session.commit()
+    study = StudyDefinition(
+        population=patients.all(),
+        sex=patients.sex(),
+        age=patients.age_as_of("1990-01-01"),
+    )
+    initial_temporary_tables = _list_table_in_db(session, temporary_database)
+    study.to_csv(tmp_path / "test.csv")
+    with open(tmp_path / "test.csv") as f:
+        results = list(csv.DictReader(f))
+    assert_results(results, sex=["M", "F"], age=["30", "10"])
+    # Check that the temporary table has been deleted
+    final_temporary_tables = _list_table_in_db(session, temporary_database)
+    assert final_temporary_tables == initial_temporary_tables
+
+
+def test_temporary_database_with_failure(tmp_path, monkeypatch):
     temporary_database = os.environ["TPP_TEMP_DATABASE_NAME"]
     monkeypatch.setenv("TEMP_DATABASE_NAME", temporary_database)
     session = make_session()
