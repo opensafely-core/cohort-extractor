@@ -32,6 +32,9 @@ def mssql_dbapi_connection_from_url(url):
     # database driver installed (which complicates local installing).
     params = mssql_connection_params_from_url(url)
 
+    # For more background on why we use cTDS and why we support multiple
+    # database drivers see:
+    # https://github.com/opensafely/cohort-extractor/pull/286
     try:
         import ctds
     except ImportError:
