@@ -13,7 +13,7 @@ from tests.tpp_backend_setup import (
 )
 
 from cohortextractor import codelist
-from cohortextractor.mssql_utils import mssql_pyodbc_connection_from_url
+from cohortextractor.mssql_utils import mssql_dbapi_connection_from_url
 from cohortextractor.dashboards.vaccinations_extract import (
     patients_with_ages_and_practices_sql,
     vaccination_events_sql,
@@ -28,12 +28,12 @@ setup_function
 
 
 def sql_to_dicts(sql):
-    connection = mssql_pyodbc_connection_from_url(os.environ["DATABASE_URL"])
+    connection = mssql_dbapi_connection_from_url(os.environ["DATABASE_URL"])
     cursor = connection.cursor()
-    result = cursor.execute(sql)
-    keys = [x[0] for x in result.description]
+    cursor.execute(sql)
+    keys = [x[0] for x in cursor.description]
     # Convert all values to str as that's what will end in the CSV
-    return [dict(zip(keys, map(str, row))) for row in result]
+    return [dict(zip(keys, map(str, row))) for row in cursor]
 
 
 def test_patients_with_ages_and_practices_sql():

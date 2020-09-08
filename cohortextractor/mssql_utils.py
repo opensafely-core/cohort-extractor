@@ -1,11 +1,15 @@
-import os
 import re
-import subprocess
-import tempfile
 from urllib.parse import urlparse, unquote
+import warnings
 
 import sqlalchemy
 from sqlalchemy.engine.url import URL
+
+
+# Some drivers warn about the use of features marked "optional" in the DB-ABI
+# spec, using a standardised set of warnings. See:
+# https://www.python.org/dev/peps/pep-0249/#optional-db-api-extensions
+warnings.filterwarnings("ignore", re.escape("DB-API extension cursor.__iter__() used"))
 
 
 def mssql_connection_params_from_url(url):
@@ -21,13 +25,42 @@ def mssql_connection_params_from_url(url):
     }
 
 
-def mssql_pyodbc_connection_from_url(url):
+def mssql_dbapi_connection_from_url(url):
     # We avoid importing this immediately because we're using the TPPBackend
     # code for error checking (as a hopefully temporary shortcut) and so want
-    # to be able to create a TPPBackend instance without needing pyodbc
-    # installed (which complicates local installing).
-    import pyodbc
+    # to be able to create a TPPBackend instance without needing a MSSQL
+    # database driver installed (which complicates local installing).
+    params = mssql_connection_params_from_url(url)
 
+    # For more background on why we use cTDS and why we support multiple
+    # database drivers see:
+    # https://github.com/opensafely/cohort-extractor/pull/286
+    try:
+        import ctds
+    except ImportError:
+        pass
+    else:
+        return _ctds_connect(ctds, params)
+
+    try:
+        import pyodbc
+    except ImportError:
+        pass
+    else:
+        return _pyodbc_connect(pyodbc, params)
+
+    raise ImportError(
+        "Unable to import database driver, tried `ctds` and `pyodbc`\n"
+        "\n"
+        "We use `ctds` in production. If you are on Linux the correct version is "
+        "specified in the `requirements.txt` file.\n"
+        "\n"
+        "Installation instructions for other platforms can be found at:\n"
+        "https://zillow.github.io/ctds/install.html"
+    )
+
+
+def _pyodbc_connect(pyodbc, params):
     connection_str_template = (
         "DRIVER={{ODBC Driver 17 for SQL Server}};"
         "SERVER={host},{port};"
@@ -35,10 +68,15 @@ def mssql_pyodbc_connection_from_url(url):
         "UID={username};"
         "PWD={password}"
     )
-    connection_str = connection_str_template.format(
-        **mssql_connection_params_from_url(url)
-    )
+    connection_str = connection_str_template.format(**params)
     return pyodbc.connect(connection_str)
+
+
+def _ctds_connect(ctds, params):
+    params = params.copy()
+    params["server"] = params.pop("host")
+    params["user"] = params.pop("username")
+    return ctds.connect(**params)
 
 
 def mssql_sqlalchemy_engine_from_url(url):
@@ -46,82 +84,3 @@ def mssql_sqlalchemy_engine_from_url(url):
     params["drivername"] = "mssql+pyodbc"
     params["query"] = {"driver": "ODBC Driver 17 for SQL Server"}
     return sqlalchemy.create_engine(URL(**params))
-
-
-def mssql_query_to_csv_file(database_url, query, filename, yield_output_lines=False):
-    """
-    Uses the `sqlcmd` program to run an SQL query against the given server and
-    save the result as CSV. For large/slow queries this seems to be more
-    reliable than running them over pyodbc
-    """
-    iterator = _mssql_query_to_csv_file(database_url, query, filename)
-    # We don't want the default behaviour of this function to be to create an
-    # iterator which does nothing until you consume it (which might lead to
-    # confusion) but we do want the option of yielding the results so that
-    # callers who need to run additional checks on the output can do so
-    if yield_output_lines:
-        return iterator
-    else:
-        for line in iterator:
-            pass
-
-
-def _mssql_query_to_csv_file(database_url, query, filename):
-    with tempfile.TemporaryDirectory() as tmpdir:
-        # Don't output count after table output
-        query = f"SET NOCOUNT ON;\n{query}"
-        sqlfile = os.path.join(tmpdir, "query.sql")
-        with open(sqlfile, "w") as f:
-            f.write(query)
-        db_dict = mssql_connection_params_from_url(database_url)
-        cmd = [
-            "sqlcmd",
-            "-S",
-            db_dict["host"] + "," + str(db_dict["port"]),
-            "-d",
-            db_dict["database"],
-            "-U",
-            db_dict["username"],
-            "-P",
-            db_dict["password"],
-            "-i",
-            sqlfile,
-            "-W",  # strip whitespace
-            "-s",
-            ",",  # comma delimited
-            "-r",
-            "1",  # error messages to stderr
-        ]
-        temp_file = os.path.join(tmpdir, "output.csv")
-        with open(temp_file, "wb") as temp_file_handle:
-            process = subprocess.Popen(
-                cmd, encoding="utf-8", stderr=subprocess.PIPE, stdout=temp_file_handle
-            )
-            _, stderr = process.communicate()
-            has_error = process.returncode != 0 or _output_contains_errors(stderr)
-        # We use windows line endings because that's what the CSV module's
-        # default dialect does
-        with open(filename, "w+", newline="\r\n") as out, open(temp_file, "r") as inp:
-            for line_num, line in enumerate(inp):
-                # sqlcmd outputs a separator line (consisting of repeated
-                # dashes) between the column headers and the data. There's no
-                # option to disable this behaviour so we remove it here.
-                if line_num == 1:
-                    if not re.match(r"^[\-,]+$", line):
-                        stderr += (
-                            f"\nExpected line 2 to be a separator containing only "
-                            f"dashes and commas but found: {line}"
-                        )
-                        has_error = True
-                    continue
-                yield line
-                out.write(line)
-        # We deliberately create the output file before raising any error to
-        # aid debugging (given that these queries can often take a long time to
-        # run)
-        if has_error:
-            raise ValueError(stderr)
-
-
-def _output_contains_errors(output):
-    return any(line.startswith("Msg ") for line in output.splitlines())

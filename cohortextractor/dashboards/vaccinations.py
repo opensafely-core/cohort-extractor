@@ -5,7 +5,7 @@ import os
 import random
 import tempfile
 
-from cohortextractor.mssql_utils import mssql_query_to_csv_file
+from cohortextractor.mssql_utils import mssql_dbapi_connection_from_url
 from .vaccinations_extract import (
     patients_with_ages_and_practices_sql,
     vaccination_events_sql,
@@ -100,9 +100,7 @@ class VaccinationsStudyDefinition:
         )
         self.database_url = os.environ.get("DATABASE_URL")
 
-    def to_csv(self, filename, expectations_population=False, with_sqlcmd=None):
-        # Note we accept `with_sqlcmd` to match the expected signature here but
-        # ignore its value and always use `sqlcmd`
+    def to_csv(self, filename, expectations_population=False):
         if expectations_population:
             self.write_dummy_data(filename, expectations_population)
         else:
@@ -251,3 +249,14 @@ def add_months(date, months):
     new_month = (zero_based_month % 12) + 1
     new_year = date.year + (zero_based_month // 12)
     return date.replace(year=new_year, month=new_month)
+
+
+def mssql_query_to_csv_file(database_url, query, filename):
+    conn = mssql_dbapi_connection_from_url(database_url)
+    cursor = conn.cursor()
+    cursor.execute(query)
+    with open(filename, "w", newline="") as csvfile:
+        writer = csv.writer(csvfile)
+        writer.writerow([x[0] for x in cursor.description])
+        for row in cursor:
+            writer.writerow(row)

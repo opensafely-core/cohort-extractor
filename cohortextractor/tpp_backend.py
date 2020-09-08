@@ -7,10 +7,7 @@ import re
 import uuid
 
 from .expressions import format_expression
-from .mssql_utils import (
-    mssql_pyodbc_connection_from_url,
-    mssql_query_to_csv_file,
-)
+from .mssql_utils import mssql_dbapi_connection_from_url
 
 
 # Characters that are safe to interpolate into SQL (see
@@ -30,8 +27,7 @@ class TPPBackend:
         self.codelist_tables = []
         self.queries = self.get_queries(self.covariate_definitions)
 
-    def to_csv(self, filename, with_sqlcmd=False):
-        unique_check = UniqueCheck()
+    def to_csv(self, filename):
         queries = self.to_sql_list()
         # If we have a temporary database available we write results to a table
         # there, download them, and then delete the table. This allows us to
@@ -42,8 +38,15 @@ class TPPBackend:
         else:
             cleanup_queries = []
         temp_filename = self._get_temp_filename(filename)
-        for patient_id in self._to_csv(temp_filename, queries, with_sqlcmd=with_sqlcmd):
-            unique_check.add(patient_id)
+        unique_check = UniqueCheck()
+        result = self.execute_queries(queries)
+        with open(temp_filename, "w", newline="") as csvfile:
+            writer = csv.writer(csvfile)
+            writer.writerow([x[0] for x in result.description])
+            for row in result:
+                writer.writerow(row)
+                # The first column contains IDs
+                unique_check.add(row[0])
         if cleanup_queries:
             self.execute_queries(cleanup_queries)
         unique_check.assert_unique_ids()
@@ -56,25 +59,6 @@ class TPPBackend:
         root, extension = os.path.splitext(filename)
         timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
         return f"{root}.partial.{timestamp}{extension}"
-
-    def _to_csv(self, filename, queries, with_sqlcmd=False):
-        if with_sqlcmd:
-            sql = "\nGO\n\n".join(queries)
-            lines = mssql_query_to_csv_file(
-                self.database_url, sql, filename, yield_output_lines=True
-            )
-            for line in lines:
-                patient_id = line.split(",")[0]
-                yield patient_id
-        else:
-            result = self.execute_queries(queries)
-            with open(filename, "w", newline="") as csvfile:
-                writer = csv.writer(csvfile)
-                writer.writerow([x[0] for x in result.description])
-                for row in result:
-                    writer.writerow(row)
-                    patient_id = row[0]
-                    yield patient_id
 
     def to_dicts(self):
         result = self.execute_queries(self.to_sql_list())
@@ -138,12 +122,16 @@ class TPPBackend:
             conn = self.get_db_connection()
             conn.autocommit = False
             self.log(f"Writing results into temporary table '{output_table}'")
-            conn.execute(f"SELECT * INTO {output_table} FROM ({final_query}) t")
-            conn.commit()
+            cursor = conn.cursor()
+            cursor.execute(f"SELECT * INTO {output_table} FROM ({final_query}) t")
+            cursor.execute("COMMIT")
             conn.autocommit = True
         else:
             self.log(f"Downloading results from previous run in '{output_table}'")
-        return [f"SELECT * FROM {output_table}"], [f"DROP TABLE {output_table}"]
+        return (
+            [f"SELECT * FROM {output_table}"],
+            [f"-- Deleting '{output_table}'\nDROP TABLE {output_table}", "COMMIT",],
+        )
 
     def table_exists(self, table_name):
         # We don't have access to sys.tables so this seems like the simplest
@@ -153,14 +141,10 @@ class TPPBackend:
             cursor.execute(f"SELECT 1 FROM {table_name}")
             list(cursor)
             return True
-        # Really we ought to be catching `pyodbc.ProgrammingError` here, but
-        # for $REASONS we want to avoid depending on pyodbc directly in this
-        # module. Because we're checking a specific error code and re-raising
-        # otherwise, this overbroad exception handling shouldn't be a problem
-        # in practice.
+        # Because we don't want to depend on a specific database driver we
+        # can't catch a specific exception class here
         except Exception as e:
-            # This is the error code for "Invalid object name"
-            if e.args[0] == "42S02":
+            if "Invalid object name" in str(e):
                 return False
             else:
                 raise
@@ -172,14 +156,10 @@ class TPPBackend:
         try:
             cursor.execute(f"SELECT 1 AS foo INTO {test_table}")
             cursor.execute(f"DROP TABLE {test_table}")
-        # Really we ought to be catching `pyodbc.ProgrammingError` here, but
-        # for $REASONS we want to avoid depending on pyodbc directly in this
-        # module. Because we're checking a specific error code and re-raising
-        # otherwise, this overbroad exception handling shouldn't be a problem
-        # in practice.
+        # Because we don't want to depend on a specific database driver we
+        # can't catch a specific exception class here
         except Exception as e:
-            # This is the error code for "Database does not exist"
-            if e.args[0] == "42000":
+            if "Database does not exist" in str(e):
                 raise RuntimeError(f"Temporary database '{db_name}' does not exist")
             else:
                 raise
@@ -1696,7 +1676,7 @@ class TPPBackend:
     def get_db_connection(self):
         if self._db_connection:
             return self._db_connection
-        self._db_connection = mssql_pyodbc_connection_from_url(self.database_url)
+        self._db_connection = mssql_dbapi_connection_from_url(self.database_url)
         return self._db_connection
 
 
