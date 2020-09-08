@@ -922,7 +922,9 @@ def test_patients_registered_practice_as_of(freezer):
         StudyDefinition(
             population=patients.all(),
             stp=patients.registered_practice_as_of("2020-02-01", returning="stp_code"),
-            msoa=patients.registered_practice_as_of("2020-02-01", returning="msoa_code"),
+            msoa=patients.registered_practice_as_of(
+                "2020-02-01", returning="msoa_code"
+            ),
             region=patients.registered_practice_as_of(
                 "2020-02-01", returning="nuts1_region_name"
             ),
