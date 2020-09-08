@@ -79,6 +79,7 @@ def _ctds_connect(ctds, params):
     # Default timeout is 5 seconds. We don't want queries to timeout at all so
     # set to one week
     params["timeout"] = 7 * 24 * 60 * 60
+    params["autocommit"] = True
     return ctds.connect(**params)
 
 
