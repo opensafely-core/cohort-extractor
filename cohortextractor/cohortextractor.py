@@ -375,9 +375,7 @@ def main():
         type=str,
         default=os.environ.get("TEMP_DATABASE_NAME", ""),
     )
-    cohort_method_group = generate_cohort_parser.add_mutually_exclusive_group(
-        required=True
-    )
+    cohort_method_group = generate_cohort_parser.add_mutually_exclusive_group()
     cohort_method_group.add_argument(
         "--expectations-population",
         help="Generate a dataframe from study expectations",
@@ -386,9 +384,8 @@ def main():
     )
     cohort_method_group.add_argument(
         "--database-url",
-        help="Database URL to query",
+        help="Database URL to query (can be supplied as DATABASE_URL environment variable)",
         type=str,
-        default=os.environ.get("DATABASE_URL", ""),
     )
 
     options = parser.parse_args()
@@ -397,9 +394,15 @@ def main():
     elif not hasattr(options, "which"):
         parser.print_help()
     elif options.which == "generate_cohort":
-        os.environ["DATABASE_URL"] = options.database_url
+        if options.database_url:
+            os.environ["DATABASE_URL"] = options.database_url
         if options.temp_database_name:
             os.environ["TEMP_DATABASE_NAME"] = options.temp_database_name
+        if not options.expectations_population and not os.environ.get("DATABASE_URL"):
+            parser.error(
+                "generate_cohort: error: one of the arguments "
+                "--expectations-population --database-url is required"
+            )
         generate_cohort(
             options.output_dir,
             options.expectations_population,
