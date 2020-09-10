@@ -7,7 +7,10 @@ import re
 import uuid
 
 from .expressions import format_expression
-from .mssql_utils import mssql_dbapi_connection_from_url
+from .mssql_utils import (
+    mssql_dbapi_connection_from_url,
+    mssql_connection_params_from_url,
+)
 
 
 # Characters that are safe to interpolate into SQL (see
@@ -102,12 +105,18 @@ class TPPBackend:
         having to re-run all the queries.
         """
         assert self.temporary_database
-        # We're using the hash of all the queries as a cache key. Obviously
-        # this doesn't take into account the fact that the data itself may
-        # change, but for our purposes this doesn't matter: this is designed to
-        # be a very short-lived cache which is deleted as soon as the data is
-        # successfully downloaded
-        query_hash = hashlib.sha1("\n".join(queries).encode("utf8")).hexdigest()
+        # We're using the hash of all the queries and the database name as a
+        # cache key. Obviously this doesn't take into account the fact that the
+        # data itself may change, but for our purposes this doesn't matter:
+        # this is designed to be a very short-lived cache which is deleted as
+        # soon as the data is successfully downloaded. We need to include the
+        # database name because a single server may contain multiple databases
+        # (e.g full data and sample data) which share a single temporary
+        # database.
+        hash_elements = queries + [
+            mssql_connection_params_from_url(self.database_url)["database"]
+        ]
+        query_hash = hashlib.sha1("\n".join(hash_elements).encode("utf8")).hexdigest()
         output_table = f"{self.temporary_database}..DataExtract_{query_hash}"
         if not self.table_exists(output_table):
             # We want to raise an error now, rather than waiting until we've
