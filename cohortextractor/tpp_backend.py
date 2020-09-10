@@ -286,7 +286,7 @@ class TPPBackend:
         timestamp = datetime.datetime.now(datetime.timezone.utc).strftime(
             "%Y-%m-%d %H:%M:%S UTC"
         )
-        print(f"[{timestamp}] {message}")
+        print(f"[{timestamp}] {message}", flush=True)
 
     def get_query(self, column_name, query_type, query_args):
         method_name = f"patients_{query_type}"
