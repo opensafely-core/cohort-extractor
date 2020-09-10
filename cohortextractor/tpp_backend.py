@@ -1,4 +1,3 @@
-import csv
 import datetime
 import enum
 import hashlib
@@ -10,6 +9,7 @@ from .expressions import format_expression
 from .mssql_utils import (
     mssql_dbapi_connection_from_url,
     mssql_connection_params_from_url,
+    dbapi_cursor_to_csv_file,
 )
 
 
@@ -42,14 +42,20 @@ class TPPBackend:
             cleanup_queries = []
         temp_filename = self._get_temp_filename(filename)
         unique_check = UniqueCheck()
-        result = self.execute_queries(queries)
-        with open(temp_filename, "w", newline="") as csvfile:
-            writer = csv.writer(csvfile)
-            writer.writerow([x[0] for x in result.description])
-            for row in result:
-                writer.writerow(row)
-                # The first column contains IDs
-                unique_check.add(row[0])
+
+        def record_patient_id(row):
+            unique_check.add(row[0])
+
+        result_cursor = self.execute_queries(queries)
+        # `batch_size` here was chosen through a bit of unscientific
+        # trial-and-error and some guesswork. It may well need changing in
+        # future.
+        dbapi_cursor_to_csv_file(
+            result_cursor,
+            temp_filename,
+            batch_size=32000,
+            row_callback=record_patient_id,
+        )
         if cleanup_queries:
             self.execute_queries(cleanup_queries)
         unique_check.assert_unique_ids()
