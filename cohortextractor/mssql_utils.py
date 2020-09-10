@@ -109,5 +109,5 @@ def dbapi_cursor_to_csv_file(cursor, filename, batch_size=None, row_callback=Non
             if not result_batch:
                 break
             for row in result_batch:
-                row_callback(row)
                 writer.writerow(row)
+                row_callback(row)
