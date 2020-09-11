@@ -5,6 +5,8 @@ start a notebook, open a web browser on the correct port, and handle
 shutdowns gracefully
 """
 import cohortextractor
+from collections import defaultdict
+import csv
 import glob
 import importlib
 import os
@@ -18,13 +20,14 @@ from io import BytesIO
 from argparse import ArgumentParser
 from matplotlib import pyplot as plt
 import numpy as np
+import pandas
 from pandas.api.types import is_categorical_dtype
 from pandas.api.types import is_bool_dtype
 from pandas.api.types import is_datetime64_dtype
 from pandas.api.types import is_numeric_dtype
 import yaml
 
-from datetime import datetime
+import datetime
 import seaborn as sns
 
 from cohortextractor.remotejobs import get_job_logs
@@ -39,8 +42,8 @@ def relative_dir():
 
 
 def make_chart(name, series, dtype):
-    FLOOR_DATE = datetime(1960, 1, 1)
-    CEILING_DATE = datetime.today()
+    FLOOR_DATE = datetime.datetime(1960, 1, 1)
+    CEILING_DATE = datetime.datetime.today()
     img = BytesIO()
     # Setting figure sizes in seaborn is a bit weird:
     # https://stackoverflow.com/a/23973562/559140
@@ -106,7 +109,13 @@ def preflight_generation_check():
         raise RuntimeError(msg.format(", ".join(missing_paths)))
 
 
-def generate_cohort(output_dir, expectations_population, selected_study_name=None):
+def generate_cohort(
+    output_dir,
+    expectations_population,
+    selected_study_name=None,
+    index_date_range=None,
+    skip_existing=False,
+):
     preflight_generation_check()
     study_definitions = list_study_definitions()
     if selected_study_name and selected_study_name != "all":
@@ -116,21 +125,206 @@ def generate_cohort(output_dir, expectations_population, selected_study_name=Non
                 break
     for study_name, suffix in study_definitions:
         print(f"Generating cohort for {study_name}...")
-        _generate_cohort(output_dir, study_name, suffix, expectations_population)
+        _generate_cohort(
+            output_dir,
+            study_name,
+            suffix,
+            expectations_population,
+            index_date_range=index_date_range,
+            skip_existing=skip_existing,
+        )
 
 
-def _generate_cohort(output_dir, study_name, suffix, expectations_population):
+def _generate_cohort(
+    output_dir,
+    study_name,
+    suffix,
+    expectations_population,
+    index_date_range=None,
+    skip_existing=False,
+):
     print("Running. Please wait...")
     study = load_study_definition(study_name)
 
     os.makedirs(output_dir, exist_ok=True)
-    study.to_csv(
-        f"{output_dir}/input{suffix}.csv",
-        expectations_population=expectations_population,
-    )
-    print(
-        f"Successfully created cohort and covariates at {output_dir}/input{suffix}.csv"
-    )
+    for index_date in _generate_date_range(index_date_range):
+        if index_date is not None:
+            study.set_index_date(index_date)
+            date_suffix = f"_{index_date}"
+        else:
+            date_suffix = ""
+        # If this is changed then the glob pattern in `_generate_measures()`
+        # must be updated
+        output_file = f"{output_dir}/input{suffix}{date_suffix}.csv"
+        if skip_existing and os.path.exists(output_file):
+            print(f"Not regenerating pre-existing file at {output_file}")
+        else:
+            study.to_csv(
+                output_file,
+                expectations_population=expectations_population,
+            )
+            print(f"Successfully created cohort and covariates at {output_file}")
+
+
+def _generate_date_range(date_range_str):
+    # Bail out with an "empty" range: this means we don't need separate
+    # codepaths to handle the range, single date, and no date supplied cases
+    if not date_range_str:
+        return [None]
+    start, end, period = _parse_date_range(date_range_str)
+    if end < start:
+        raise ValueError(
+            f"Invalid date range '{date_range_str}': end cannot be earlier than start"
+        )
+    dates = []
+    while start <= end:
+        dates.append(start.isoformat())
+        start = _increment_date(start, period)
+    return dates
+
+
+def _parse_date_range(date_range_str):
+    period = "month"
+    if " to " in date_range_str:
+        start, end = date_range_str.split(" to ", 1)
+        if " by " in end:
+            end, period = end.split(" by ", 1)
+    else:
+        start = end = date_range_str
+    try:
+        start = _parse_date(start)
+        end = _parse_date(end)
+    except ValueError:
+        raise ValueError(
+            f"Invalid date range '{date_range_str}': Dates must be in YYYY-MM-DD "
+            f"format or 'today' and ranges must be in the form "
+            f"'DATE to DATE by (week|month)'"
+        )
+    if period not in ("week", "month"):
+        raise ValueError(f"Unknown time period '{period}': must be 'week' or 'month'")
+    return start, end, period
+
+
+def _parse_date(date_str):
+    if date_str == "today":
+        return datetime.date.today()
+    else:
+        return datetime.date.fromisoformat(date_str)
+
+
+def _increment_date(date, period):
+    if period == "week":
+        return date + datetime.timedelta(days=7)
+    elif period == "month":
+        if date.month < 12:
+            return date.replace(month=date.month + 1)
+        else:
+            return date.replace(month=1, year=date.year + 1)
+    else:
+        raise ValueError(f"Unknown time period '{period}'")
+
+
+def generate_measures(output_dir, selected_study_name=None, skip_existing=False):
+    preflight_generation_check()
+    study_definitions = list_study_definitions()
+    if selected_study_name and selected_study_name != "all":
+        for study_name, suffix in study_definitions:
+            if study_name == selected_study_name:
+                study_definitions = [(study_name, suffix)]
+                break
+    for study_name, suffix in study_definitions:
+        print(f"Generating measure for {study_name}...")
+        _generate_measures(output_dir, study_name, suffix, skip_existing=skip_existing)
+
+
+def _generate_measures(output_dir, study_name, suffix, skip_existing=False):
+    print("Running. Please wait...")
+    measures = load_study_definition(study_name, value="measures")
+    files = glob.glob(f"{output_dir}/input{suffix}*.csv")
+    if not files:
+        print(
+            "No matching output files found. You may need to first run:\n"
+            "  cohortextractor generate_cohort --index-date-range ..."
+        )
+        return
+    measure_outputs = defaultdict(list)
+    for file in files:
+        date = _get_date_from_filename(file)
+        patient_df = None
+        for measure in measures:
+            output_file = f"{output_dir}/measure_{measure.id}_{date}.csv"
+            measure_outputs[measure.id].append(output_file)
+            if skip_existing and os.path.exists(output_file):
+                print(f"Not generating pre-existing file {output_file}")
+                continue
+            # We do this lazily so that if all corresponding output files
+            # already exist we can avoid loading the patient data entirely
+            if patient_df is None:
+                patient_df = _load_csv_for_measures(file, measures)
+            measure_df = patient_df[
+                [measure.numerator, measure.denominator, measure.group_by]
+            ]
+            measure_df = measure_df.groupby(measure.group_by).sum()
+            measure_df["value"] = (
+                measure_df[measure.numerator] / measure_df[measure.denominator]
+            )
+            measure_df.to_csv(output_file)
+            print(f"Created measure output at {output_file}")
+    for measure in measures:
+        output_file = f"{output_dir}/measure_{measure.id}.csv"
+        _combine_csv_files_with_dates(output_file, measure_outputs[measure.id])
+        print(f"Combined measure output for all dates in {output_file}")
+
+
+def _get_date_from_filename(filename):
+    match = re.search(r"_(\d\d\d\d\-\d\d\-\d\d)\.csv$", filename)
+    return datetime.date.fromisoformat(match.group(1))
+
+
+def _load_csv_for_measures(file, measures):
+    """
+    Given a CSV file name and a list of measures, load the file into a Pandas
+    dataframe with types as appropriate for the supplied measures
+    """
+    numeric_columns = set()
+    group_by_columns = set()
+    for measure in measures:
+        numeric_columns.update([measure.numerator, measure.denominator])
+        group_by_columns.add(measure.group_by)
+    # This is a special column which we don't load from the CSV but whose value
+    # is always set to 1 for every row
+    numeric_columns.discard("population")
+    dtype = {col: "category" for col in group_by_columns}
+    for col in numeric_columns:
+        dtype[col] = "float64"
+    df = pandas.read_csv(file, dtype=dtype, usecols=list(dtype.keys()))
+    df["population"] = 1
+    return df
+
+
+def _combine_csv_files_with_dates(filename, input_files):
+    """
+    Takes a list of CSV files which have dates in their filenames and combines
+    them into a single CSV file with an additional "date" column indicating the
+    date for each row
+    """
+    input_files = sorted(input_files)
+    with open(input_files[0]) as first_file:
+        reader = csv.reader(first_file)
+        headers = next(reader)
+    with open(filename, "w", newline="") as csvfile:
+        writer = csv.writer(csvfile)
+        writer.writerow(headers + ["date"])
+        for file in input_files:
+            date = _get_date_from_filename(file)
+            with open(file) as input_csvfile:
+                reader = csv.reader(input_csvfile)
+                if next(reader) != headers:
+                    raise RuntimeError(
+                        f"Files {input_files[0]} and {file} have different headers"
+                    )
+                for row in reader:
+                    writer.writerow(row + [date])
 
 
 def make_cohort_report(input_dir, output_dir):
@@ -235,11 +429,11 @@ def dump_study_yaml(study_definition):
     print(yaml.dump(study.to_data()))
 
 
-def load_study_definition(name):
+def load_study_definition(name, value="study"):
     sys.path.extend([relative_dir(), os.path.join(relative_dir(), "analysis")])
     # Avoid creating __pycache__ files in the analysis directory
     sys.dont_write_bytecode = True
-    return importlib.import_module(name).study
+    return getattr(importlib.import_module(name), value)
 
 
 def list_study_definitions(ignore_errors=False):
@@ -274,6 +468,10 @@ def main():
         "generate_cohort", help="Generate cohort"
     )
     generate_cohort_parser.set_defaults(which="generate_cohort")
+    generate_measures_parser = subparsers.add_parser(
+        "generate_measures", help="Generate measures from cohort data"
+    )
+    generate_measures_parser.set_defaults(which="generate_measures")
     cohort_report_parser = subparsers.add_parser(
         "cohort_report", help="Generate cohort report"
     )
@@ -371,9 +569,20 @@ def main():
     )
     generate_cohort_parser.add_argument(
         "--temp-database-name",
-        help="Name of database so store temporary results",
+        help="Name of database to store temporary results",
         type=str,
         default=os.environ.get("TEMP_DATABASE_NAME", ""),
+    )
+    generate_cohort_parser.add_argument(
+        "--index-date-range",
+        help="Evaluate the study definition at a range of index dates",
+        type=str,
+        default="",
+    )
+    generate_cohort_parser.add_argument(
+        "--skip-existing",
+        help="Do not regenerate data if output file already exists",
+        action="store_true",
     )
     cohort_method_group = generate_cohort_parser.add_mutually_exclusive_group()
     cohort_method_group.add_argument(
@@ -386,6 +595,26 @@ def main():
         "--database-url",
         help="Database URL to query (can be supplied as DATABASE_URL environment variable)",
         type=str,
+    )
+
+    # Measure generator parser options
+    generate_measures_parser.add_argument(
+        "--output-dir",
+        help="Location to store output CSVs",
+        type=str,
+        default="output",
+    )
+    generate_measures_parser.add_argument(
+        "--study-definition",
+        help="Study definition file containing measure definitions to use",
+        type=str,
+        choices=["all"] + [x[0] for x in list_study_definitions()],
+        default="all",
+    )
+    generate_measures_parser.add_argument(
+        "--skip-existing",
+        help="Do not regenerate measure if output file already exists",
+        action="store_true",
     )
 
     options = parser.parse_args()
@@ -406,7 +635,15 @@ def main():
         generate_cohort(
             options.output_dir,
             options.expectations_population,
-            options.study_definition,
+            selected_study_name=options.study_definition,
+            index_date_range=options.index_date_range,
+            skip_existing=options.skip_existing,
+        )
+    elif options.which == "generate_measures":
+        generate_measures(
+            options.output_dir,
+            selected_study_name=options.study_definition,
+            skip_existing=options.skip_existing,
         )
     elif options.which == "cohort_report":
         make_cohort_report(options.input_dir, options.output_dir)
