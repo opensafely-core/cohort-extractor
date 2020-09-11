@@ -15,7 +15,7 @@ def evaluate_date_expressions_in_covariate_definitions(
     output = {}
     for name, (query_type, query_args) in covariate_definitions.items():
         query_args = query_args.copy()
-        for key in ("reference_date", "start_date", "end_date"):
+        for key in ("date", "reference_date", "start_date", "end_date"):
             if key in query_args:
                 query_args[key] = evaluate_date_expression(query_args[key], index_date)
         if "between" in query_args:
