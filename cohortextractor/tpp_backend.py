@@ -124,7 +124,11 @@ class TPPBackend:
         ]
         query_hash = hashlib.sha1("\n".join(hash_elements).encode("utf8")).hexdigest()
         output_table = f"{self.temporary_database}..DataExtract_{query_hash}"
+        self.log(f"Checking for existing results in '{output_table}'")
         if not self.table_exists(output_table):
+            self.log(
+                "No existing results found, running queries to generate new results"
+            )
             # We want to raise an error now, rather than waiting until we've
             # run all the other queries
             self.assert_database_exists_and_is_writable(self.temporary_database)
