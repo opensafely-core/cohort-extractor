@@ -60,4 +60,7 @@ RUN pyenv rehash
 
 WORKDIR /workspace
 
+# It's helpful to see output immediately
+ENV PYTHONUNBUFFERED=True
+
 ENTRYPOINT ["cohortextractor"]
