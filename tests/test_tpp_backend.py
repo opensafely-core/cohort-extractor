@@ -2702,3 +2702,20 @@ def test_patients_with_death_recorded_in_primary_care():
         date_of_death=["", "2017-05-06", "2019-06-07", "2020-07-08"],
         died_in_2019=["", "", "2019", ""],
     )
+
+
+def test_date_expressions_are_handled_in_practice_address_and_care_home_methods():
+    study = StudyDefinition(
+        index_date="2020-01-01",
+        population=patients.all(),
+        practice=patients.registered_practice_as_of(
+            "index_date", returning="pseudo_id"
+        ),
+        address=patients.address_as_of(
+            "index_date", returning="rural_urban_classification"
+        ),
+        care_home=patients.care_home_status_as_of("index_date"),
+    )
+    # We don't care about the results, we just want to check that this doesn't
+    # blow up with an "invalid date" error
+    assert_results(study.to_dicts(), practice=[], address=[], care_home=[])

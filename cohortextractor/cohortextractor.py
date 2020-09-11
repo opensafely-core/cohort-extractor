@@ -160,8 +160,7 @@ def _generate_cohort(
             print(f"Not regenerating pre-existing file at {output_file}")
         else:
             study.to_csv(
-                output_file,
-                expectations_population=expectations_population,
+                output_file, expectations_population=expectations_population,
             )
             print(f"Successfully created cohort and covariates at {output_file}")
 
