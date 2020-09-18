@@ -340,6 +340,7 @@ class GetColumnType:
             "underlying_cause_of_death": "str",
             "primary_diagnosis": "str",
             "is_prison": "bool",
+            "has_members_in_other_ehr_systems": "bool",
         }
         try:
             return mapping[returning]

@@ -409,6 +409,7 @@ class Household(Base):
     NFA_Unknown = Column(Boolean, default=False)
     # CareHome (boolean) - not currently being used
     Prison = Column(Boolean)
+    MixedSoftwareHousehold = Column(Boolean)
     HouseholdSize = Column(Integer)
     HouseholdMembers = relationship(
         "HouseholdMember", back_populates="Household", cascade="all, delete"
