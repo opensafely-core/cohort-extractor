@@ -1442,6 +1442,10 @@ class TPPBackend:
             column = "Household.HouseholdSize"
         elif returning == "is_prison":
             column = "CASE Household.Prison WHEN 'TRUE' THEN 1 ELSE 0 END"
+        elif returning == "has_members_in_other_ehr_systems":
+            column = (
+                "CASE Household.MixedSoftwareHousehold WHEN 'TRUE' THEN 1 ELSE 0 END"
+            )
         else:
             raise ValueError(f"Unsupported `returning` value: {returning}")
         return (

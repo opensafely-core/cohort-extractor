@@ -581,6 +581,11 @@ def household_as_of(reference_date, returning=None, return_expectations=None):
                    https://github.com/opensafely/cohort-extractor/issues/271#issuecomment-679069981
                    for details of how this is determined.
 
+        has_members_in_other_ehr_systems: Boolean indicating whether some household
+                                          members are registered with GPs using a
+                                          different EHR system, meaning that our
+                                          coverage of the household is incomplete.
+
     Examples:
 
         household_id=patients.household_as_of(

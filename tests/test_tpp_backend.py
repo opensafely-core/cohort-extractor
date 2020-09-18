@@ -2073,7 +2073,10 @@ def test_patients_household_as_of():
                 HouseholdMemberships=[
                     HouseholdMember(
                         Household=Household(
-                            Household_ID=123, HouseholdSize=2, Prison=True
+                            Household_ID=123,
+                            HouseholdSize=2,
+                            Prison=True,
+                            MixedSoftwareHousehold=False,
                         )
                     )
                 ]
@@ -2082,7 +2085,10 @@ def test_patients_household_as_of():
                 HouseholdMemberships=[
                     HouseholdMember(
                         Household=Household(
-                            Household_ID=456, HouseholdSize=3, Prison=False
+                            Household_ID=456,
+                            HouseholdSize=3,
+                            Prison=False,
+                            MixedSoftwareHousehold=True,
                         )
                     )
                 ]
@@ -2097,6 +2103,7 @@ def test_patients_household_as_of():
                             HouseholdSize=4,
                             NFA_Unknown=True,
                             Prison=False,
+                            MixedSoftwareHousehold=False,
                         )
                     )
                 ]
@@ -2111,11 +2118,17 @@ def test_patients_household_as_of():
             "2020-02-01", returning="household_size"
         ),
         is_prison=patients.household_as_of("2020-02-01", returning="is_prison"),
+        mixed_ehr=patients.household_as_of(
+            "2020-02-01", returning="has_members_in_other_ehr_systems"
+        ),
     )
-    results = study.to_dicts()
-    assert [x["household_id"] for x in results] == ["0", "123", "456", "0"]
-    assert [x["household_size"] for x in results] == ["0", "2", "3", "0"]
-    assert [x["is_prison"] for x in results] == ["0", "1", "0", "0"]
+    assert_results(
+        study.to_dicts(),
+        household_id=["0", "123", "456", "0"],
+        household_size=["0", "2", "3", "0"],
+        is_prison=["0", "1", "0", "0"],
+        mixed_ehr=["0", "0", "1", "0"],
+    )
     # We currently only accept one specific date
     with pytest.raises(ValueError):
         StudyDefinition(
