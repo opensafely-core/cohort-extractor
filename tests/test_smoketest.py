@@ -32,6 +32,14 @@ def test_smoketest(tmp_path):
     assert len(contents) == 1 + (2 * 4)  # Header row + 2 STPs * 4 dates
     dates = set(row[4] for row in contents[1:])
     assert dates == {"2020-01-01", "2020-02-01", "2020-03-01", "2020-04-01"}
+    with open(tmp_path / "measure_liver_disease.csv") as f:
+        contents = list(csv.reader(f))
+    assert contents[0] == [
+        "has_chronic_liver_disease",
+        "population",
+        "value",
+        "date",
+    ]
 
 
 def _cohortextractor(*args):
