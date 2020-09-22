@@ -186,6 +186,17 @@ class TPPBackend:
             else:
                 raise
 
+    def get_db_connection(self):
+        if self._db_connection:
+            return self._db_connection
+        self._db_connection = mssql_dbapi_connection_from_url(self.database_url)
+        return self._db_connection
+
+    def close(self):
+        if self._db_connection:
+            self._db_connection.close()
+        self._db_connection = None
+
     def get_queries(self, covariate_definitions):
         output_columns = {}
         column_types = {}
@@ -1698,12 +1709,6 @@ class TPPBackend:
             f" WHERE value != {default_value}"
         )
         return f"ISNULL(({aggregate_expression}), {default_value})"
-
-    def get_db_connection(self):
-        if self._db_connection:
-            return self._db_connection
-        self._db_connection = mssql_dbapi_connection_from_url(self.database_url)
-        return self._db_connection
 
 
 def codelist_to_sql(codelist):

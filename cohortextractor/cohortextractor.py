@@ -239,16 +239,11 @@ def generate_measures(output_dir, selected_study_name=None, skip_existing=False)
 def _generate_measures(output_dir, study_name, suffix, skip_existing=False):
     print("Running. Please wait...")
     measures = load_study_definition(study_name, value="measures")
-    files = glob.glob(f"{output_dir}/input{suffix}*.csv")
-    if not files:
-        print(
-            "No matching output files found. You may need to first run:\n"
-            "  cohortextractor generate_cohort --index-date-range ..."
-        )
-        return
     measure_outputs = defaultdict(list)
-    for file in files:
+    for file in glob.glob(f"{output_dir}/input{suffix}*.csv"):
         date = _get_date_from_filename(file)
+        if date is None:
+            continue
         patient_df = None
         for measure in measures:
             output_file = f"{output_dir}/measure_{measure.id}_{date}.csv"
@@ -260,24 +255,39 @@ def _generate_measures(output_dir, study_name, suffix, skip_existing=False):
             # already exist we can avoid loading the patient data entirely
             if patient_df is None:
                 patient_df = _load_csv_for_measures(file, measures)
-            measure_df = patient_df[
-                [measure.numerator, measure.denominator, measure.group_by]
-            ]
-            measure_df = measure_df.groupby(measure.group_by).sum()
-            measure_df["value"] = (
-                measure_df[measure.numerator] / measure_df[measure.denominator]
-            )
-            measure_df.to_csv(output_file)
+            measure_df = _calculate_measure_df(patient_df, measure)
+            measure_df.to_csv(output_file, index=False)
             print(f"Created measure output at {output_file}")
+    if not measure_outputs:
+        print(
+            "No matching output files found. You may need to first run:\n"
+            "  cohortextractor generate_cohort --index-date-range ..."
+        )
+        return
     for measure in measures:
         output_file = f"{output_dir}/measure_{measure.id}.csv"
         _combine_csv_files_with_dates(output_file, measure_outputs[measure.id])
         print(f"Combined measure output for all dates in {output_file}")
 
 
+def _calculate_measure_df(patient_df, measure):
+    if measure.group_by:
+        measure_df = patient_df[
+            [measure.numerator, measure.denominator, measure.group_by]
+        ]
+        measure_df = measure_df.groupby(measure.group_by).sum()
+        measure_df = measure_df.reset_index()
+    else:
+        measure_df = patient_df[[measure.numerator, measure.denominator]]
+    measure_df["value"] = (
+        measure_df[measure.numerator] / measure_df[measure.denominator]
+    )
+    return measure_df
+
+
 def _get_date_from_filename(filename):
     match = re.search(r"_(\d\d\d\d\-\d\d\-\d\d)\.csv$", filename)
-    return datetime.date.fromisoformat(match.group(1))
+    return datetime.date.fromisoformat(match.group(1)) if match else None
 
 
 def _load_csv_for_measures(file, measures):
@@ -289,7 +299,8 @@ def _load_csv_for_measures(file, measures):
     group_by_columns = set()
     for measure in measures:
         numeric_columns.update([measure.numerator, measure.denominator])
-        group_by_columns.add(measure.group_by)
+        if measure.group_by:
+            group_by_columns.add(measure.group_by)
     # This is a special column which we don't load from the CSV but whose value
     # is always set to 1 for every row
     numeric_columns.discard("population")

@@ -2732,3 +2732,39 @@ def test_date_expressions_are_handled_in_practice_address_and_care_home_methods(
     # We don't care about the results, we just want to check that this doesn't
     # blow up with an "invalid date" error
     assert_results(study.to_dicts(), practice=[], address=[], care_home=[])
+
+
+def test_extracting_at_different_index_dates():
+    codes = [f"foo{i}" for i in range(10)]
+    session = make_session()
+    session.add_all(
+        [
+            Patient(
+                CodedEvents=[
+                    CodedEvent(CTV3Code=codes[1], ConsultationDate="2020-01-14")
+                ]
+            ),
+            Patient(
+                CodedEvents=[
+                    CodedEvent(CTV3Code=codes[5], ConsultationDate="2020-02-10")
+                ]
+            ),
+        ]
+    )
+    session.commit()
+    study = StudyDefinition(
+        index_date="2020-01-01",
+        population=patients.all(),
+        value=patients.with_these_clinical_events(
+            codelist(codes, system="ctv3"),
+            returning="date",
+            date_format="YYYY-MM-DD",
+            between=["index_date", "index_date + 1 month"],
+        ),
+    )
+    study.set_index_date("2020-01-01")
+    results = study.to_dicts()
+    assert_results(results, value=["2020-01-14", ""])
+    study.set_index_date("2020-02-01")
+    results = study.to_dicts()
+    assert_results(results, value=["", "2020-02-10"])

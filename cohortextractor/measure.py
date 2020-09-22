@@ -1,5 +1,5 @@
 class Measure:
-    def __init__(self, id, denominator, numerator, group_by):
+    def __init__(self, id, denominator, numerator, group_by=None):
         self.id = id
         self.denominator = denominator
         self.numerator = numerator

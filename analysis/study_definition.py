@@ -156,6 +156,11 @@ study = StudyDefinition(
 
 measures = [
     Measure(
+        id="liver_disease",
+        numerator="has_chronic_liver_disease",
+        denominator="population",
+    ),
+    Measure(
         id="liver_disease_by_stp",
         numerator="has_chronic_liver_disease",
         denominator="population",
