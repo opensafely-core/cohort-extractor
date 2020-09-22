@@ -239,16 +239,11 @@ def generate_measures(output_dir, selected_study_name=None, skip_existing=False)
 def _generate_measures(output_dir, study_name, suffix, skip_existing=False):
     print("Running. Please wait...")
     measures = load_study_definition(study_name, value="measures")
-    files = glob.glob(f"{output_dir}/input{suffix}*.csv")
-    if not files:
-        print(
-            "No matching output files found. You may need to first run:\n"
-            "  cohortextractor generate_cohort --index-date-range ..."
-        )
-        return
     measure_outputs = defaultdict(list)
-    for file in files:
+    for file in glob.glob(f"{output_dir}/input{suffix}*.csv"):
         date = _get_date_from_filename(file)
+        if date is None:
+            continue
         patient_df = None
         for measure in measures:
             output_file = f"{output_dir}/measure_{measure.id}_{date}.csv"
@@ -269,6 +264,12 @@ def _generate_measures(output_dir, study_name, suffix, skip_existing=False):
             )
             measure_df.to_csv(output_file)
             print(f"Created measure output at {output_file}")
+    if not measure_outputs:
+        print(
+            "No matching output files found. You may need to first run:\n"
+            "  cohortextractor generate_cohort --index-date-range ..."
+        )
+        return
     for measure in measures:
         output_file = f"{output_dir}/measure_{measure.id}.csv"
         _combine_csv_files_with_dates(output_file, measure_outputs[measure.id])
@@ -277,7 +278,7 @@ def _generate_measures(output_dir, study_name, suffix, skip_existing=False):
 
 def _get_date_from_filename(filename):
     match = re.search(r"_(\d\d\d\d\-\d\d\-\d\d)\.csv$", filename)
-    return datetime.date.fromisoformat(match.group(1))
+    return datetime.date.fromisoformat(match.group(1)) if match else None
 
 
 def _load_csv_for_measures(file, measures):
