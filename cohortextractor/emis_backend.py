@@ -995,6 +995,11 @@ class EMISBackend:
         self._db_connection = presto_connection_from_url(self.database_url)
         return self._db_connection
 
+    def close(self):
+        if self._db_connection:
+            self._db_connection.close()
+        self._db_connection = None
+
     def validate_recent_date(self, date, max_delta_days=30):
         date = datetime.datetime.strptime(date, "%Y-%m-%d").date()
         delta = datetime.date.today() - date

@@ -14,6 +14,9 @@ from .date_expressions import (
 
 
 class StudyDefinition:
+
+    backend = None
+
     def __init__(
         self, population, default_expectations=None, index_date=None, **covariates
     ):
@@ -22,14 +25,14 @@ class StudyDefinition:
         self._original_default_expectations = default_expectations or {}
         self.set_index_date(index_date)
         self.pandas_csv_args = self.get_pandas_csv_args(self.covariate_definitions)
-        database_url = os.environ.get("DATABASE_URL")
-        temporary_database = os.environ.get("TEMP_DATABASE_NAME")
-        if database_url:
-            Backend = self.get_backend_for_database_url(database_url)
+        self.database_url = os.environ.get("DATABASE_URL")
+        self.temporary_database = os.environ.get("TEMP_DATABASE_NAME")
+        if self.database_url:
+            Backend = self.get_backend_for_database_url(self.database_url)
             self.backend = Backend(
-                database_url,
+                self.database_url,
                 self.covariate_definitions,
-                temporary_database=temporary_database,
+                temporary_database=self.temporary_database,
             )
         else:
             # Without a backend defined we can still generate dummy data but we
@@ -40,7 +43,8 @@ class StudyDefinition:
     def set_index_date(self, index_date):
         """
         Re-evaluate all date expressions in the covariate definitions and the
-        default expecations using the supplied index date
+        default expecations using the supplied index date and re-initialise the
+        backend with the new values
         """
         if index_date is not None:
             validate_date(index_date)
@@ -51,6 +55,13 @@ class StudyDefinition:
         self.default_expectations = evaluate_date_expressions_in_expectations_definition(
             self._original_default_expectations, self.index_date
         )
+        if self.backend:
+            self.backend.close()
+            self.backend = self.backend.__class__(
+                self.database_url,
+                self.covariate_definitions,
+                temporary_database=self.temporary_database,
+            )
 
     def to_csv(self, filename, expectations_population=False, **kwargs):
         if expectations_population:
