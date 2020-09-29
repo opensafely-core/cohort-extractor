@@ -202,6 +202,7 @@ class TPPBackend:
         column_types = {}
         is_hidden = {}
         table_queries = {}
+        table_setup_queries = {}
         for name, (query_type, query_args) in covariate_definitions.items():
             # So we can safely mutate these below
             query_args = query_args.copy()
@@ -234,8 +235,9 @@ class TPPBackend:
                 )
             else:
                 date_format_args = pop_keys_from_dict(query_args, ["date_format"])
-                cols, sql = self.get_query(name, query_type, query_args)
+                cols, sql, setup_sql = self.get_query(name, query_type, query_args)
                 table_queries[name] = f"SELECT * INTO #{name} FROM ({sql}) t"
+                table_setup_queries[name] = setup_sql
                 # The first column should always be patient_id so we can join on it
                 assert cols[0] == "patient_id"
                 output_columns[name] = self.get_column_expression(
@@ -271,7 +273,13 @@ class TPPBackend:
           {joins_str}
         WHERE {output_columns["population"]} = 1
         """
-        return list(table_queries.items()) + [("final_output", joined_output_query)]
+        all_queries = []
+        for name, query in table_queries.items():
+            for setup_query in table_setup_queries[name]:
+                all_queries.append((name, setup_query))
+            all_queries.append((name, query))
+        all_queries.append(("final_output", joined_output_query))
+        return all_queries
 
     def get_column_expression(self, column_type, source, returning, date_format=None):
         default_value = self.get_default_value_for_type(column_type)
@@ -316,6 +324,12 @@ class TPPBackend:
         self._current_column_name = column_name
         return_value = method(**query_args)
         self._current_column_name = None
+        # We want to support returning a (columns, sql, setup_queries) triple
+        # from query methods but without, for now, having to rewrite all the
+        # old methods which just return (columns, sql). So we catch old-style
+        # return values here and add an empty `setup_queries` list to the end.
+        if isinstance(return_value, tuple) and len(return_value) == 2:
+            return_value = (*return_value, [])
         return return_value
 
     def create_codelist_table(self, codelist, case_sensitive=True):
