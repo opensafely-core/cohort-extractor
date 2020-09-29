@@ -28,6 +28,7 @@ class TPPBackend:
         self.covariate_definitions = covariate_definitions
         self.temporary_database = temporary_database
         self.codelist_tables = []
+        self.next_table_id = 1
         self.queries = self.get_queries(self.covariate_definitions)
 
     def to_csv(self, filename):
@@ -333,11 +334,7 @@ class TPPBackend:
         return return_value
 
     def create_codelist_table(self, codelist, case_sensitive=True):
-        table_number = len(self.codelist_tables) + 1
-        # We include the current column name for ease of debugging
-        column_name = self._current_column_name or "unknown"
-        # The hash prefix indicates a temporary table
-        table_name = f"#codelist_{table_number}_{column_name}"
+        table_name = self.get_temp_table_name("codelist")
         if codelist.has_categories:
             values = list(codelist)
         else:
@@ -359,6 +356,16 @@ class TPPBackend:
                 values,
             )
         )
+        return table_name
+
+    def get_temp_table_name(self, suffix):
+        # The hash prefix indicates a temporary table
+        table_name = f"#tmp{self.next_table_id}_"
+        self.next_table_id += 1
+        # We include the current column name if available for ease of debugging
+        if self._current_column_name:
+            table_name += f"{self._current_column_name}_"
+        table_name += suffix
         return table_name
 
     def get_codelist_queries(self):
