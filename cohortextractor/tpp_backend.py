@@ -929,17 +929,28 @@ class TPPBackend:
             return "0 = 1", []
         assert codelist.system == "ctv3"
         codelist_table = self.create_codelist_table(codelist, case_sensitive=True)
+        same_day_table = self.get_temp_table_name("same_day_events")
+        extra_queries = [
+            f"""
+            SELECT Patient_ID, CAST(ConsultationDate AS date) AS day
+            INTO {same_day_table}
+            FROM CodedEvent
+            INNER JOIN {codelist_table}
+            ON CTV3Code = {codelist_table}.code
+            """,
+            f"""
+            CREATE CLUSTERED INDEX ix ON {same_day_table} (Patient_ID, day)
+            """,
+        ]
         condition = f"""
         EXISTS (
-          SELECT * FROM CodedEvent AS sameday
-          INNER JOIN {codelist_table}
-          ON sameday.CTV3Code = {codelist_table}.code
+          SELECT 1 FROM {same_day_table}
           WHERE
-            sameday.Patient_ID = {joined_table}.Patient_ID
-            AND CAST(sameday.ConsultationDate AS date) = CAST({joined_table}.ConsultationDate AS date)
+            {joined_table}.Patient_ID = {same_day_table}.Patient_ID
+            AND CAST({joined_table}.ConsultationDate AS date) = {same_day_table}.day
         )
         """
-        return condition, []
+        return condition, extra_queries
 
     def patients_registered_practice_as_of(self, date, returning=None):
         if returning == "stp_code":
