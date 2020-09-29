@@ -735,7 +735,7 @@ class TPPBackend:
         codelist_table = self.create_codelist_table(codelist, codes_are_case_sensitive)
         date_condition = make_date_filter("ConsultationDate", between)
         ignored_day_condition, extra_queries = self._these_codes_occur_on_same_day(
-            from_table, ignore_days_where_these_codes_occur
+            from_table, ignore_days_where_these_codes_occur, date_condition
         )
 
         # Result ordering
@@ -824,7 +824,7 @@ class TPPBackend:
         codelist_table = self.create_codelist_table(codelist, case_sensitive=False)
         date_condition = make_date_filter("ConsultationDate", between)
         ignored_day_condition, extra_queries = self._these_codes_occur_on_same_day(
-            "MedicationIssue", ignore_days_where_these_codes_occur
+            "MedicationIssue", ignore_days_where_these_codes_occur, date_condition
         )
         if episode_defined_as is not None:
             pattern = r"^series of events each <= (\d+) days apart$"
@@ -876,7 +876,7 @@ class TPPBackend:
         codelist_table = self.create_codelist_table(codelist, case_sensitive=True)
         date_condition = make_date_filter("ConsultationDate", between)
         ignored_day_condition, extra_queries = self._these_codes_occur_on_same_day(
-            "CodedEvent", ignore_days_where_these_codes_occur
+            "CodedEvent", ignore_days_where_these_codes_occur, date_condition
         )
         if episode_defined_as is not None:
             pattern = r"^series of events each <= (\d+) days apart$"
@@ -915,7 +915,7 @@ class TPPBackend:
         """
         return ["patient_id", "episode_count"], sql, extra_queries
 
-    def _these_codes_occur_on_same_day(self, joined_table, codelist):
+    def _these_codes_occur_on_same_day(self, joined_table, codelist, date_condition):
         """
         Generates a SQL condition that filters rows in `joined_table` so that
         they only include events which happened on days where none of the codes
@@ -937,6 +937,7 @@ class TPPBackend:
             FROM CodedEvent
             INNER JOIN {codelist_table}
             ON CTV3Code = {codelist_table}.code
+            WHERE {date_condition}
             """,
             f"""
             CREATE CLUSTERED INDEX ix ON {same_day_table} (Patient_ID, day)
