@@ -734,7 +734,7 @@ class TPPBackend:
     ):
         codelist_table = self.create_codelist_table(codelist, codes_are_case_sensitive)
         date_condition = make_date_filter("ConsultationDate", between)
-        not_an_ignored_day_condition = self._none_of_these_codes_occur_on_same_day(
+        ignored_day_condition = self._these_codes_occur_on_same_day(
             from_table, ignore_days_where_these_codes_occur
         )
 
@@ -788,7 +788,7 @@ class TPPBackend:
               FROM {from_table}{additional_join}
               INNER JOIN {codelist_table}
               ON {code_column} = {codelist_table}.code
-              WHERE {date_condition} AND {not_an_ignored_day_condition}
+              WHERE {date_condition} AND NOT {ignored_day_condition}
             ) t
             WHERE rownum = 1
             """
@@ -801,7 +801,7 @@ class TPPBackend:
             FROM {from_table}{additional_join}
             INNER JOIN {codelist_table}
             ON {code_column} = {codelist_table}.code
-            WHERE {date_condition} AND {not_an_ignored_day_condition}
+            WHERE {date_condition} AND NOT {ignored_day_condition}
             GROUP BY Patient_ID
             """
 
@@ -823,7 +823,7 @@ class TPPBackend:
     ):
         codelist_table = self.create_codelist_table(codelist, case_sensitive=False)
         date_condition = make_date_filter("ConsultationDate", between)
-        not_an_ignored_day_condition = self._none_of_these_codes_occur_on_same_day(
+        ignored_day_condition = self._these_codes_occur_on_same_day(
             "MedicationIssue", ignore_days_where_these_codes_occur
         )
         if episode_defined_as is not None:
@@ -859,7 +859,7 @@ class TPPBackend:
             ON MedicationIssue.MultilexDrug_ID = MedicationDictionary.MultilexDrug_ID
             INNER JOIN {codelist_table}
             ON DMD_ID = {codelist_table}.code
-            WHERE {date_condition} AND {not_an_ignored_day_condition}
+            WHERE {date_condition} AND NOT {ignored_day_condition}
         ) t
         GROUP BY Patient_ID
         """
@@ -875,7 +875,7 @@ class TPPBackend:
     ):
         codelist_table = self.create_codelist_table(codelist, case_sensitive=True)
         date_condition = make_date_filter("ConsultationDate", between)
-        not_an_ignored_day_condition = self._none_of_these_codes_occur_on_same_day(
+        ignored_day_condition = self._these_codes_occur_on_same_day(
             "CodedEvent", ignore_days_where_these_codes_occur
         )
         if episode_defined_as is not None:
@@ -909,13 +909,13 @@ class TPPBackend:
             FROM CodedEvent
             INNER JOIN {codelist_table}
             ON CTV3Code = {codelist_table}.code
-            WHERE {date_condition} AND {not_an_ignored_day_condition}
+            WHERE {date_condition} AND {ignored_day_condition}
         ) t
         GROUP BY Patient_ID
         """
         return ["patient_id", "episode_count"], sql
 
-    def _none_of_these_codes_occur_on_same_day(self, joined_table, codelist):
+    def _these_codes_occur_on_same_day(self, joined_table, codelist):
         """
         Generates a SQL condition that filters rows in `joined_table` so that
         they only include events which happened on days where none of the codes
@@ -926,11 +926,11 @@ class TPPBackend:
         their annual COPD review".
         """
         if codelist is None:
-            return "1 = 1"
+            return "0 = 1"
         assert codelist.system == "ctv3"
         codelist_table = self.create_codelist_table(codelist, case_sensitive=True)
         return f"""
-        NOT EXISTS (
+        EXISTS (
           SELECT * FROM CodedEvent AS sameday
           INNER JOIN {codelist_table}
           ON sameday.CTV3Code = {codelist_table}.code
