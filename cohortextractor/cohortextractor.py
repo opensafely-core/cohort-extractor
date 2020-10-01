@@ -618,7 +618,7 @@ def main():
         "--study-definition",
         help="Study definition file containing measure definitions to use",
         type=str,
-        choices=["all"] + [x[0] for x in list_study_definitions()],
+        choices=["all"] + [x[0] for x in list_study_definitions(ignore_errors=True)],
         default="all",
     )
     generate_measures_parser.add_argument(
