@@ -28,6 +28,7 @@ class TPPBackend:
         self.covariate_definitions = covariate_definitions
         self.temporary_database = temporary_database
         self.codelist_tables = []
+        self.next_table_id = 1
         self.queries = self.get_queries(self.covariate_definitions)
 
     def to_csv(self, filename):
@@ -202,6 +203,7 @@ class TPPBackend:
         column_types = {}
         is_hidden = {}
         table_queries = {}
+        table_setup_queries = {}
         for name, (query_type, query_args) in covariate_definitions.items():
             # So we can safely mutate these below
             query_args = query_args.copy()
@@ -234,8 +236,9 @@ class TPPBackend:
                 )
             else:
                 date_format_args = pop_keys_from_dict(query_args, ["date_format"])
-                cols, sql = self.get_query(name, query_type, query_args)
+                cols, sql, setup_queries = self.get_query(name, query_type, query_args)
                 table_queries[name] = f"SELECT * INTO #{name} FROM ({sql}) t"
+                table_setup_queries[name] = setup_queries
                 # The first column should always be patient_id so we can join on it
                 assert cols[0] == "patient_id"
                 output_columns[name] = self.get_column_expression(
@@ -271,7 +274,13 @@ class TPPBackend:
           {joins_str}
         WHERE {output_columns["population"]} = 1
         """
-        return list(table_queries.items()) + [("final_output", joined_output_query)]
+        all_queries = []
+        for name, query in table_queries.items():
+            for setup_query in table_setup_queries[name]:
+                all_queries.append((name, setup_query))
+            all_queries.append((name, query))
+        all_queries.append(("final_output", joined_output_query))
+        return all_queries
 
     def get_column_expression(self, column_type, source, returning, date_format=None):
         default_value = self.get_default_value_for_type(column_type)
@@ -316,14 +325,16 @@ class TPPBackend:
         self._current_column_name = column_name
         return_value = method(**query_args)
         self._current_column_name = None
+        # We want to support returning a (columns, sql, setup_queries) triple
+        # from query methods but without, for now, having to rewrite all the
+        # old methods which just return (columns, sql). So we catch old-style
+        # return values here and add an empty `setup_queries` list to the end.
+        if isinstance(return_value, tuple) and len(return_value) == 2:
+            return_value = (*return_value, [])
         return return_value
 
     def create_codelist_table(self, codelist, case_sensitive=True):
-        table_number = len(self.codelist_tables) + 1
-        # We include the current column name for ease of debugging
-        column_name = self._current_column_name or "unknown"
-        # The hash prefix indicates a temporary table
-        table_name = f"#codelist_{table_number}_{column_name}"
+        table_name = self.get_temp_table_name("codelist")
         if codelist.has_categories:
             values = list(codelist)
         else:
@@ -345,6 +356,16 @@ class TPPBackend:
                 values,
             )
         )
+        return table_name
+
+    def get_temp_table_name(self, suffix):
+        # The hash prefix indicates a temporary table
+        table_name = f"#tmp{self.next_table_id}_"
+        self.next_table_id += 1
+        # We include the current column name if available for ease of debugging
+        if self._current_column_name:
+            table_name += f"{self._current_column_name}_"
+        table_name += suffix
         return table_name
 
     def get_codelist_queries(self):
@@ -713,8 +734,8 @@ class TPPBackend:
     ):
         codelist_table = self.create_codelist_table(codelist, codes_are_case_sensitive)
         date_condition = make_date_filter("ConsultationDate", between)
-        not_an_ignored_day_condition = self._none_of_these_codes_occur_on_same_day(
-            from_table, ignore_days_where_these_codes_occur
+        ignored_day_condition, extra_queries = self._these_codes_occur_on_same_day(
+            from_table, ignore_days_where_these_codes_occur, date_condition
         )
 
         # Result ordering
@@ -767,7 +788,7 @@ class TPPBackend:
               FROM {from_table}{additional_join}
               INNER JOIN {codelist_table}
               ON {code_column} = {codelist_table}.code
-              WHERE {date_condition} AND {not_an_ignored_day_condition}
+              WHERE {date_condition} AND NOT {ignored_day_condition}
             ) t
             WHERE rownum = 1
             """
@@ -780,7 +801,7 @@ class TPPBackend:
             FROM {from_table}{additional_join}
             INNER JOIN {codelist_table}
             ON {code_column} = {codelist_table}.code
-            WHERE {date_condition} AND {not_an_ignored_day_condition}
+            WHERE {date_condition} AND NOT {ignored_day_condition}
             GROUP BY Patient_ID
             """
 
@@ -790,7 +811,7 @@ class TPPBackend:
             columns = ["patient_id", column_name]
             if include_date_of_match:
                 columns.append("date")
-        return columns, sql
+        return columns, sql, extra_queries
 
     def _number_of_episodes_by_medication(
         self,
@@ -802,8 +823,8 @@ class TPPBackend:
     ):
         codelist_table = self.create_codelist_table(codelist, case_sensitive=False)
         date_condition = make_date_filter("ConsultationDate", between)
-        not_an_ignored_day_condition = self._none_of_these_codes_occur_on_same_day(
-            "MedicationIssue", ignore_days_where_these_codes_occur
+        ignored_day_condition, extra_queries = self._these_codes_occur_on_same_day(
+            "MedicationIssue", ignore_days_where_these_codes_occur, date_condition
         )
         if episode_defined_as is not None:
             pattern = r"^series of events each <= (\d+) days apart$"
@@ -838,11 +859,11 @@ class TPPBackend:
             ON MedicationIssue.MultilexDrug_ID = MedicationDictionary.MultilexDrug_ID
             INNER JOIN {codelist_table}
             ON DMD_ID = {codelist_table}.code
-            WHERE {date_condition} AND {not_an_ignored_day_condition}
+            WHERE {date_condition} AND NOT {ignored_day_condition}
         ) t
         GROUP BY Patient_ID
         """
-        return ["patient_id", "episode_count"], sql
+        return ["patient_id", "episode_count"], sql, extra_queries
 
     def _number_of_episodes_by_clinical_event(
         self,
@@ -854,8 +875,8 @@ class TPPBackend:
     ):
         codelist_table = self.create_codelist_table(codelist, case_sensitive=True)
         date_condition = make_date_filter("ConsultationDate", between)
-        not_an_ignored_day_condition = self._none_of_these_codes_occur_on_same_day(
-            "CodedEvent", ignore_days_where_these_codes_occur
+        ignored_day_condition, extra_queries = self._these_codes_occur_on_same_day(
+            "CodedEvent", ignore_days_where_these_codes_occur, date_condition
         )
         if episode_defined_as is not None:
             pattern = r"^series of events each <= (\d+) days apart$"
@@ -888,36 +909,51 @@ class TPPBackend:
             FROM CodedEvent
             INNER JOIN {codelist_table}
             ON CTV3Code = {codelist_table}.code
-            WHERE {date_condition} AND {not_an_ignored_day_condition}
+            WHERE {date_condition} AND NOT {ignored_day_condition}
         ) t
         GROUP BY Patient_ID
         """
-        return ["patient_id", "episode_count"], sql
+        return ["patient_id", "episode_count"], sql, extra_queries
 
-    def _none_of_these_codes_occur_on_same_day(self, joined_table, codelist):
+    def _these_codes_occur_on_same_day(self, joined_table, codelist, date_condition):
         """
         Generates a SQL condition that filters rows in `joined_table` so that
-        they only include events which happened on days where none of the codes
-        in `codelist` occur in the CodedEvents table.
+        they only include events which happened on days where one of the codes
+        in `codelist` occur in the CodedEvents table. Usually we negate this
+        condition in the surrounding query so that we only includes days where
+        *none* of the codes occured.
 
         We use this to support queries like "give me all the times a patient
         was prescribed this drug, but ignore any days on which they were having
         their annual COPD review".
         """
         if codelist is None:
-            return "1 = 1"
+            return "0 = 1", []
         assert codelist.system == "ctv3"
         codelist_table = self.create_codelist_table(codelist, case_sensitive=True)
-        return f"""
-        NOT EXISTS (
-          SELECT * FROM CodedEvent AS sameday
-          INNER JOIN {codelist_table}
-          ON sameday.CTV3Code = {codelist_table}.code
+        same_day_table = self.get_temp_table_name("same_day_events")
+        extra_queries = [
+            f"""
+            SELECT Patient_ID, CAST(ConsultationDate AS date) AS day
+            INTO {same_day_table}
+            FROM CodedEvent
+            INNER JOIN {codelist_table}
+            ON CTV3Code = {codelist_table}.code
+            WHERE {date_condition}
+            """,
+            f"""
+            CREATE CLUSTERED INDEX ix ON {same_day_table} (Patient_ID, day)
+            """,
+        ]
+        condition = f"""
+        EXISTS (
+          SELECT 1 FROM {same_day_table}
           WHERE
-            sameday.Patient_ID = {joined_table}.Patient_ID
-            AND CAST(sameday.ConsultationDate AS date) = CAST({joined_table}.ConsultationDate AS date)
+            {joined_table}.Patient_ID = {same_day_table}.Patient_ID
+            AND CAST({joined_table}.ConsultationDate AS date) = {same_day_table}.day
         )
         """
+        return condition, extra_queries
 
     def patients_registered_practice_as_of(self, date, returning=None):
         if returning == "stp_code":
