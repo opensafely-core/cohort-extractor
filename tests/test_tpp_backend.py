@@ -2077,6 +2077,7 @@ def test_patients_household_as_of():
                             HouseholdSize=2,
                             Prison=True,
                             MixedSoftwareHousehold=False,
+                            MSOA="S02001286",
                         )
                     )
                 ]
@@ -2089,6 +2090,7 @@ def test_patients_household_as_of():
                             HouseholdSize=3,
                             Prison=False,
                             MixedSoftwareHousehold=True,
+                            MSOA="S02001354",
                         )
                     )
                 ]
@@ -2104,6 +2106,7 @@ def test_patients_household_as_of():
                             NFA_Unknown=True,
                             Prison=False,
                             MixedSoftwareHousehold=False,
+                            MSOA="S02001781",
                         )
                     )
                 ]
@@ -2121,6 +2124,7 @@ def test_patients_household_as_of():
         mixed_ehr=patients.household_as_of(
             "2020-02-01", returning="has_members_in_other_ehr_systems"
         ),
+        msoa=patients.household_as_of("2020-02-01", returning="msoa"),
     )
     assert_results(
         study.to_dicts(),
@@ -2128,6 +2132,7 @@ def test_patients_household_as_of():
         household_size=["0", "2", "3", "0"],
         is_prison=["0", "1", "0", "0"],
         mixed_ehr=["0", "0", "1", "0"],
+        msoa=["", "S02001286", "S02001354", ""],
     )
     # We currently only accept one specific date
     with pytest.raises(ValueError):

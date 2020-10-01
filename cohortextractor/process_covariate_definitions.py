@@ -341,6 +341,7 @@ class GetColumnType:
             "primary_diagnosis": "str",
             "is_prison": "bool",
             "has_members_in_other_ehr_systems": "bool",
+            "msoa": "str",
         }
         try:
             return mapping[returning]
