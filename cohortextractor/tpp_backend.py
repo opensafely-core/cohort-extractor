@@ -236,9 +236,9 @@ class TPPBackend:
                 )
             else:
                 date_format_args = pop_keys_from_dict(query_args, ["date_format"])
-                cols, sql, setup_sql = self.get_query(name, query_type, query_args)
+                cols, sql, setup_queries = self.get_query(name, query_type, query_args)
                 table_queries[name] = f"SELECT * INTO #{name} FROM ({sql}) t"
-                table_setup_queries[name] = setup_sql
+                table_setup_queries[name] = setup_queries
                 # The first column should always be patient_id so we can join on it
                 assert cols[0] == "patient_id"
                 output_columns[name] = self.get_column_expression(
@@ -918,8 +918,10 @@ class TPPBackend:
     def _these_codes_occur_on_same_day(self, joined_table, codelist, date_condition):
         """
         Generates a SQL condition that filters rows in `joined_table` so that
-        they only include events which happened on days where none of the codes
-        in `codelist` occur in the CodedEvents table.
+        they only include events which happened on days where one of the codes
+        in `codelist` occur in the CodedEvents table. Usually we negate this
+        condition in the surrounding query so that we only includes days where
+        *none* of the codes occured.
 
         We use this to support queries like "give me all the times a patient
         was prescribed this drug, but ignore any days on which they were having
