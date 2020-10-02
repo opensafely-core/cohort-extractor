@@ -103,7 +103,7 @@ def test_sql_error_propagates(tmp_path):
     study = StudyDefinition(population=patients.all(), sex=patients.sex())
     # A bit hacky: fiddle with the list of queries to insert a deliberate error
     # at the end
-    study.backend.queries[-1] = ("test", "SELECT Foo FROM Bar")
+    study.backend.queries[-1] = "SELECT Foo FROM Bar"
     with pytest.raises(Exception) as excinfo:
         study.to_csv(tmp_path / "test.csv")
     assert "Invalid object name 'Bar'" in str(excinfo.value)
@@ -1440,18 +1440,15 @@ def test_duplicate_id_checking(tmp_path):
     # A bit of a hack: overwrite the queries we're going to run with a query which
     # deliberately returns duplicate values
     study.backend.queries = [
-        (
-            "dummy_query",
-            """
-            SELECT * FROM (
-              VALUES
-                (1,1),
-                (2,2),
-                (3,3),
-                (1,4)
-            ) t (patient_id, foo)
-            """,
-        )
+        """
+        SELECT * FROM (
+          VALUES
+            (1,1),
+            (2,2),
+            (3,3),
+            (1,4)
+        ) t (patient_id, foo)
+        """,
     ]
     with pytest.raises(RuntimeError):
         study.to_dicts()

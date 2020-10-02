@@ -98,8 +98,7 @@ class TPPBackend:
         if len(queries):
             # Add comment to first query
             queries[0] = f"-- Write codelists into temporary tables\n\n{queries[0]}"
-        for name, query in self.queries:
-            queries.append(f"-- Query for {name}\n{query}")
+        queries.extend(self.queries)
         return queries
 
     def save_results_to_temporary_db(self, queries):
@@ -238,7 +237,10 @@ class TPPBackend:
                 sql_list = self.get_queries_for_column(name, query_type, query_args)
                 # Wrap the final SELECT query so that it writes its results
                 # into the appropriate temporary table
-                sql_list[-1] = f"SELECT * INTO #{name} FROM ({sql_list[-1]}) t"
+                sql_list[-1] = (
+                    f"-- Query for {name}\n"
+                    f"SELECT * INTO #{name} FROM ({sql_list[-1]}) t"
+                )
                 table_queries[name] = sql_list
                 # The first column should always be patient_id so we can join on it
                 output_columns[name] = self.get_column_expression(
@@ -270,6 +272,7 @@ class TPPBackend:
         ]
         joins_str = "\n          ".join(joins)
         joined_output_query = f"""
+        -- Join all columns for final output
         SELECT
           {output_columns_str}
         FROM
@@ -278,10 +281,9 @@ class TPPBackend:
         WHERE {output_columns["population"]} = 1
         """
         all_queries = []
-        for name, sql_list in table_queries.items():
-            for sql in sql_list:
-                all_queries.append((name, sql))
-        all_queries.append(("final_output", joined_output_query))
+        for sql_list in table_queries.values():
+            all_queries.extend(sql_list)
+        all_queries.append(joined_output_query)
         return all_queries
 
     def get_column_expression(self, column_type, source, returning, date_format=None):
@@ -308,9 +310,9 @@ class TPPBackend:
     def execute_queries(self, queries):
         cursor = self.get_db_connection().cursor()
         for query in queries:
-            if query.startswith("--"):
-                comment = query.partition("\n")[0].lstrip("- ")
-                self.log(f"Running: {comment}")
+            comment_match = re.match(r"^\s*\-\-\s*(.+)\n", query)
+            if comment_match:
+                self.log(f"Running: {comment_match.group(1)}")
             cursor.execute(query)
         return cursor
 
