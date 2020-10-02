@@ -27,12 +27,11 @@ class TPPBackend:
         self.database_url = database_url
         self.covariate_definitions = covariate_definitions
         self.temporary_database = temporary_database
-        self.codelist_tables = []
-        self.next_table_id = 1
+        self.next_temp_table_id = 1
         self.queries = self.get_queries(self.covariate_definitions)
 
     def to_csv(self, filename):
-        queries = self.to_sql_list()
+        queries = self.queries
         # If we have a temporary database available we write results to a table
         # there, download them, and then delete the table. This allows us to
         # resume in the case of a failed download without rerunning the whole
@@ -71,7 +70,7 @@ class TPPBackend:
         return f"{root}.partial.{timestamp}{extension}"
 
     def to_dicts(self):
-        result = self.execute_queries(self.to_sql_list())
+        result = self.execute_queries(self.queries)
         keys = [x[0] for x in result.description]
         # Convert all values to str as that's what will end in the CSV
         output = [dict(zip(keys, map(str, row))) for row in result]
@@ -87,19 +86,7 @@ class TPPBackend:
 
         Useful for debugging, optimising, etc.
         """
-        return "\nGO\n\n".join(self.to_sql_list())
-
-    def to_sql_list(self):
-        """
-        Return all SQL needed for the study as a list of individual
-        statements/queries
-        """
-        queries = list(self.get_codelist_queries())
-        if len(queries):
-            # Add comment to first query
-            queries[0] = f"-- Write codelists into temporary tables\n\n{queries[0]}"
-        queries.extend(self.queries)
-        return queries
+        return "\nGO\n\n".join(self.queries)
 
     def save_results_to_temporary_db(self, queries):
         """
@@ -341,50 +328,41 @@ class TPPBackend:
             values = list(codelist)
         else:
             values = [(code, "") for code in codelist]
+        # Depending on the case-sensitivity of the code system the columns in question
+        # use different collations and we need to use a matching one here
         collation = "Latin1_General_BIN" if case_sensitive else "Latin1_General_CI_AS"
         max_code_len = max(len(code) for (code, category) in values)
-        self.codelist_tables.append(
-            (
-                f"""
-                CREATE TABLE {table_name} (
-                  -- Because some code systems are case-sensitive we need to
-                  -- use a case-sensitive collation here
-                  code VARCHAR({max_code_len}) COLLATE {collation},
-                  category VARCHAR(MAX)
-                )
-                """,
-                f"INSERT INTO {table_name} (code, category) VALUES",
-                "({}, {})",
-                values,
+        queries = [
+            f"""
+            -- Uploading codelist for {self._current_column_name}
+            CREATE TABLE {table_name} (
+              code VARCHAR({max_code_len}) COLLATE {collation},
+              category VARCHAR(MAX)
             )
-        )
-        return table_name
+            """
+        ]
+        insert_sql = f"INSERT INTO {table_name} (code, category) VALUES"
+        # There's a limit on how many rows we can insert in one go using this method
+        # See: https://docs.microsoft.com/en-us/sql/t-sql/queries/table-value-constructor-transact-sql?view=sql-server-ver15#limitations-and-restrictions
+        batch_size = 999
+        for i in range(0, len(values), batch_size):
+            values_batch = values[i : i + batch_size]
+            values_sql_lines = [
+                "({}, {})".format(*map(quote, row)) for row in values_batch
+            ]
+            values_sql = ",\n".join(values_sql_lines)
+            queries.append(f"{insert_sql}\n{values_sql}")
+        return table_name, queries
 
     def get_temp_table_name(self, suffix):
         # The hash prefix indicates a temporary table
-        table_name = f"#tmp{self.next_table_id}_"
-        self.next_table_id += 1
+        table_name = f"#tmp{self.next_temp_table_id}_"
+        self.next_temp_table_id += 1
         # We include the current column name if available for ease of debugging
         if self._current_column_name:
             table_name += f"{self._current_column_name}_"
         table_name += suffix
         return table_name
-
-    def get_codelist_queries(self):
-        # There's a limit on how many rows we can insert in one go using this method
-        # See: https://docs.microsoft.com/en-us/sql/t-sql/queries/table-value-constructor-transact-sql?view=sql-server-ver15#limitations-and-restrictions
-        batch_size = 999
-        queries = []
-        for create_sql, insert_sql, value_template, values in self.codelist_tables:
-            queries.append(create_sql)
-            for i in range(0, len(values), batch_size):
-                values_batch = values[i : i + batch_size]
-                values_sql_lines = [
-                    value_template.format(*map(quote, row)) for row in values_batch
-                ]
-                values_sql = ",\n".join(values_sql_lines)
-                queries.append(f"{insert_sql}\n{values_sql}")
-        return queries
 
     def patients_age_as_of(self, reference_date):
         quoted_date = quote(reference_date)
@@ -709,7 +687,9 @@ class TPPBackend:
         returning="binary_flag",
         include_date_of_match=False,
     ):
-        codelist_table = self.create_codelist_table(codelist, codes_are_case_sensitive)
+        codelist_table, codelist_queries = self.create_codelist_table(
+            codelist, codes_are_case_sensitive
+        )
         date_condition = make_date_filter("ConsultationDate", between)
         ignored_day_condition, extra_queries = self._these_codes_occur_on_same_day(
             from_table, ignore_days_where_these_codes_occur, date_condition
@@ -779,7 +759,7 @@ class TPPBackend:
             GROUP BY Patient_ID
             """
 
-        return extra_queries + [sql]
+        return codelist_queries + extra_queries + [sql]
 
     def _number_of_episodes_by_medication(
         self,
@@ -789,7 +769,9 @@ class TPPBackend:
         ignore_days_where_these_codes_occur=None,
         episode_defined_as=None,
     ):
-        codelist_table = self.create_codelist_table(codelist, case_sensitive=False)
+        codelist_table, codelist_queries = self.create_codelist_table(
+            codelist, case_sensitive=False
+        )
         date_condition = make_date_filter("ConsultationDate", between)
         ignored_day_condition, extra_queries = self._these_codes_occur_on_same_day(
             "MedicationIssue", ignore_days_where_these_codes_occur, date_condition
@@ -831,7 +813,7 @@ class TPPBackend:
         ) t
         GROUP BY Patient_ID
         """
-        return extra_queries + [sql]
+        return codelist_queries + extra_queries + [sql]
 
     def _number_of_episodes_by_clinical_event(
         self,
@@ -841,7 +823,9 @@ class TPPBackend:
         ignore_days_where_these_codes_occur=None,
         episode_defined_as=None,
     ):
-        codelist_table = self.create_codelist_table(codelist, case_sensitive=True)
+        codelist_table, codelist_queries = self.create_codelist_table(
+            codelist, case_sensitive=True
+        )
         date_condition = make_date_filter("ConsultationDate", between)
         ignored_day_condition, extra_queries = self._these_codes_occur_on_same_day(
             "CodedEvent", ignore_days_where_these_codes_occur, date_condition
@@ -881,7 +865,7 @@ class TPPBackend:
         ) t
         GROUP BY Patient_ID
         """
-        return extra_queries + [sql]
+        return codelist_queries + extra_queries + [sql]
 
     def _these_codes_occur_on_same_day(self, joined_table, codelist, date_condition):
         """
@@ -898,9 +882,11 @@ class TPPBackend:
         if codelist is None:
             return "0 = 1", []
         assert codelist.system == "ctv3"
-        codelist_table = self.create_codelist_table(codelist, case_sensitive=True)
+        codelist_table, queries = self.create_codelist_table(
+            codelist, case_sensitive=True
+        )
         same_day_table = self.get_temp_table_name("same_day_events")
-        extra_queries = [
+        queries += [
             f"""
             SELECT Patient_ID, CAST(ConsultationDate AS date) AS day
             INTO {same_day_table}
@@ -921,7 +907,7 @@ class TPPBackend:
             AND CAST({joined_table}.ConsultationDate AS date) = {same_day_table}.day
         )
         """
-        return condition, extra_queries
+        return condition, queries
 
     def patients_registered_practice_as_of(self, date, returning=None):
         if returning == "stp_code":
