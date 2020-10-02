@@ -203,7 +203,6 @@ class TPPBackend:
         column_types = {}
         is_hidden = {}
         table_queries = {}
-        table_setup_queries = {}
         for name, (query_type, query_args) in covariate_definitions.items():
             # So we can safely mutate these below
             query_args = query_args.copy()
@@ -236,9 +235,11 @@ class TPPBackend:
                 )
             else:
                 date_format_args = pop_keys_from_dict(query_args, ["date_format"])
-                sql, setup_queries = self.get_query(name, query_type, query_args)
-                table_queries[name] = f"SELECT * INTO #{name} FROM ({sql}) t"
-                table_setup_queries[name] = setup_queries
+                sql_list = self.get_queries_for_column(name, query_type, query_args)
+                # Wrap the final SELECT query so that it writes its results
+                # into the appropriate temporary table
+                sql_list[-1] = f"SELECT * INTO #{name} FROM ({sql_list[-1]}) t"
+                table_queries[name] = sql_list
                 # The first column should always be patient_id so we can join on it
                 output_columns[name] = self.get_column_expression(
                     column_type,
@@ -277,10 +278,9 @@ class TPPBackend:
         WHERE {output_columns["population"]} = 1
         """
         all_queries = []
-        for name, query in table_queries.items():
-            for setup_query in table_setup_queries[name]:
-                all_queries.append((name, setup_query))
-            all_queries.append((name, query))
+        for name, sql_list in table_queries.items():
+            for sql in sql_list:
+                all_queries.append((name, sql))
         all_queries.append(("final_output", joined_output_query))
         return all_queries
 
@@ -320,17 +320,17 @@ class TPPBackend:
         )
         print(f"[{timestamp}] {message}", flush=True)
 
-    def get_query(self, column_name, query_type, query_args):
+    def get_queries_for_column(self, column_name, query_type, query_args):
         method_name = f"patients_{query_type}"
         method = getattr(self, method_name)
         # Keep track of the current column name for debugging purposes
         self._current_column_name = column_name
         return_value = method(**query_args)
         self._current_column_name = None
-        # We want to support returning either a SQL string or a pair of a SQL
-        # string and a list of SQL queries to be executed first.
+        # We want to allow the query methods to return just a single SQL string
+        # which we automatically wrap in a list
         if isinstance(return_value, str):
-            return_value = (return_value, [])
+            return_value = [return_value]
         return return_value
 
     def create_codelist_table(self, codelist, case_sensitive=True):
@@ -777,7 +777,7 @@ class TPPBackend:
             GROUP BY Patient_ID
             """
 
-        return sql, extra_queries
+        return extra_queries + [sql]
 
     def _number_of_episodes_by_medication(
         self,
@@ -829,7 +829,7 @@ class TPPBackend:
         ) t
         GROUP BY Patient_ID
         """
-        return sql, extra_queries
+        return extra_queries + [sql]
 
     def _number_of_episodes_by_clinical_event(
         self,
@@ -879,7 +879,7 @@ class TPPBackend:
         ) t
         GROUP BY Patient_ID
         """
-        return sql, extra_queries
+        return extra_queries + [sql]
 
     def _these_codes_occur_on_same_day(self, joined_table, codelist, date_condition):
         """
