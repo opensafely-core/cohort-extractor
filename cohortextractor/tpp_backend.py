@@ -1493,6 +1493,8 @@ class TPPBackend:
             column = (
                 "CASE Household.MixedSoftwareHousehold WHEN 'TRUE' THEN 1 ELSE 0 END"
             )
+        elif returning == "msoa":
+            column = "Household.MSOA"
         else:
             raise ValueError(f"Unsupported `returning` value: {returning}")
         return (

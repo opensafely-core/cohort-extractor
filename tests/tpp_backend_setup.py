@@ -411,6 +411,7 @@ class Household(Base):
     Prison = Column(Boolean)
     MixedSoftwareHousehold = Column(Boolean)
     HouseholdSize = Column(Integer)
+    MSOA = Column(String)
     HouseholdMembers = relationship(
         "HouseholdMember", back_populates="Household", cascade="all, delete"
     )

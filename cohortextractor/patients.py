@@ -586,6 +586,9 @@ def household_as_of(reference_date, returning=None, return_expectations=None):
                                           different EHR system, meaning that our
                                           coverage of the household is incomplete.
 
+        msoa: Returns the MSOA (Middle Super Output Area) in which the household is
+              situated
+
     Examples:
 
         household_id=patients.household_as_of(
