@@ -37,6 +37,21 @@ notebook_tag = "opencorona-research"
 target_dir = "/home/app/notebook"
 
 
+def show_exception_timestamp(*args):
+    """
+    Output a timestamp before any exception traceback which can be useful when
+    debugging
+    """
+    timestamp = datetime.datetime.now(datetime.timezone.utc).strftime(
+        "%Y-%m-%d %H:%M:%S UTC"
+    )
+    print(f"Exception at {timestamp}", file=sys.stderr)
+    sys.__excepthook__(*args)
+
+
+sys.excepthook = show_exception_timestamp
+
+
 def relative_dir():
     return os.getcwd()
 
