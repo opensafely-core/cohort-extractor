@@ -387,7 +387,7 @@ class TPPBackend:
     def patients_age_as_of(self, reference_date):
         quoted_date = quote(reference_date)
         return (
-            ["patient_id", "age"],
+            ["patient_id", "value"],
             f"""
             SELECT
               Patient_ID AS patient_id,
@@ -397,26 +397,26 @@ class TPPBackend:
                  datediff(year, DateOfBirth, {quoted_date}) - 1
               ELSE
                  datediff(year, DateOfBirth, {quoted_date})
-              END AS age
+              END AS value
             FROM Patient
             """,
         )
 
     def patients_date_of_birth(self):
         return (
-            ["patient_id", "date_of_birth"],
+            ["patient_id", "value"],
             """
-            SELECT Patient_ID AS patient_id, DateOfBirth AS date_of_birth FROM Patient
+            SELECT Patient_ID AS patient_id, DateOfBirth AS value FROM Patient
             """,
         )
 
     def patients_sex(self):
         return (
-            ["patient_id", "sex"],
+            ["patient_id", "value"],
             """
           SELECT
             Patient_ID AS patient_id,
-            Sex as sex
+            Sex AS value
           FROM Patient""",
         )
 
@@ -425,9 +425,9 @@ class TPPBackend:
         All patients
         """
         return (
-            ["patient_id", "is_included"],
+            ["patient_id", "value"],
             """
-            SELECT Patient_ID AS patient_id, 1 AS is_included
+            SELECT Patient_ID AS patient_id, 1 AS value
             FROM Patient
             """,
         )
@@ -444,9 +444,9 @@ class TPPBackend:
         # in the tests!)
         assert percent, "Must specify a percentage greater than zero"
         return (
-            ["patient_id", "is_included"],
+            ["patient_id", "value"],
             f"""
-            SELECT Patient_ID, 1 AS is_included
+            SELECT Patient_ID, 1 AS value
             FROM Patient
             WHERE (ABS(CAST(
             (BINARY_CHECKSUM(*) *
@@ -545,7 +545,7 @@ class TPPBackend:
         sql = f"""
         SELECT
           patients.Patient_ID AS patient_id,
-          ROUND(COALESCE(weight/SQUARE(NULLIF(height, 0)), bmis.BMI), 1) AS BMI,
+          ROUND(COALESCE(weight/SQUARE(NULLIF(height, 0)), bmis.BMI), 1) AS value,
           CASE
             WHEN weight IS NULL OR height IS NULL THEN bmis.ConsultationDate
             ELSE weights.ConsultationDate
@@ -559,7 +559,7 @@ class TPPBackend:
         ON bmis.Patient_ID = patients.Patient_ID AND DATEDIFF(YEAR, patients.DateOfBirth, bmis.ConsultationDate) >= {min_age}
         -- XXX maybe add a "WHERE NULL..." here
         """
-        columns = ["patient_id", "BMI"]
+        columns = ["patient_id", "value"]
         if include_date_of_match:
             columns.append("date")
         return columns, sql
@@ -586,7 +586,7 @@ class TPPBackend:
         sql = f"""
         SELECT
           days.Patient_ID AS patient_id,
-          AVG(CodedEvent.NumericValue) AS mean_value,
+          AVG(CodedEvent.NumericValue) AS value,
           days.date_measured AS date
         FROM (
             SELECT Patient_ID, CAST(MAX(ConsultationDate) AS date) AS date_measured
@@ -602,7 +602,7 @@ class TPPBackend:
         )
         GROUP BY days.Patient_ID, days.date_measured
         """
-        columns = ["patient_id", "mean_value"]
+        columns = ["patient_id", "value"]
         if include_date_of_match:
             columns.append("date")
         return columns, sql
@@ -630,9 +630,9 @@ class TPPBackend:
             # won't have their data in the TPP database at all.
             extra_condition = f"  AND Organisation.GoLiveDate <= {quote(start_date)}"
         return (
-            ["patient_id", "is_registered"],
+            ["patient_id", "value"],
             f"""
-            SELECT DISTINCT Patient.Patient_ID AS patient_id, 1 AS is_registered
+            SELECT DISTINCT Patient.Patient_ID AS patient_id, 1 AS value
             FROM Patient
             INNER JOIN RegistrationHistory
             ON RegistrationHistory.Patient_ID = Patient.Patient_ID
@@ -746,20 +746,18 @@ class TPPBackend:
             ordering = "DESC"
             date_aggregate = "MAX"
 
+        column_name = returning
         if returning == "binary_flag" or returning == "date":
-            column_name = "has_event"
+            column_name = "binary_flag"
             column_definition = "1"
             use_partition_query = False
         elif returning == "number_of_matches_in_period":
-            column_name = "count"
             column_definition = "COUNT(*)"
             use_partition_query = False
         elif returning == "numeric_value":
-            column_name = "value"
             column_definition = "NumericValue"
             use_partition_query = True
         elif returning == "code":
-            column_name = "code"
             column_definition = code_column
             use_partition_query = True
         elif returning == "category":
@@ -768,7 +766,6 @@ class TPPBackend:
                     "Cannot return categories because the supplied codelist does "
                     "not have any categories defined"
                 )
-            column_name = "category"
             column_definition = "category"
             use_partition_query = True
         else:
@@ -805,12 +802,9 @@ class TPPBackend:
             GROUP BY Patient_ID
             """
 
-        if returning == "date":
-            columns = ["patient_id", "date"]
-        else:
-            columns = ["patient_id", column_name]
-            if include_date_of_match:
-                columns.append("date")
+        columns = ["patient_id", returning]
+        if include_date_of_match and returning != "date":
+            columns.append("date")
         return columns, sql, extra_queries
 
     def _number_of_episodes_by_medication(
@@ -840,7 +834,7 @@ class TPPBackend:
         sql = f"""
         SELECT
           Patient_ID AS patient_id,
-          SUM(is_new_episode) AS episode_count
+          SUM(is_new_episode) AS number_of_episodes
         FROM (
             SELECT
               Patient_ID,
@@ -863,7 +857,7 @@ class TPPBackend:
         ) t
         GROUP BY Patient_ID
         """
-        return ["patient_id", "episode_count"], sql, extra_queries
+        return ["patient_id", "number_of_episodes"], sql, extra_queries
 
     def _number_of_episodes_by_clinical_event(
         self,
@@ -892,7 +886,7 @@ class TPPBackend:
         sql = f"""
         SELECT
           Patient_ID AS patient_id,
-          SUM(is_new_episode) AS episode_count
+          SUM(is_new_episode) AS number_of_episodes
         FROM (
             SELECT
               Patient_ID,
@@ -913,7 +907,7 @@ class TPPBackend:
         ) t
         GROUP BY Patient_ID
         """
-        return ["patient_id", "episode_count"], sql, extra_queries
+        return ["patient_id", "number_of_episodes"], sql, extra_queries
 
     def _these_codes_occur_on_same_day(self, joined_table, codelist, date_condition):
         """
@@ -1003,7 +997,7 @@ class TPPBackend:
         if min_date is None:
             min_date = "1900-01-01"
         return (
-            ["patient_id", "date"],
+            ["patient_id", "value"],
             f"""
             SELECT
               Patient_ID AS patient_id,
@@ -1012,7 +1006,7 @@ class TPPBackend:
                   MAX(EndDate) BETWEEN {quote(min_date)} AND {quote(max_date)}
                 THEN
                   MAX(EndDate)
-              END AS date
+              END AS value
             FROM
               RegistrationHistory
             GROUP BY
@@ -1106,10 +1100,8 @@ class TPPBackend:
     ):
         if find_first_match_in_period:
             date_aggregate = "MIN"
-            date_column_name = "first_admitted_date"
         else:
             date_aggregate = "MAX"
-            date_column_name = "last_admitted_date"
         date_expression = f"""
         {date_aggregate}(
         CASE
@@ -1125,34 +1117,29 @@ class TPPBackend:
         greater_than_zero_expr = "CASE WHEN {} > 0 THEN 1 ELSE 0 END"
 
         if returning == "date_admitted":
-            column_name = date_column_name
             column_definition = date_expression
         elif returning == "binary_flag":
-            column_name = "was_admitted"
             column_definition = 1
         elif returning == "had_respiratory_support":
-            column_name = returning
             column_definition = greater_than_zero_expr.format(
                 "SUM(BasicDays_RespiratorySupport) + SUM(AdvancedDays_RespiratorySupport)"
             )
         elif returning == "had_basic_respiratory_support":
-            column_name = returning
             column_definition = greater_than_zero_expr.format(
                 "SUM(BasicDays_RespiratorySupport)"
             )
         elif returning == "had_advanced_respiratory_support":
-            column_name = returning
             column_definition = greater_than_zero_expr.format(
                 "SUM(AdvancedDays_RespiratorySupport)"
             )
         else:
             raise ValueError(f"Unsupported `returning` value: {returning}")
         return (
-            ["patient_id", column_name],
+            ["patient_id", returning],
             f"""
             SELECT
               Patient_ID AS patient_id,
-              {column_definition} AS {column_name}
+              {column_definition} AS {returning}
             FROM
               ICNARC
             GROUP BY Patient_ID
@@ -1184,21 +1171,18 @@ class TPPBackend:
             code_conditions = "1 = 1"
         if returning == "binary_flag":
             column_definition = "1"
-            column_name = "died"
         elif returning == "date_of_death":
             column_definition = "dod"
-            column_name = "date_of_death"
         elif returning == "underlying_cause_of_death":
             column_definition = "icd10u"
-            column_name = "underlying_cause_of_death"
         else:
             raise ValueError(f"Unsupported `returning` value: {returning}")
         return (
-            ["patient_id", column_name],
+            ["patient_id", returning],
             # The SELECT DISTINCT is because completely duplicate rows have previously appeared
             # in the underlying dataset.
             f"""
-            SELECT DISTINCT Patient_ID as patient_id, {column_definition} AS {column_name}
+            SELECT DISTINCT Patient_ID as patient_id, {column_definition} AS {returning}
             FROM ONS_Deaths
             WHERE ({code_conditions}) AND {date_condition}
             """,
@@ -1225,18 +1209,16 @@ class TPPBackend:
         date_condition = make_date_filter("DateOfDeath", between)
         if returning == "binary_flag":
             column_definition = "1"
-            column_name = "died"
         elif returning == "date_of_death":
             column_definition = "MAX(DateOfDeath)"
-            column_name = "date_of_death"
         else:
             raise ValueError(f"Unsupported `returning` value: {returning}")
         return (
-            ["patient_id", column_name],
+            ["patient_id", returning],
             f"""
             SELECT
               Patient_ID as patient_id,
-              {column_definition} AS {column_name},
+              {column_definition} AS {returning},
               -- Crude error check so we blow up in the case of inconsistent dates
               1 / CASE WHEN MAX(DateOfDeath) = MIN(DateOfDeath) THEN 1 ELSE 0 END AS _e
             FROM CPNS
@@ -1314,10 +1296,7 @@ class TPPBackend:
         else:
             date_aggregate = "MAX"
 
-        if returning == "binary_flag" or returning == "date":
-            column_name = "has_event"
-            column_definition = "1"
-        else:
+        if returning not in ("binary_flag", "date"):
             # Because each Vaccination row can potentially map to multiple
             # VaccinationReference rows (one for each disease targeted by the
             # vaccine) anything beyond a simple binary flag or a date is going to
@@ -1327,7 +1306,7 @@ class TPPBackend:
         sql = f"""
         SELECT
           Patient_ID AS patient_id,
-          {column_definition} AS {column_name},
+          1 AS binary_flag,
           {date_aggregate}(VaccinationDate) AS date
         FROM Vaccination
         INNER JOIN VaccinationReference AS ref
@@ -1336,12 +1315,9 @@ class TPPBackend:
         GROUP BY Patient_ID
         """
 
-        if returning == "date":
-            columns = ["patient_id", "date"]
-        else:
-            columns = ["patient_id", column_name]
-            if include_date_of_match:
-                columns.append("date")
+        columns = ["patient_id", returning]
+        if returning != "date" and include_date_of_match:
+            columns.append("date")
         return columns, sql
 
     def patients_with_gp_consultations(
@@ -1356,10 +1332,10 @@ class TPPBackend:
         include_date_of_match=False,
     ):
         if returning == "binary_flag" or returning == "date":
-            column_name = "has_event"
+            column_name = "binary_flag"
             column_definition = "1"
         elif returning == "number_of_matches_in_period":
-            column_name = "count"
+            column_name = returning
             column_definition = "COUNT(*)"
         else:
             raise ValueError(f"Unsupported `returning` value: {returning}")
@@ -1387,12 +1363,9 @@ class TPPBackend:
         GROUP BY Patient_ID
         """
 
-        if returning == "date":
-            columns = ["patient_id", "date"]
-        else:
-            columns = ["patient_id", column_name]
-            if include_date_of_match:
-                columns.append("date")
+        columns = ["patient_id", returning]
+        if returning != "date" and include_date_of_match:
+            columns.append("date")
         return columns, sql
 
     def patients_with_complete_gp_consultation_history_between(
@@ -1446,7 +1419,7 @@ class TPPBackend:
         sql = f"""
         SELECT
           patient_id,
-          1 AS has_result,
+          1 AS binary_flag,
           {date_aggregate}(date) AS date,
           -- We have to calculate something over the error check field
           -- otherwise it never gets computed
@@ -1472,12 +1445,9 @@ class TPPBackend:
         GROUP BY patient_id
         """
 
-        if returning == "date":
-            columns = ["patient_id", "date"]
-        else:
-            columns = ["patient_id", "has_result"]
-            if include_date_of_match:
-                columns.append("date")
+        columns = ["patient_id", returning]
+        if returning != "date" and include_date_of_match:
+            columns.append("date")
         return columns, sql
 
     def patients_household_as_of(self, reference_date, returning):
