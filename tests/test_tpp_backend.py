@@ -1015,52 +1015,53 @@ def test_patients_registered_practice_as_of():
 
 def test_patients_address_as_of():
     session = make_session()
-    patient = Patient()
-    patient.Addresses.append(
-        PatientAddress(
-            StartDate="1990-01-01",
-            EndDate="2018-01-01",
-            ImdRankRounded=100,
-            RuralUrbanClassificationCode=1,
-        )
+    session.add_all(
+        [
+            # We deliberately create overlapping address periods here to check
+            # that we handle these correctly
+            Patient(
+                Addresses=[
+                    PatientAddress(
+                        StartDate="1990-01-01",
+                        EndDate="2018-01-01",
+                        ImdRankRounded=100,
+                        RuralUrbanClassificationCode=1,
+                    ),
+                    PatientAddress(
+                        StartDate="2018-01-01",
+                        EndDate="2020-02-01",
+                        ImdRankRounded=200,
+                        RuralUrbanClassificationCode=1,
+                    ),
+                    PatientAddress(
+                        StartDate="2019-01-01",
+                        EndDate="2022-01-01",
+                        ImdRankRounded=300,
+                        RuralUrbanClassificationCode=2,
+                    ),
+                    PatientAddress(
+                        StartDate="2022-01-01",
+                        EndDate="9999-12-31",
+                        ImdRankRounded=500,
+                        RuralUrbanClassificationCode=3,
+                    ),
+                ]
+            ),
+            # Patient with no address
+            Patient(),
+            # Patient with only old address
+            Patient(
+                Addresses=[
+                    PatientAddress(
+                        StartDate="2010-01-01",
+                        EndDate="2015-01-01",
+                        ImdRankRounded=100,
+                        RuralUrbanClassificationCode=1,
+                    )
+                ]
+            ),
+        ]
     )
-    # We deliberately create overlapping address periods here to check that we
-    # handle these correctly
-    patient.Addresses.append(
-        PatientAddress(
-            StartDate="2018-01-01",
-            EndDate="2020-02-01",
-            ImdRankRounded=200,
-            RuralUrbanClassificationCode=1,
-        )
-    )
-    patient.Addresses.append(
-        PatientAddress(
-            StartDate="2019-01-01",
-            EndDate="2022-01-01",
-            ImdRankRounded=300,
-            RuralUrbanClassificationCode=2,
-        )
-    )
-    patient.Addresses.append(
-        PatientAddress(
-            StartDate="2022-01-01",
-            EndDate="9999-12-31",
-            ImdRankRounded=500,
-            RuralUrbanClassificationCode=3,
-        )
-    )
-    patient_no_address = Patient()
-    patient_only_old_address = Patient()
-    patient_only_old_address.Addresses.append(
-        PatientAddress(
-            StartDate="2010-01-01",
-            EndDate="2015-01-01",
-            ImdRankRounded=100,
-            RuralUrbanClassificationCode=1,
-        )
-    )
-    session.add_all([patient, patient_no_address, patient_only_old_address])
     session.commit()
     study = StudyDefinition(
         population=patients.all(),
@@ -1073,9 +1074,9 @@ def test_patients_address_as_of():
             "2020-01-01", returning="rural_urban_classification"
         ),
     )
-    results = study.to_dicts()
-    assert [i["imd"] for i in results] == ["300", "0", "0"]
-    assert [i["rural_urban"] for i in results] == ["2", "0", "0"]
+    assert_results(
+        study.to_dicts(), imd=["300", "0", "0"], rural_urban=["2", "0", "0"],
+    )
 
 
 def test_patients_care_home_status_as_of():
