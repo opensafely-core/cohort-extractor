@@ -1047,6 +1047,24 @@ def test_patients_address_as_of():
                     ),
                 ]
             ),
+            Patient(
+                Addresses=[
+                    PatientAddress(
+                        StartDate="1900-01-01",
+                        EndDate="9999-12-31",
+                        ImdRankRounded=-1,
+                        RuralUrbanClassificationCode=-1,
+                        MSOACode="NPC",
+                    ),
+                    PatientAddress(
+                        StartDate="1900-01-01",
+                        EndDate="9999-12-31",
+                        ImdRankRounded=600,
+                        RuralUrbanClassificationCode=4,
+                        MSOACode="E02002346",
+                    ),
+                ]
+            ),
             # Patient with no address
             Patient(),
             # Patient with only old address
@@ -1075,7 +1093,7 @@ def test_patients_address_as_of():
         ),
     )
     assert_results(
-        study.to_dicts(), imd=["300", "0", "0"], rural_urban=["2", "0", "0"],
+        study.to_dicts(), imd=["300", "600", "0", "0"], rural_urban=["2", "4", "0", "0"]
     )
 
 

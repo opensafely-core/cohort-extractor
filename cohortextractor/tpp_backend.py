@@ -993,7 +993,9 @@ class TPPBackend:
         # Note that current addresses are recorded with an EndDate of
         # 9999-12-31. Where address periods overlap we use the one with the
         # most recent start date. If there are several with the same start date
-        # we use the longest one (i.e. with the latest end date).
+        # we use the longest one (i.e. with the latest end date). We then
+        # prefer addresses which are not marked "NPC" for "No Postcode" and
+        # finally we use the address ID as a tie-breaker.
         return f"""
         SELECT
           Patient_ID AS patient_id,
@@ -1002,7 +1004,11 @@ class TPPBackend:
           SELECT Patient_ID, {column},
           ROW_NUMBER() OVER (
             PARTITION BY Patient_ID
-            ORDER BY StartDate DESC, EndDate DESC, PatientAddress_ID
+            ORDER BY
+              StartDate DESC,
+              EndDate DESC,
+              IIF(MSOACode = 'NPC', 1, 0),
+              PatientAddress_ID
           ) AS rownum
           FROM PatientAddress
           WHERE StartDate <= {quote(date)} AND EndDate > {quote(date)}
@@ -1026,6 +1032,8 @@ class TPPBackend:
         case_expression = self.get_case_expression(
             allowed_column_types, allowed_columns, categorised_as
         )
+        # See `patients_address_as_of` above for details of the ordering used
+        # here
         return f"""
         SELECT
           Patient_ID AS patient_id,
@@ -1038,8 +1046,12 @@ class TPPBackend:
             LocationDoesNotRequireNursing,
             ROW_NUMBER() OVER (
               PARTITION BY PatientAddress.Patient_ID
-              ORDER BY StartDate DESC, EndDate DESC, PatientAddress.PatientAddress_ID
-            ) AS rownum
+              ORDER BY
+                StartDate DESC,
+                EndDate DESC,
+                IIF(MSOACode = 'NPC', 1, 0),
+                PatientAddress.PatientAddress_ID
+              ) AS rownum
           FROM PatientAddress
           LEFT JOIN PotentialCareHomeAddress
           ON PatientAddress.PatientAddress_ID = PotentialCareHomeAddress.PatientAddress_ID
