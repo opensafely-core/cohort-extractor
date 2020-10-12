@@ -2158,7 +2158,7 @@ def test_patients_household_as_of():
         )
 
 
-def test_patients_attended_accident_and_emergency():
+def test_patients_attended_emergency_care():
     discharge_to_ward = "306706006"
     discharge_to_home = "306689006"
     covid_19 = "1240751000000100"
@@ -2501,12 +2501,12 @@ def test_patients_admitted_to_hospital():
         with_particular_primary_diagnosis=patients.admitted_to_hospital(
             on_or_after="2020-02-01",
             returning="binary_flag",
-            with_these_primary_diagnoses=codelist(["EEEE"], "icd10"),
+            with_these_primary_diagnoses=codelist([("EEEE", "cat1")], "icd10"),
         ),
         with_particular_diagnoses_1=patients.admitted_to_hospital(
             on_or_after="2020-02-01",
             returning="number_of_matches_in_period",
-            with_these_diagnoses=codelist(["XXXD"], "icd10"),
+            with_these_diagnoses=codelist([("XXXD", "cat2")], "icd10"),
         ),
         with_particular_diagnoses_2=patients.admitted_to_hospital(
             on_or_after="2020-02-01",
