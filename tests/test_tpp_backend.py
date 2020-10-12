@@ -2158,7 +2158,7 @@ def test_patients_household_as_of():
         )
 
 
-def test_patients_attended_accident_and_emergency():
+def test_patients_attended_emergency_care():
     discharge_to_ward = "306706006"
     discharge_to_home = "306689006"
     covid_19 = "1240751000000100"

@@ -1455,13 +1455,15 @@ class TPPBackend:
 
         if with_these_diagnoses:
             assert isinstance(with_these_diagnoses, list)
-            codes = ", ".join(f"'{code}'" for code in with_these_diagnoses)
+            assert isinstance(with_these_diagnoses[0], str)
+            codes = ", ".join(map(quote, with_these_diagnoses))
             fragments = [f"EC_Diagnosis_{ix:02} IN ({codes})" for ix in range(1, 25)]
             conditions.append("(" + " OR ".join(fragments) + ")")
 
         if discharged_to:
             assert isinstance(discharged_to, list)
-            codes = ", ".join(f"'{code}'" for code in discharged_to)
+            assert isinstance(discharged_to[0], str)
+            codes = ", ".join(map(quote, discharged_to))
             conditions.append(f"Discharge_Destination_SNOMED_CT IN ({codes})")
 
         conditions = " AND ".join(conditions)
