@@ -465,7 +465,9 @@ class TPPBackend:
         SELECT t.Patient_ID, t.BMI, t.ConsultationDate
         FROM (
           SELECT Patient_ID, NumericValue AS BMI, ConsultationDate,
-          ROW_NUMBER() OVER (PARTITION BY Patient_ID ORDER BY ConsultationDate DESC) AS rownum
+          ROW_NUMBER() OVER (
+            PARTITION BY Patient_ID ORDER BY ConsultationDate DESC, CodedEvent_ID
+          ) AS rownum
           FROM CodedEvent
           WHERE CTV3Code = {quote(bmi_code)} AND {date_condition}
         ) t
@@ -481,7 +483,9 @@ class TPPBackend:
           SELECT t.Patient_ID, t.weight, t.ConsultationDate
           FROM (
             SELECT Patient_ID, NumericValue AS weight, ConsultationDate,
-            ROW_NUMBER() OVER (PARTITION BY Patient_ID ORDER BY ConsultationDate DESC) AS rownum
+              ROW_NUMBER() OVER (
+                PARTITION BY Patient_ID ORDER BY ConsultationDate DESC, CodedEvent_ID
+              ) AS rownum
             FROM CodedEvent
             WHERE CTV3Code IN ({weight_codes_sql}) AND {date_condition}
           ) t
@@ -499,7 +503,9 @@ class TPPBackend:
           SELECT t.Patient_ID, t.height, t.ConsultationDate
           FROM (
             SELECT Patient_ID, NumericValue AS height, ConsultationDate,
-            ROW_NUMBER() OVER (PARTITION BY Patient_ID ORDER BY ConsultationDate DESC) AS rownum
+            ROW_NUMBER() OVER (
+              PARTITION BY Patient_ID ORDER BY ConsultationDate DESC, CodedEvent_ID
+            ) AS rownum
             FROM CodedEvent
             WHERE CTV3Code IN ({height_codes_sql}) AND {height_date_condition}
           ) t
@@ -737,7 +743,8 @@ class TPPBackend:
             FROM (
               SELECT Patient_ID, {column_definition}, ConsultationDate,
               ROW_NUMBER() OVER (
-                PARTITION BY Patient_ID ORDER BY ConsultationDate {ordering}
+                PARTITION BY Patient_ID
+                ORDER BY ConsultationDate {ordering}, {from_table}_ID
               ) AS rownum
               FROM {from_table}{additional_join}
               INNER JOIN {codelist_table}
@@ -931,7 +938,8 @@ class TPPBackend:
         FROM (
           SELECT Patient_ID, Organisation_ID,
           ROW_NUMBER() OVER (
-            PARTITION BY Patient_ID ORDER BY StartDate DESC, EndDate DESC
+            PARTITION BY Patient_ID
+            ORDER BY StartDate DESC, EndDate DESC, Registration_ID
           ) AS rownum
           FROM RegistrationHistory
           WHERE StartDate <= {quote(date)} AND EndDate > {quote(date)}
@@ -985,7 +993,9 @@ class TPPBackend:
         # Note that current addresses are recorded with an EndDate of
         # 9999-12-31. Where address periods overlap we use the one with the
         # most recent start date. If there are several with the same start date
-        # we use the longest one (i.e. with the latest end date).
+        # we use the longest one (i.e. with the latest end date). We then
+        # prefer addresses which are not marked "NPC" for "No Postcode" and
+        # finally we use the address ID as a tie-breaker.
         return f"""
         SELECT
           Patient_ID AS patient_id,
@@ -993,7 +1003,12 @@ class TPPBackend:
         FROM (
           SELECT Patient_ID, {column},
           ROW_NUMBER() OVER (
-            PARTITION BY Patient_ID ORDER BY StartDate DESC, EndDate DESC
+            PARTITION BY Patient_ID
+            ORDER BY
+              StartDate DESC,
+              EndDate DESC,
+              IIF(MSOACode = 'NPC', 1, 0),
+              PatientAddress_ID
           ) AS rownum
           FROM PatientAddress
           WHERE StartDate <= {quote(date)} AND EndDate > {quote(date)}
@@ -1017,6 +1032,8 @@ class TPPBackend:
         case_expression = self.get_case_expression(
             allowed_column_types, allowed_columns, categorised_as
         )
+        # See `patients_address_as_of` above for details of the ordering used
+        # here
         return f"""
         SELECT
           Patient_ID AS patient_id,
@@ -1028,8 +1045,13 @@ class TPPBackend:
             LocationRequiresNursing,
             LocationDoesNotRequireNursing,
             ROW_NUMBER() OVER (
-              PARTITION BY PatientAddress.Patient_ID ORDER BY StartDate DESC, EndDate DESC
-            ) AS rownum
+              PARTITION BY PatientAddress.Patient_ID
+              ORDER BY
+                StartDate DESC,
+                EndDate DESC,
+                IIF(MSOACode = 'NPC', 1, 0),
+                PatientAddress.PatientAddress_ID
+              ) AS rownum
           FROM PatientAddress
           LEFT JOIN PotentialCareHomeAddress
           ON PatientAddress.PatientAddress_ID = PotentialCareHomeAddress.PatientAddress_ID
@@ -1445,6 +1467,13 @@ class TPPBackend:
         conditions = " AND ".join(conditions)
 
         if use_partition_query:
+            # Note EC_Ident is not guaranteed unique by the database but I
+            # suspect it is intended to be unique by the source. Out of ~20m
+            # rows currently there are only two duplicate EC_Idents and these
+            # are for rows identical in all respects apart from Patient_ID.
+            # Thus while using EC_Ident as the final sort column below doesn't
+            # absolutely *guaranteee* a deterministic sort order, I think it's
+            # good enough.
             sql = f"""
             SELECT
               Patient_ID AS patient_id,
@@ -1452,7 +1481,8 @@ class TPPBackend:
             FROM (
               SELECT EC.Patient_ID, {column},
               ROW_NUMBER() OVER (
-                PARTITION BY EC.Patient_ID ORDER BY Arrival_Date {ordering}
+                PARTITION BY EC.Patient_ID
+                ORDER BY Arrival_Date {ordering}, EC.EC_Ident
               ) AS rownum
               FROM EC
               INNER JOIN EC_Diagnosis
@@ -1532,6 +1562,14 @@ class TPPBackend:
         conditions = " AND ".join(conditions)
 
         if use_partition_query:
+            # Note APCS_Ident is not guaranteed unique by the database but I
+            # suspect it is intended to be unique by the source. For one thing,
+            # it seems to be used as a foreign key in the other ACDS tables.
+            # And out of ~3.5m rows currently there are only four duplicate
+            # APCS_Idents and these are for rows identical in all respects
+            # apart from Patient_ID.  Thus while using APCS_Ident as the final
+            # sort column below doesn't absolutely *guaranteee* a deterministic
+            # sort order, I think it's good enough.
             sql = f"""
             SELECT
               Patient_ID AS patient_id,
@@ -1539,7 +1577,8 @@ class TPPBackend:
             FROM (
               SELECT APCS.Patient_ID, {column},
               ROW_NUMBER() OVER (
-                PARTITION BY APCS.Patient_ID ORDER BY Admission_Date {ordering}
+                PARTITION BY APCS.Patient_ID
+                ORDER BY Admission_Date {ordering}, APCS.APCS_Ident
               ) AS rownum
               FROM APCS
               INNER JOIN APCS_Der
