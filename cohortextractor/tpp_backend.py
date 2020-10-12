@@ -1537,25 +1537,32 @@ class TPPBackend:
             column = "Spell_Primary_Diagnosis"
             use_partition_query = True
         else:
-            assert False, returning
+            raise ValueError(f"Unsupported `returning` value: {returning}")
 
         conditions = [make_date_filter("Admission_Date", between)]
 
         if with_these_primary_diagnoses:
-            codes = ", ".join(f"'{code}'" for code in with_these_primary_diagnoses)
-            conditions.append(f"APCS_Der.Spell_Primary_Diagnosis IN ({codes})")
+            assert with_these_primary_diagnoses.system == "icd10"
+            codes_sql = codelist_to_sql(with_these_primary_diagnoses)
+            conditions.append(f"APCS_Der.Spell_Primary_Diagnosis IN ({codes_sql})")
 
         if with_these_diagnoses:
+            assert with_these_diagnoses.system == "icd10"
             fragments = [
-                f"Der_Diagnosis_All LIKE '%[^A-Za-z0-9]{code}%'"
-                for code in with_these_diagnoses
+                f"Der_Diagnosis_All LIKE {pattern}"
+                for pattern in codelist_to_like_patterns(
+                    with_these_diagnoses, prefix="%[^A-Za-z0-9]", suffix="%"
+                )
             ]
             conditions.append("(" + " OR ".join(fragments) + ")")
 
         if with_these_procedures:
+            assert with_these_procedures.system == "icd10"
             fragments = [
-                f"Der_Procedure_All LIKE '%[^A-Za-z0-9]{code}%'"
-                for code in with_these_procedures
+                f"Der_Procedure_All LIKE {pattern}"
+                for pattern in codelist_to_like_patterns(
+                    with_these_procedures, prefix="%[^A-Za-z0-9]", suffix="%"
+                )
             ]
             conditions.append("(" + " OR ".join(fragments) + ")")
 
@@ -1674,12 +1681,24 @@ class TPPBackend:
         return f"ISNULL(({aggregate_expression}), {default_value})"
 
 
-def codelist_to_sql(codelist):
+def codelist_to_sql_list(codelist):
     if getattr(codelist, "has_categories", False):
-        values = [quote(code) for (code, category) in codelist]
+        return [quote(code) for (code, category) in codelist]
     else:
-        values = map(quote, codelist)
-    return ",".join(values)
+        return [quote(code) for code in codelist]
+
+
+def codelist_to_like_patterns(codelist, prefix="", suffix=""):
+    patterns = []
+    for quoted_code in codelist_to_sql_list(codelist):
+        assert quoted_code[0] == "'"
+        assert quoted_code[-1] == "'"
+        patterns.append(f"'{prefix}{quoted_code[1:-1]}{suffix}'")
+    return patterns
+
+
+def codelist_to_sql(codelist):
+    return ",".join(codelist_to_sql_list(codelist))
 
 
 def to_list(value):
