@@ -1,10 +1,13 @@
 """
 Basic smoketest to check that invoking that the CLI entrypoint is working.
-This relies on the contents of `analyis/study_definition.py` being as expected.
+This relies on the contents of `tests/fixtures/smoketest` being as expected.
 """
 import csv
+import os
 import subprocess
 import sys
+
+import cohortextractor
 
 
 def test_smoketest(tmp_path):
@@ -43,6 +46,11 @@ def test_smoketest(tmp_path):
 
 
 def _cohortextractor(*args):
+    fixture_path = os.path.join(os.path.dirname(__file__), "fixtures/smoketest")
+    cohortextractor_path = os.path.dirname(os.path.dirname(cohortextractor.__file__))
     subprocess.run(
-        [sys.executable, "-m", "cohortextractor.cohortextractor", *args], check=True
+        [sys.executable, "-m", "cohortextractor.cohortextractor", *args],
+        check=True,
+        cwd=fixture_path,
+        env=dict(os.environ, PYTHONPATH=cohortextractor_path),
     )
