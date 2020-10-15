@@ -410,6 +410,7 @@ class Household(Base):
     # CareHome (boolean) - not currently being used
     Prison = Column(Boolean)
     MixedSoftwareHousehold = Column(Boolean)
+    TppPercentage = Column(Integer)
     HouseholdSize = Column(Integer)
     MSOA = Column(String)
     HouseholdMembers = relationship(
