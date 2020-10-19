@@ -9,7 +9,7 @@ from .expressions import format_expression
 from .mssql_utils import (
     mssql_dbapi_connection_from_url,
     mssql_connection_params_from_url,
-    dbapi_cursor_to_csv_file,
+    mssql_table_to_csv,
 )
 
 
@@ -44,6 +44,7 @@ class TPPBackend:
                 f"-- Writing results into {output_table}\n"
                 f"SELECT * INTO {output_table} FROM ({queries[-1]}) t"
             )
+            queries.append(f"CREATE INDEX ix_patient_id ON {output_table} (patient_id)")
             self.execute_queries(queries)
         temp_filename = self._get_temp_filename(filename)
         unique_check = UniqueCheck()
@@ -54,11 +55,15 @@ class TPPBackend:
         # `batch_size` here was chosen through a bit of unscientific
         # trial-and-error and some guesswork. It may well need changing in
         # future.
-        dbapi_cursor_to_csv_file(
-            self.execute_queries([f"SELECT * FROM {output_table}"]),
+        mssql_table_to_csv(
             temp_filename,
+            cursor=self.get_db_connection().cursor(),
+            table=output_table,
+            key_column="patient_id",
             batch_size=32000,
             row_callback=record_patient_id,
+            retries=2,
+            sleep=0.5,
         )
 
         self.execute_queries(
@@ -138,6 +143,7 @@ class TPPBackend:
             cursor = conn.cursor()
             cursor.execute("BEGIN TRANSACTION")
             cursor.execute(f"SELECT * INTO {output_table} FROM ({final_query}) t")
+            cursor.execute(f"CREATE INDEX ix_patient_id ON {output_table} (patient_id)")
             cursor.execute("COMMIT")
             conn.autocommit = previous_autocommit
             self.log(f"Downloading results from '{output_table}'")

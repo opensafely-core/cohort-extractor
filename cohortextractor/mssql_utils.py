@@ -1,5 +1,6 @@
 import csv
 import re
+import time
 from urllib.parse import urlparse, unquote
 import warnings
 
@@ -111,3 +112,71 @@ def dbapi_cursor_to_csv_file(cursor, filename, batch_size=None, row_callback=Non
             for row in result_batch:
                 writer.writerow(row)
                 row_callback(row)
+
+
+def mssql_table_to_csv(
+    filename,
+    cursor,
+    table,
+    key_column,
+    batch_size=2 ** 14,
+    retries=2,
+    sleep=0.5,
+    row_callback=None,
+):
+    """
+    Download the contents of a table to a CSV file, calling `row_callback` (if
+    defined) on each row as it does so.
+
+    The table must have a unique integer `key_column` which can be used for
+    paging the results. For performance reasons this column should be indexed.
+
+    Failed requests are automatically retried after a pause of `sleep`,
+    assuming `retries` is greater than zero.
+    """
+    if row_callback is None:
+        row_callback = lambda x: None
+
+    def fetch_batch(min_key=None):
+        return _fetch_batch_with_retries(
+            cursor, table, key_column, batch_size, min_key, retries, sleep
+        )
+
+    with open(filename, "w", newline="") as csvfile:
+        writer = csv.writer(csvfile)
+        result_batch = fetch_batch()
+        headers = [x[0] for x in cursor.description]
+        writer.writerow(headers)
+        key_column_index = headers.index(key_column)
+        for row in result_batch:
+            writer.writerow(row)
+            row_callback(row)
+        while len(result_batch) == batch_size:
+            min_key = result_batch[-1][key_column_index]
+            result_batch = fetch_batch(min_key)
+            for row in result_batch:
+                writer.writerow(row)
+                row_callback(row)
+
+
+def _fetch_batch_with_retries(
+    cursor, table, key_column, batch_size, min_key, retries, sleep
+):
+    if min_key is not None:
+        assert isinstance(min_key, int)
+        where = f"WHERE {key_column} > {min_key}"
+    else:
+        where = ""
+    query = f"SELECT TOP {batch_size} * FROM {table} {where} ORDER BY {key_column}"
+    while True:
+        try:
+            cursor.execute(query)
+            return cursor.fetchall()
+        # We can't be more specific than this because we don't know what class
+        # of cursor object we'll be passed
+        except Exception:
+            if retries <= 0:
+                raise
+            else:
+                retries -= 1
+                time.sleep(sleep)
