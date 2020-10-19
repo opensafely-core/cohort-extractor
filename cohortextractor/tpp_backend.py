@@ -31,33 +31,39 @@ class TPPBackend:
         self.queries = self.get_queries(self.covariate_definitions)
 
     def to_csv(self, filename):
-        queries = self.queries
+        queries = list(self.queries)
         # If we have a temporary database available we write results to a table
         # there, download them, and then delete the table. This allows us to
         # resume in the case of a failed download without rerunning the whole
         # query
         if self.temporary_database:
-            queries, cleanup_queries = self.save_results_to_temporary_db(queries)
+            output_table = self.save_results_to_temporary_db(queries)
         else:
-            cleanup_queries = []
+            output_table = "#final_output"
+            queries[-1] = (
+                f"-- Writing results into {output_table}\n"
+                f"SELECT * INTO {output_table} FROM ({queries[-1]}) t"
+            )
+            self.execute_queries(queries)
         temp_filename = self._get_temp_filename(filename)
         unique_check = UniqueCheck()
 
         def record_patient_id(row):
             unique_check.add(row[0])
 
-        result_cursor = self.execute_queries(queries)
         # `batch_size` here was chosen through a bit of unscientific
         # trial-and-error and some guesswork. It may well need changing in
         # future.
         dbapi_cursor_to_csv_file(
-            result_cursor,
+            self.execute_queries([f"SELECT * FROM {output_table}"]),
             temp_filename,
             batch_size=32000,
             row_callback=record_patient_id,
         )
-        if cleanup_queries:
-            self.execute_queries(cleanup_queries)
+
+        self.execute_queries(
+            [f"-- Deleting '{output_table}'\nDROP TABLE {output_table}"]
+        )
         unique_check.assert_unique_ids()
         # If the extraction doesn't complete successfully we still want to keep
         # the output file for debugging purposes, just under a name which makes
@@ -137,10 +143,7 @@ class TPPBackend:
             self.log(f"Downloading results from '{output_table}'")
         else:
             self.log(f"Downloading results from previous run in '{output_table}'")
-        return (
-            [f"SELECT * FROM {output_table}"],
-            [f"-- Deleting '{output_table}'\nDROP TABLE {output_table}"],
-        )
+        return output_table
 
     def table_exists(self, table_name):
         # We don't have access to sys.tables so this seems like the simplest
