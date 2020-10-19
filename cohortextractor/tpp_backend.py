@@ -9,7 +9,7 @@ from .expressions import format_expression
 from .mssql_utils import (
     mssql_dbapi_connection_from_url,
     mssql_connection_params_from_url,
-    dbapi_cursor_to_csv_file,
+    mssql_table_to_csv,
 )
 
 
@@ -31,33 +31,47 @@ class TPPBackend:
         self.queries = self.get_queries(self.covariate_definitions)
 
     def to_csv(self, filename):
-        queries = self.queries
+        queries = list(self.queries)
         # If we have a temporary database available we write results to a table
         # there, download them, and then delete the table. This allows us to
         # resume in the case of a failed download without rerunning the whole
         # query
         if self.temporary_database:
-            queries, cleanup_queries = self.save_results_to_temporary_db(queries)
+            output_table = self.save_results_to_temporary_db(queries)
         else:
-            cleanup_queries = []
+            output_table = "#final_output"
+            queries[-1] = (
+                f"-- Writing results into {output_table}\n"
+                f"SELECT * INTO {output_table} FROM ({queries[-1]}) t"
+            )
+            queries.append(f"CREATE INDEX ix_patient_id ON {output_table} (patient_id)")
+            self.execute_queries(queries)
         temp_filename = self._get_temp_filename(filename)
         unique_check = UniqueCheck()
 
-        def record_patient_id(row):
+        def record_patient_id_and_log(row):
             unique_check.add(row[0])
+            if unique_check.count % 1000000 == 0:
+                self.log(f"Downloaded {unique_check.count} results")
 
-        result_cursor = self.execute_queries(queries)
         # `batch_size` here was chosen through a bit of unscientific
         # trial-and-error and some guesswork. It may well need changing in
         # future.
-        dbapi_cursor_to_csv_file(
-            result_cursor,
+        mssql_table_to_csv(
             temp_filename,
+            cursor=self.get_db_connection().cursor(),
+            table=output_table,
+            key_column="patient_id",
             batch_size=32000,
-            row_callback=record_patient_id,
+            row_callback=record_patient_id_and_log,
+            retries=2,
+            sleep=0.5,
         )
-        if cleanup_queries:
-            self.execute_queries(cleanup_queries)
+        self.log(f"Downloaded {unique_check.count} results")
+
+        self.execute_queries(
+            [f"-- Deleting '{output_table}'\nDROP TABLE {output_table}"]
+        )
         unique_check.assert_unique_ids()
         # If the extraction doesn't complete successfully we still want to keep
         # the output file for debugging purposes, just under a name which makes
@@ -132,15 +146,13 @@ class TPPBackend:
             cursor = conn.cursor()
             cursor.execute("BEGIN TRANSACTION")
             cursor.execute(f"SELECT * INTO {output_table} FROM ({final_query}) t")
+            cursor.execute(f"CREATE INDEX ix_patient_id ON {output_table} (patient_id)")
             cursor.execute("COMMIT")
             conn.autocommit = previous_autocommit
             self.log(f"Downloading results from '{output_table}'")
         else:
             self.log(f"Downloading results from previous run in '{output_table}'")
-        return (
-            [f"SELECT * FROM {output_table}"],
-            [f"-- Deleting '{output_table}'\nDROP TABLE {output_table}"],
-        )
+        return output_table
 
     def table_exists(self, table_name):
         # We don't have access to sys.tables so this seems like the simplest
