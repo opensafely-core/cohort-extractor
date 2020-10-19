@@ -8,12 +8,12 @@ import cohortextractor
 from collections import defaultdict
 import csv
 import glob
+import logging
 import importlib
 import os
 import re
 import requests
 import sys
-
 
 import base64
 from io import BytesIO
@@ -29,9 +29,9 @@ import yaml
 
 import datetime
 import seaborn as sns
+from prettytable import PrettyTable
 
-from cohortextractor.remotejobs import get_job_logs
-from cohortextractor.remotejobs import submit_job
+from cohortextractor.localrun import localrun
 
 notebook_tag = "opencorona-research"
 target_dir = "/home/app/notebook"
@@ -488,6 +488,9 @@ def main():
     )
     # Cohort parser options
     parser.add_argument("--version", help="Display version", action="store_true")
+    parser.add_argument(
+        "--verbose", help="Show extra logging info", action="store_true"
+    )
     subparsers = parser.add_subparsers(help="sub-command help")
     generate_cohort_parser = subparsers.add_parser(
         "generate_cohort", help="Generate cohort"
@@ -497,6 +500,37 @@ def main():
         "generate_measures", help="Generate measures from cohort data"
     )
     generate_measures_parser.set_defaults(which="generate_measures")
+    run_parser = subparsers.add_parser("run", help="Run action from project.yaml")
+    run_parser.set_defaults(which="run")
+
+    run_parser.add_argument(
+        "db",
+        help="Database to run against",
+        choices=["full", "slice", "dummy"],
+        type=str,
+    )
+    run_parser.add_argument(
+        "action",
+        help="Action to execute",
+        type=str,
+    )
+    run_parser.add_argument(
+        "backend",
+        help="Backend to execute against",
+        choices=["expectations", "tpp", "all"],
+        type=str,
+        default="all",
+    )
+    run_parser.add_argument(
+        "--force-run",
+        help="Force a new run for the action",
+        action="store_true",
+    )
+    run_parser.add_argument(
+        "--force-run-dependencies",
+        help="Force a new run for the action and all its dependencies (only when `--force-run` is also specified)",
+        action="store_true",
+    )
     cohort_report_parser = subparsers.add_parser(
         "cohort_report", help="Generate cohort report"
     )
@@ -643,6 +677,10 @@ def main():
     )
 
     options = parser.parse_args()
+    if getattr(options, "force_run_dependencies", False) and not getattr(
+        options, "force_run", False
+    ):
+        parser.error("`--force-run-dependencies` requires `--force-run`")
     if options.version:
         print(f"v{cohortextractor.__version__}")
     elif not hasattr(options, "which"):
@@ -670,6 +708,33 @@ def main():
             selected_study_name=options.study_definition,
             skip_existing=options.skip_existing,
         )
+    elif options.which == "run":
+        log_level = options.verbose and logging.DEBUG or logging.ERROR
+        result = localrun(
+            options.action,
+            options.backend,
+            options.db,
+            force_run=options.force_run,
+            force_run_dependencies=options.force_run_dependencies,
+            log_level=log_level,
+        )
+        if result:
+            print("Generated outputs:")
+            output = PrettyTable()
+            output.field_names = ["status", "path"]
+
+            for action in result:
+                for location in action["output_locations"]:
+                    output.add_row(
+                        [
+                            action["status_message"],
+                            location["relative_path"],
+                        ]
+                    )
+            print(output)
+        else:
+            print("Nothing to do")
+
     elif options.which == "cohort_report":
         make_cohort_report(options.input_dir, options.output_dir)
     elif options.which == "update_codelists":
