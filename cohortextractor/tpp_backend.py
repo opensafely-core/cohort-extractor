@@ -49,8 +49,10 @@ class TPPBackend:
         temp_filename = self._get_temp_filename(filename)
         unique_check = UniqueCheck()
 
-        def record_patient_id(row):
+        def record_patient_id_and_log(row):
             unique_check.add(row[0])
+            if unique_check.count % 1000000 == 0:
+                self.log(f"Downloaded {unique_check.count} results")
 
         # `batch_size` here was chosen through a bit of unscientific
         # trial-and-error and some guesswork. It may well need changing in
@@ -61,10 +63,11 @@ class TPPBackend:
             table=output_table,
             key_column="patient_id",
             batch_size=32000,
-            row_callback=record_patient_id,
+            row_callback=record_patient_id_and_log,
             retries=2,
             sleep=0.5,
         )
+        self.log(f"Downloaded {unique_check.count} results")
 
         self.execute_queries(
             [f"-- Deleting '{output_table}'\nDROP TABLE {output_table}"]
