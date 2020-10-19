@@ -92,28 +92,6 @@ def mssql_sqlalchemy_engine_from_url(url):
     return sqlalchemy.create_engine(URL(**params))
 
 
-def dbapi_cursor_to_csv_file(cursor, filename, batch_size=None, row_callback=None):
-    """
-    Takes a DB-API comptabile cursor object with a result set and writes those
-    results to a CSV file, calling `row_callback` (if defined) on each row as
-    it does so
-    """
-    if batch_size is None:
-        batch_size = cursor.arraysize
-    if row_callback is None:
-        row_callback = lambda x: None
-    with open(filename, "w", newline="") as csvfile:
-        writer = csv.writer(csvfile)
-        writer.writerow([x[0] for x in cursor.description])
-        while True:
-            result_batch = cursor.fetchmany(batch_size)
-            if not result_batch:
-                break
-            for row in result_batch:
-                writer.writerow(row)
-                row_callback(row)
-
-
 def mssql_table_to_csv(
     filename,
     cursor,
