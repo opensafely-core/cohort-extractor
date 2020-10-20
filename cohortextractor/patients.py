@@ -1,9 +1,8 @@
-"""
-These methods don't *do* anything; they just return their name and arguments.
-This provides a friendlier API then having to build some big nested data
-structure by hand and means we can make use of autocomplete, docstrings etc to
-make it a bit more discoverable.
-"""
+# These methods don't *do* anything; they just return their name and arguments.
+# This provides a friendlier API then having to build some big nested data
+# structure by hand and means we can make use of autocomplete, docstrings etc to
+# make it a bit more discoverable.
+
 
 
 # Yes this clashes with the builtin, but we don't need the builtin in this
@@ -14,7 +13,20 @@ def all():
 
 def random_sample(percent=None, return_expectations=None):
     """
-    A random sample of approximately `percent` patients
+    Flags a random sample of approximately `percent` patients.
+
+    Args:
+        percent (int): Number between 1 and 100
+        return_expectations (dict): an expectations definition defining at least an `incidence`
+
+    Returns:
+        list: zeros and ones
+
+    Example:
+        This creates a variable `training_set`, flagging approximately 10% of the population with the value `1`:
+
+            training_set=patients.random_sample(percent=10, expectations={'incidence': 0.1})
+
     """
     return "random_sample", locals()
 
@@ -22,6 +34,7 @@ def random_sample(percent=None, return_expectations=None):
 def sex(return_expectations=None):
     """
     Returns M, F or empty string if unknown or other
+
     """
     return "sex", locals()
 
@@ -667,19 +680,37 @@ def admitted_to_hospital(
     with_these_procedures=None,
     return_expectations=None,
 ):
-    """Return information about admission to hospital.
+    """"
+    Return information about admission to hospital.
 
-    Options for `returning` are:
+    See https://github.com/opensafely/cohort-extractor/issues/186 for in-depth discussion and background.
 
-        binary_flag: Whether patient was admitted to hospital
-        primary_diagnosis: ICD-10 code of primary diagnosis
-        date_admitted: Date patient was admitted to hospital
-        date_discharged: Date patient was discharged from hospital
+    Args:
+        on_or_before (str): The latest date of admission
+        on_or_after (str): The earliest date of admission
+        between (list): A tuple of [`on_or_after`, `on_or_before`]
+        returning (str): One of `binary_flag` (if they were admitted at all), `date_admitted`, `date_discharged`, `number_of_matches_in_period`, `primary_diagnosis`
+        find_first_match_in_period (bool): For date return values, always choose the earliest matching occurence
+        find_last_match_in_period (bool): For date return values, always choose the latest matching occurence
+        date_format (str): A date format string of the form `YYYY`, `YYYY-MM` or `YYYY-MM-DD`
+        with_these_diagnoses (codelist): icd10 codes to match against any diagnosis
+        with_these_primary_diagnoses (codelist): icd10 codes to match against the primary diagnosis
+        with_these_procedures (codelist): OPCS-4 codes to match against the procedure
 
-    `with_these_diagnoses` is optional, and is a list of ICD-10 codes
-    `with_these_primary_diagnoses` is optional, and is a list of ICD-10 codes
-    `with_these_procedures` is optional, and is a list of OPCS-4 codes
+    Returns:
+        list: strings corresponding to the requested `returning` value
 
-    See https://github.com/opensafely/cohort-extractor/issues/186 for discussion.
+    Example:
+        The day of each patient's first hospital admission for Covid19:
+
+            covid_admission_date=patients.admitted_to_hospital(
+                returning= "date_admitted",
+                with_these_diagnoses=covid_codelist,
+                on_or_after="2020-02-01",
+                find_first_match_in_period=True,
+                date_format="YYYY-MM-DD",
+                return_expectations={"date": {"earliest": "2020-03-01"}},
+            )
     """
+
     return "admitted_to_hospital", locals()
