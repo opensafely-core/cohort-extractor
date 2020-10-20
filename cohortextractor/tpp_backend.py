@@ -1418,7 +1418,7 @@ class TPPBackend:
             column = (
                 "CASE Household.MixedSoftwareHousehold WHEN 'TRUE' THEN 1 ELSE 0 END"
             )
-        elif returning == "percentage_of_members_with_ehr_data_available":
+        elif returning == "percentage_of_members_with_data_in_this_backend":
             column = "Household.TppPercentage"
         elif returning == "msoa":
             column = "Household.MSOA"

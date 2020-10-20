@@ -2144,7 +2144,7 @@ def test_patients_household_as_of():
             "2020-02-01", returning="has_members_in_other_ehr_systems"
         ),
         percent_tpp=patients.household_as_of(
-            "2020-02-01", returning="percentage_of_members_with_ehr_data_available"
+            "2020-02-01", returning="percentage_of_members_with_data_in_this_backend"
         ),
         msoa=patients.household_as_of("2020-02-01", returning="msoa"),
     )
