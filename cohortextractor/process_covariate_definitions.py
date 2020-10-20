@@ -341,7 +341,7 @@ class GetColumnType:
             "primary_diagnosis": "str",
             "is_prison": "bool",
             "has_members_in_other_ehr_systems": "bool",
-            "percentage_of_members_with_ehr_data_available": "int",
+            "percentage_of_members_with_data_in_this_backend": "int",
             "msoa": "str",
         }
         try:

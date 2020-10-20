@@ -586,11 +586,11 @@ def household_as_of(reference_date, returning=None, return_expectations=None):
                                           different EHR system, meaning that our
                                           coverage of the household is incomplete.
 
-        percentage_of_members_with_ehr_data_available: Integer giving the (estimated)
-                                                       percentage of household members
-                                                       where we have EHR data available
-                                                       (i.e. not in other systems as
-                                                       above)
+        percentage_of_members_with_data_in_this_backend: Integer giving the (estimated)
+                                                         percentage of household members
+                                                         where we have EHR data available
+                                                         in this backend (i.e. not in other
+                                                         systems as above)
 
         msoa: Returns the MSOA (Middle Super Output Area) in which the household is
               situated
