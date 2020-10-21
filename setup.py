@@ -14,6 +14,7 @@ setup(
     author_email="tech@opensafely.org",
     python_requires=">=3.7",
     install_requires=[
+        "opensafely-jobrunner",
         "pandas",
         "pyyaml",
         "requests",
