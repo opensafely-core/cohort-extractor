@@ -16,6 +16,7 @@ setup(
     install_requires=[
         "opensafely-jobrunner",
         "pandas",
+        "prettytable",
         "pyyaml",
         "requests",
         "seaborn",
