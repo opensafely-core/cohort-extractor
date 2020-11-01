@@ -1152,6 +1152,17 @@ class TPPBackend:
             column_definition = "1"
         elif returning == "date_of_death":
             column_definition = "dod"
+            # Quick fix: a patient appears twice in the ONS data with different
+            # dates of death (offset by one day). This results in an error when
+            # running the extract.  As we need to extract this cohort urgently
+            # we're going to use the minimum date for now, pending a full
+            # discussion of how best to handle this kind of inconsistency.
+            return f"""
+            SELECT Patient_ID as patient_id, MIN(dod) AS {returning}
+            FROM ONS_Deaths
+            WHERE ({code_conditions}) AND {date_condition}
+            GROUP BY patient_id
+            """
         elif returning == "underlying_cause_of_death":
             column_definition = "icd10u"
         else:
