@@ -4,6 +4,10 @@ on:
     branches:
       - master
 
+env:
+  IMAGE_NAME: cohortextractor
+
+
 jobs:
   tag-new-version:
     # This uses `conventional commits` to generate tags.  A full list
@@ -68,6 +72,21 @@ jobs:
     - name: Generate correct value for VERSION file
       run: |
         echo ${{ needs.tag-new-version.outputs.tag }} > cohortextractor/VERSION
+    - name: Build image
+      run: docker build . --file Dockerfile --tag $IMAGE_NAME
+    - name: Log into GitHub Container Registry
+        # TODO: Create a PAT with `read:packages` and `write:packages` scopes and save it as an Actions secret `CR_PAT`
+        run: echo "${{ secrets.CR_PAT }}" | docker login https://ghcr.io -u ${{ github.actor }} --password-stdin
+    - name: Push image to GitHub Container Registry
+      run: |
+        IMAGE_ID=ghcr.io/${{ github.repository_owner }}/$IMAGE_NAME
+        # Change all uppercase to lowercase
+        IMAGE_ID=$(echo $IMAGE_ID | tr '[A-Z]' '[a-z]')
+        VERSION=${{ needs.tag-new-version.outputs.tag }}
+        docker tag $IMAGE_NAME $IMAGE_ID:latest
+        docker tag $IMAGE_NAME $IMAGE_ID:$VERSION
+        docker push $IMAGE_ID:latest
+    # deprecated publish to our repo
     - name: Build and publish to docker registry
       uses: whoan/docker-build-with-cache-action@v5
       with:
@@ -76,3 +95,5 @@ jobs:
         registry: docker.opensafely.org
         image_name: cohortextractor
         image_tag: latest,${{ needs.tag-new-version.outputs.tag }}
+
+
