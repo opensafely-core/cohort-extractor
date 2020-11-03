@@ -9,8 +9,7 @@ import os
 
 
 def generate_ages(population, max_age=110):
-    """Generate a population whose ages approximate UK population shape
-    """
+    """Generate a population whose ages approximate UK population shape"""
 
     df = pd.read_csv(
         os.path.join(os.path.dirname(__file__), "uk_population_bands_2018.csv")
@@ -78,8 +77,7 @@ def generate_dates(population, earliest_date, latest_date, rate):
 
 
 def generate(population, **kwargs):
-    """Returns a date column and zero or more value column.
-    """
+    """Returns a date column and zero or more value column."""
     rate = kwargs.pop("rate", "exponential_increase")
     incidence = kwargs.pop("incidence", None)
     assert (

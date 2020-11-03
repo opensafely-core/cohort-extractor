@@ -44,7 +44,9 @@ def test_export_data_without_database_url_raises_error(tmp_path, monkeypatch):
     study = StudyDefinition(
         population=patients.all(),
         sex=patients.sex(),
-        age=patients.age_as_of("2020-01-01",),
+        age=patients.age_as_of(
+            "2020-01-01",
+        ),
     )
     with pytest.raises(RuntimeError):
         study.to_csv(tmp_path / "dummy_data.csv")
@@ -56,7 +58,9 @@ def test_unrecognised_database_url_raises_error(monkeypatch):
         StudyDefinition(
             population=patients.all(),
             sex=patients.sex(),
-            age=patients.age_as_of("2020-01-01",),
+            age=patients.age_as_of(
+                "2020-01-01",
+            ),
         )
 
 
@@ -66,7 +70,9 @@ def test_errors_are_triggered_without_database_url(monkeypatch):
         StudyDefinition(
             population=patients.satisfying("no_such_column AND missing_column"),
             sex=patients.sex(),
-            age=patients.age_as_of("2020-01-01",),
+            age=patients.age_as_of(
+                "2020-01-01",
+            ),
         )
 
 

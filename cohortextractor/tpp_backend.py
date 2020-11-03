@@ -509,7 +509,9 @@ class TPPBackend:
         # mind using old values as long as the patient was old enough when they
         # were taken.
         height_date_condition = make_date_filter(
-            "ConsultationDate", between, upper_bound_only=True,
+            "ConsultationDate",
+            between,
+            upper_bound_only=True,
         )
         heights_cte = f"""
           SELECT t.Patient_ID, t.height, t.ConsultationDate
@@ -1183,7 +1185,9 @@ class TPPBackend:
         returning="binary_flag",
     ):
         return self.patients_with_these_codes_on_death_certificate(
-            codelist=None, between=between, returning=returning,
+            codelist=None,
+            between=between,
+            returning=returning,
         )
 
     def patients_with_death_recorded_in_cpns(

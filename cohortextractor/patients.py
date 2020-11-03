@@ -231,7 +231,9 @@ def address_as_of(
 
 
 def care_home_status_as_of(
-    date, categorised_as=None, return_expectations=None,  # Required keyword
+    date,
+    categorised_as=None,
+    return_expectations=None,  # Required keyword
 ):
     """
     TPP have attempted to match patient addresses to care homes as stored in

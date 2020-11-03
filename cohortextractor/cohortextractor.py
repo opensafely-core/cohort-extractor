@@ -112,8 +112,7 @@ def make_chart(name, series, dtype):
 
 
 def preflight_generation_check():
-    """Raise an informative error if things are not as they should be
-    """
+    """Raise an informative error if things are not as they should be"""
     missing_paths = []
     required_paths = ["codelists/", "analysis/"]
     for p in required_paths:
@@ -175,7 +174,8 @@ def _generate_cohort(
             print(f"Not regenerating pre-existing file at {output_file}")
         else:
             study.to_csv(
-                output_file, expectations_population=expectations_population,
+                output_file,
+                expectations_population=expectations_population,
             )
             print(f"Successfully created cohort and covariates at {output_file}")
 
@@ -372,13 +372,17 @@ def _make_cohort_report(input_dir, output_dir, study_name, suffix):
         empty_values_chart = ""
         if is_datetime64_dtype(dtype):
             # also do a null / not null plot
-            empty_values_chart = '<div><img src="data:image/png;base64,{}"/></div>'.format(
-                make_chart(name, df[name].isnull(), bool)
+            empty_values_chart = (
+                '<div><img src="data:image/png;base64,{}"/></div>'.format(
+                    make_chart(name, df[name].isnull(), bool)
+                )
             )
         elif is_numeric_dtype(dtype):
             # also do a null / not null plot
-            empty_values_chart = '<div><img src="data:image/png;base64,{}"/></div>'.format(
-                make_chart(name, df[name] > 0, bool)
+            empty_values_chart = (
+                '<div><img src="data:image/png;base64,{}"/></div>'.format(
+                    make_chart(name, df[name] > 0, bool)
+                )
             )
         descriptives.loc["values", name] = main_chart
         descriptives.loc["nulls", name] = empty_values_chart

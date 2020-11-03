@@ -21,7 +21,9 @@ def test_smoketest(tmp_path):
         tmp_path,
     )
     _cohortextractor(
-        "generate_measures", "--output-dir", tmp_path,
+        "generate_measures",
+        "--output-dir",
+        tmp_path,
     )
     with open(tmp_path / "measure_liver_disease_by_stp.csv") as f:
         contents = list(csv.reader(f))
