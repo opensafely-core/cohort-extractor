@@ -62,8 +62,7 @@ def wait_for_presto_to_be_ready(url, test_query, timeout):
 
 
 class ConnectionProxy:
-    """Proxy for prestodb.dbapi.Connection, with a more useful cursor.
-    """
+    """Proxy for prestodb.dbapi.Connection, with a more useful cursor."""
 
     def __init__(self, connection):
         self.connection = connection

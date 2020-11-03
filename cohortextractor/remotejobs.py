@@ -9,8 +9,7 @@ ENDPOINT = f"https://{JOB_SERVER}/jobs/"
 
 
 def set_auth():
-    """Set HTTP auth (used by `requests`)
-    """
+    """Set HTTP auth (used by `requests`)"""
     # In due course, we should use Github OAuth for this
     netrc_path = os.path.join(os.path.expanduser("~"), ".netrc")
     if not os.path.exists(netrc_path):

@@ -380,7 +380,9 @@ class EMISBackend:
         # mind using old values as long as the patient was old enough when they
         # were taken.
         height_date_condition = make_date_filter(
-            "effective_date", between, upper_bound_only=True,
+            "effective_date",
+            between,
+            upper_bound_only=True,
         )
         heights_cte = f"""
           SELECT t.registration_id, t.height, t.effective_date
@@ -506,7 +508,10 @@ class EMISBackend:
             # Remove unhandled arguments and check they are unused
             assert not kwargs.pop("episode_defined_as", None)
             return self._patients_with_events(
-                "medication_view", "", "snomed_concept_id", **kwargs,
+                "medication_view",
+                "",
+                "snomed_concept_id",
+                **kwargs,
             )
 
     def patients_with_these_clinical_events(self, **kwargs):
@@ -527,7 +532,10 @@ class EMISBackend:
         else:
             assert not kwargs.pop("episode_defined_as", None)
             return self._patients_with_events(
-                "observation_view", "", "snomed_concept_id", **kwargs,
+                "observation_view",
+                "",
+                "snomed_concept_id",
+                **kwargs,
             )
 
     def _patients_with_events(
@@ -921,7 +929,9 @@ class EMISBackend:
         returning="binary_flag",
     ):
         return self.patients_with_these_codes_on_death_certificate(
-            codelist=None, between=between, returning=returning,
+            codelist=None,
+            between=between,
+            returning=returning,
         )
 
     def patients_with_death_recorded_in_cpns(

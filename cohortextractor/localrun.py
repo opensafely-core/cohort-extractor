@@ -7,15 +7,13 @@ from jobrunner.job import Job
 
 
 def get_branch():
-    """Return name of current git branch
-    """
+    """Return name of current git branch"""
     cmd = ["git", "rev-parse", "--abbrev-ref", "HEAD"]
     return subprocess.check_output(cmd, encoding="utf8").strip()
 
 
 def get_repo():
-    """Return an HTTP-based Github URL for the current git remote
-    """
+    """Return an HTTP-based Github URL for the current git remote"""
     cmd = ["git", "config", "--get", "remote.origin.url"]
     result = subprocess.check_output(cmd, encoding="utf8").strip()
     if result.startswith("git@github.com"):
@@ -56,8 +54,12 @@ def localrun(
         },
         "workspace_id": 1,
     }
-    os.environ["HIGH_PRIVACY_STORAGE_BASE"] = tempfile.mkdtemp(prefix="opensafely_high_privacy")
-    os.environ["MEDIUM_PRIVACY_STORAGE_BASE"] = tempfile.mkdtemp(prefix="opensafely_medium_privacy")
+    os.environ["HIGH_PRIVACY_STORAGE_BASE"] = tempfile.mkdtemp(
+        prefix="opensafely_high_privacy"
+    )
+    os.environ["MEDIUM_PRIVACY_STORAGE_BASE"] = tempfile.mkdtemp(
+        prefix="opensafely_medium_privacy"
+    )
     job = Job(job_spec, workdir=os.getcwd())
     job.logger.setLevel(log_level)
     return job.main()

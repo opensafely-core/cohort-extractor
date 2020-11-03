@@ -199,7 +199,8 @@ def add_include_date_flags_to_columns(covariate_definitions):
             source_column = query_args["source"]
             source_column_args = updated[source_column][1]
             source_column_args.update(
-                include_date_of_match=True, date_format=query_args.get("date_format"),
+                include_date_of_match=True,
+                date_format=query_args.get("date_format"),
             )
     return updated
 

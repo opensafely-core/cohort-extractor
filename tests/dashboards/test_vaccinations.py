@@ -58,7 +58,8 @@ def test_study_definition(tmp_path):
                 ],
                 Vaccinations=[
                     Vaccination(
-                        VaccinationName="Infanrix Hexa", VaccinationDate="2018-11-01",
+                        VaccinationName="Infanrix Hexa",
+                        VaccinationDate="2018-11-01",
                     )
                 ],
                 MedicationIssues=[

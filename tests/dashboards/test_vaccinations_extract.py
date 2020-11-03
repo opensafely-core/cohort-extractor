@@ -74,7 +74,8 @@ def test_patients_with_ages_and_practices_sql():
     )
     session.commit()
     sql = patients_with_ages_and_practices_sql(
-        date_of_birth_range=("2012-01-01", "2019-06-01"), age_thresholds=[12, 24, 60],
+        date_of_birth_range=("2012-01-01", "2019-06-01"),
+        age_thresholds=[12, 24, 60],
     )
     results = sql_to_dicts(sql)
     # Note this is rounded to start of month
@@ -93,7 +94,8 @@ def test_vaccination_events_sql():
                 DateOfBirth="2002-05-04",
                 Vaccinations=[
                     Vaccination(
-                        VaccinationName="Infanrix Hexa", VaccinationDate="2002-06-01",
+                        VaccinationName="Infanrix Hexa",
+                        VaccinationDate="2002-06-01",
                     )
                 ],
             ),
@@ -102,7 +104,8 @@ def test_vaccination_events_sql():
                 DateOfBirth="2019-10-04",
                 Vaccinations=[
                     Vaccination(
-                        VaccinationName="Infanrix Hexa", VaccinationDate="2019-11-04",
+                        VaccinationName="Infanrix Hexa",
+                        VaccinationDate="2019-11-04",
                     )
                 ],
             ),
@@ -110,7 +113,8 @@ def test_vaccination_events_sql():
                 DateOfBirth="2018-10-28",
                 Vaccinations=[
                     Vaccination(
-                        VaccinationName="Infanrix Hexa", VaccinationDate="2018-11-01",
+                        VaccinationName="Infanrix Hexa",
+                        VaccinationDate="2018-11-01",
                     )
                 ],
                 MedicationIssues=[
@@ -129,7 +133,8 @@ def test_vaccination_events_sql():
     sql = vaccination_events_sql(
         date_of_birth_range=("2012-01-01", "2019-06-01"),
         tpp_vaccination_codelist=codelist(
-            [("Infanrix Hexa", "dtap_hex")], system="tpp_vaccines",
+            [("Infanrix Hexa", "dtap_hex")],
+            system="tpp_vaccines",
         ),
         ctv3_codelist=codelist([("abc", "menb")], system="ctv3"),
         snomed_codelist=codelist([("123", "rotavirus")], system="snomed"),

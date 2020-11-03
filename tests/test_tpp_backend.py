@@ -55,8 +55,7 @@ def setup_module(module):
 
 
 def setup_function(function):
-    """Ensure test database is empty
-    """
+    """Ensure test database is empty"""
     session = make_session()
     session.query(CodedEvent).delete()
     session.query(ICNARC).delete()
@@ -591,7 +590,9 @@ def test_bmi_rounded():
 
     study = StudyDefinition(
         population=patients.all(),
-        BMI=patients.most_recent_bmi("2005-01-01",),
+        BMI=patients.most_recent_bmi(
+            "2005-01-01",
+        ),
         BMI_date_measured=patients.date_of("BMI", date_format="YYYY-MM-DD"),
     )
     results = study.to_dicts()
@@ -618,7 +619,8 @@ def test_bmi_with_zero_values():
     study = StudyDefinition(
         population=patients.all(),
         BMI=patients.most_recent_bmi(
-            on_or_after="1995-01-01", on_or_before="2005-01-01",
+            on_or_after="1995-01-01",
+            on_or_before="2005-01-01",
         ),
         BMI_date_measured=patients.date_of("BMI", date_format="YYYY-MM-DD"),
     )
@@ -646,7 +648,8 @@ def test_explicit_bmi_fallback():
     study = StudyDefinition(
         population=patients.all(),
         BMI=patients.most_recent_bmi(
-            on_or_after="1995-01-01", on_or_before="2005-01-01",
+            on_or_after="1995-01-01",
+            on_or_before="2005-01-01",
         ),
         BMI_date_measured=patients.date_of("BMI", date_format="YYYY-MM-DD"),
     )
@@ -670,7 +673,8 @@ def test_no_bmi_when_old_date():
     study = StudyDefinition(
         population=patients.all(),
         BMI=patients.most_recent_bmi(
-            on_or_after="1995-01-01", on_or_before="2005-01-01",
+            on_or_after="1995-01-01",
+            on_or_before="2005-01-01",
         ),
         BMI_date_measured=patients.date_of("BMI", date_format="YYYY-MM-DD"),
     )
@@ -694,7 +698,8 @@ def test_no_bmi_when_measurements_of_child():
     study = StudyDefinition(
         population=patients.all(),
         BMI=patients.most_recent_bmi(
-            on_or_after="1995-01-01", on_or_before="2005-01-01",
+            on_or_after="1995-01-01",
+            on_or_before="2005-01-01",
         ),
         BMI_date_measured=patients.date_of("BMI", date_format="YYYY-MM-DD"),
     )
@@ -718,7 +723,8 @@ def test_no_bmi_when_measurement_after_reference_date():
     study = StudyDefinition(
         population=patients.all(),
         BMI=patients.most_recent_bmi(
-            on_or_after="1990-01-01", on_or_before="2000-01-01",
+            on_or_after="1990-01-01",
+            on_or_before="2000-01-01",
         ),
         BMI_date_measured=patients.date_of("BMI", date_format="YYYY-MM-DD"),
     )
@@ -750,7 +756,8 @@ def test_bmi_when_only_some_measurements_of_child():
     study = StudyDefinition(
         population=patients.all(),
         BMI=patients.most_recent_bmi(
-            on_or_after="2005-01-01", on_or_before="2015-01-01",
+            on_or_after="2005-01-01",
+            on_or_before="2015-01-01",
         ),
         BMI_date_measured=patients.date_of("BMI", date_format="YYYY-MM-DD"),
     )
@@ -1259,20 +1266,35 @@ def test_patients_admitted_to_icu():
             on_or_after="2020-02-01", returning="binary_flag"
         ),
         resp_support=patients.admitted_to_icu(
-            on_or_after="2020-02-01", returning="had_respiratory_support",
+            on_or_after="2020-02-01",
+            returning="had_respiratory_support",
         ),
         basic_support=patients.admitted_to_icu(
-            on_or_after="2020-02-01", returning="had_basic_respiratory_support",
+            on_or_after="2020-02-01",
+            returning="had_basic_respiratory_support",
         ),
         advanced_support=patients.admitted_to_icu(
-            on_or_after="2020-02-01", returning="had_advanced_respiratory_support",
+            on_or_after="2020-02-01",
+            returning="had_advanced_respiratory_support",
         ),
     )
 
     assert_results(
         study.to_dicts(),
-        icu_first=["2020-03-01", "2020-02-01", "", "", "2020-03-01",],
-        icu_last=["2020-03-01", "2020-02-01", "", "", "2020-04-01",],
+        icu_first=[
+            "2020-03-01",
+            "2020-02-01",
+            "",
+            "",
+            "2020-03-01",
+        ],
+        icu_last=[
+            "2020-03-01",
+            "2020-02-01",
+            "",
+            "",
+            "2020-04-01",
+        ],
         icu_flag=["1", "1", "0", "0", "1"],
         resp_support=["1", "1", "0", "0", "1"],
         basic_support=["1", "1", "0", "0", "0"],
@@ -1361,7 +1383,8 @@ def test_patients_died_from_any_cause():
             date_format="YYYY-MM-DD",
         ),
         underlying_cause=patients.died_from_any_cause(
-            on_or_before="2020-06-01", returning="underlying_cause_of_death",
+            on_or_before="2020-06-01",
+            returning="underlying_cause_of_death",
         ),
     )
     results = study.to_dicts()
@@ -1799,7 +1822,8 @@ def test_patients_with_tpp_vaccination_record():
     study = StudyDefinition(
         population=patients.all(),
         value=patients.with_tpp_vaccination_record(
-            target_disease_matches="TYPHOID", on_or_after="2012-01-01",
+            target_disease_matches="TYPHOID",
+            on_or_after="2012-01-01",
         ),
         date=patients.date_of("value"),
     )
@@ -1932,10 +1956,12 @@ def test_patients_with_test_result_in_sgss():
     study = StudyDefinition(
         population=patients.all(),
         positive_covid_test_ever=patients.with_test_result_in_sgss(
-            pathogen="SARS-CoV-2", test_result="positive",
+            pathogen="SARS-CoV-2",
+            test_result="positive",
         ),
         negative_covid_test_ever=patients.with_test_result_in_sgss(
-            pathogen="SARS-CoV-2", test_result="negative",
+            pathogen="SARS-CoV-2",
+            test_result="negative",
         ),
         tested_before_may=patients.with_test_result_in_sgss(
             pathogen="SARS-CoV-2", test_result="any", on_or_before="2020-05-01"
@@ -1974,7 +2000,9 @@ def test_patients_with_test_result_in_sgss_raises_error_on_bad_data(positive):
     session.commit()
     study = StudyDefinition(
         population=patients.all(),
-        covid_test=patients.with_test_result_in_sgss(pathogen="SARS-CoV-2",),
+        covid_test=patients.with_test_result_in_sgss(
+            pathogen="SARS-CoV-2",
+        ),
     )
     with pytest.raises(Exception):
         study.to_dicts()
@@ -1983,7 +2011,10 @@ def test_patients_with_test_result_in_sgss_raises_error_on_bad_data(positive):
 def test_patients_date_of_birth():
     session = make_session()
     session.add_all(
-        [Patient(DateOfBirth="1975-06-10"), Patient(DateOfBirth="1999-10-15"),]
+        [
+            Patient(DateOfBirth="1975-06-10"),
+            Patient(DateOfBirth="1999-10-15"),
+        ]
     )
     session.commit()
     study = StudyDefinition(
@@ -2264,7 +2295,8 @@ def test_patients_attended_emergency_care():
             on_or_after="2020-02-01", returning="binary_flag"
         ),
         count=patients.attended_emergency_care(
-            on_or_after="2020-02-01", returning="number_of_matches_in_period",
+            on_or_after="2020-02-01",
+            returning="number_of_matches_in_period",
         ),
         first_date=patients.attended_emergency_care(
             on_or_after="2020-02-01",
@@ -2394,7 +2426,8 @@ def test_patients_date_deregistered_from_all_supported_practices():
     study = StudyDefinition(
         population=patients.all(),
         dereg_date=patients.date_deregistered_from_all_supported_practices(
-            on_or_before="2018-02-01", date_format="YYYY-MM",
+            on_or_before="2018-02-01",
+            date_format="YYYY-MM",
         ),
     )
     assert_results(study.to_dicts(), dereg_date=["", "", "2017-10"])
@@ -2483,7 +2516,8 @@ def test_patients_admitted_to_hospital():
             on_or_after="2020-02-01", returning="binary_flag"
         ),
         count=patients.admitted_to_hospital(
-            on_or_after="2020-02-01", returning="number_of_matches_in_period",
+            on_or_after="2020-02-01",
+            returning="number_of_matches_in_period",
         ),
         first_date_admitted=patients.admitted_to_hospital(
             on_or_after="2020-02-01",
@@ -2663,9 +2697,30 @@ def test_large_codelists_upload_correctly():
     # Select codes from the beginning, middle and end of the codelist
     session.add_all(
         [
-            Patient(CodedEvents=[CodedEvent(CTV3Code=codes[0], NumericValue=7,),]),
-            Patient(CodedEvents=[CodedEvent(CTV3Code=codes[1500], NumericValue=11,),]),
-            Patient(CodedEvents=[CodedEvent(CTV3Code=codes[-1], NumericValue=18,),]),
+            Patient(
+                CodedEvents=[
+                    CodedEvent(
+                        CTV3Code=codes[0],
+                        NumericValue=7,
+                    ),
+                ]
+            ),
+            Patient(
+                CodedEvents=[
+                    CodedEvent(
+                        CTV3Code=codes[1500],
+                        NumericValue=11,
+                    ),
+                ]
+            ),
+            Patient(
+                CodedEvents=[
+                    CodedEvent(
+                        CTV3Code=codes[-1],
+                        NumericValue=18,
+                    ),
+                ]
+            ),
         ]
     )
     session.commit()
@@ -2738,7 +2793,8 @@ def test_patients_with_death_recorded_in_primary_care():
             returning="date_of_death", date_format="YYYY-MM-DD"
         ),
         died_in_2019=patients.with_death_recorded_in_primary_care(
-            between=["2019-01-01", "2019-12-31"], returning="date_of_death",
+            between=["2019-01-01", "2019-12-31"],
+            returning="date_of_death",
         ),
     )
     assert_results(

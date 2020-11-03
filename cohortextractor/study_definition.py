@@ -52,8 +52,10 @@ class StudyDefinition:
         self.covariate_definitions = evaluate_date_expressions_in_covariate_definitions(
             self._original_covariates, self.index_date
         )
-        self.default_expectations = evaluate_date_expressions_in_expectations_definition(
-            self._original_default_expectations, self.index_date
+        self.default_expectations = (
+            evaluate_date_expressions_in_expectations_definition(
+                self._original_default_expectations, self.index_date
+            )
         )
         if self.backend:
             self.backend.close()

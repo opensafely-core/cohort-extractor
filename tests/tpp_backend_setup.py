@@ -123,7 +123,9 @@ class Patient(Base):
     DateOfDeath = Column(Date)
 
     Appointments = relationship(
-        "Appointment", back_populates="Patient", cascade="all, delete, delete-orphan",
+        "Appointment",
+        back_populates="Patient",
+        cascade="all, delete, delete-orphan",
     )
     MedicationIssues = relationship(
         "MedicationIssue",
@@ -166,16 +168,24 @@ class Patient(Base):
         cascade="all, delete, delete-orphan",
     )
     ECEpisodes = relationship(
-        "EC", back_populates="Patient", cascade="all, delete, delete-orphan",
+        "EC",
+        back_populates="Patient",
+        cascade="all, delete, delete-orphan",
     )
     ECDiagnoses = relationship(
-        "EC_Diagnosis", back_populates="Patient", cascade="all, delete, delete-orphan",
+        "EC_Diagnosis",
+        back_populates="Patient",
+        cascade="all, delete, delete-orphan",
     )
     APCSEpisodes = relationship(
-        "APCS", back_populates="Patient", cascade="all, delete, delete-orphan",
+        "APCS",
+        back_populates="Patient",
+        cascade="all, delete, delete-orphan",
     )
     APCS_DerEpisodes = relationship(
-        "APCS_Der", back_populates="Patient", cascade="all, delete, delete-orphan",
+        "APCS_Der",
+        back_populates="Patient",
+        cascade="all, delete, delete-orphan",
     )
 
 
