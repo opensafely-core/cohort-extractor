@@ -552,8 +552,6 @@ def main():
         default="output",
     )
 
-    run_notebook_parser = subparsers.add_parser("notebook", help="Run notebook")
-    run_notebook_parser.set_defaults(which="notebook")
     update_codelists_parser = subparsers.add_parser(
         "update_codelists",
         help="Update codelists, using specification at codelists/codelists.txt",
@@ -573,48 +571,6 @@ def main():
     dump_study_yaml_parser.add_argument(
         "--study-definition", help="Study definition name", type=str, required=True
     )
-
-    remote_parser = subparsers.add_parser("remote", help="Manage remote jobs")
-    remote_parser.set_defaults(which="remote")
-
-    # Remote subcommands
-    remote_subparser = remote_parser.add_subparsers(help="Remote sub-command help")
-    generate_cohort_remote_parser = remote_subparser.add_parser(
-        "generate_cohort", help="Generate cohort"
-    )
-    generate_cohort_remote_parser.set_defaults(which="remote_generate_cohort")
-    generate_cohort_remote_parser.add_argument(
-        "--ref",
-        help="Tag or branch against which to run the extraction",
-        type=str,
-        required=True,
-    )
-    generate_cohort_remote_parser.add_argument(
-        "--repo",
-        help="Tag or branch against which to run the extraction (leave blank for current repo)",
-        type=str,
-    )
-    generate_cohort_remote_parser.add_argument(
-        "--db",
-        help="Database to run against",
-        choices=["full", "slice", "dummy"],
-        nargs="?",
-        const="full",
-        default="full",
-        type=str,
-    )
-    generate_cohort_remote_parser.add_argument(
-        "--backend",
-        help="Backend to run against",
-        choices=["all", "tpp"],
-        nargs="?",
-        const="all",
-        default="all",
-        type=str,
-    )
-
-    log_remote_parser = remote_subparser.add_parser("log", help="Show logs")
-    log_remote_parser.set_defaults(which="remote_log")
 
     # Cohort parser options
     generate_cohort_parser.add_argument(
@@ -748,14 +704,6 @@ def main():
         dump_cohort_sql(options.study_definition)
     elif options.which == "dump_study_yaml":
         dump_study_yaml(options.study_definition)
-    elif options.which == "remote_generate_cohort":
-        submit_job(
-            options.backend, options.db, options.ref, "generate_cohort", options.repo,
-        )
-        print("Job submitted!")
-    elif options.which == "remote_log":
-        logs = get_job_logs()
-        print("\n".join(logs))
 
 
 if __name__ == "__main__":
