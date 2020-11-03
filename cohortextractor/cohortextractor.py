@@ -525,6 +525,15 @@ def main():
         type=str,
         default="all",
     )
+
+    run_parser.add_argument(
+        "--medium-privacy-storage-base",
+        help="Location to store medium privacy data",
+    )
+    run_parser.add_argument(
+        "--high-privacy-storage-base",
+        help="Location to store high privacy data",
+    )
     run_parser.add_argument(
         "--force-run",
         help="Force a new run for the action",
@@ -674,6 +683,8 @@ def main():
             options.action,
             options.backend,
             options.db,
+            medium_privacy_storage_base=options.medium_privacy_storage_base,
+            high_privacy_storage_base=options.high_privacy_storage_base,
             force_run=options.force_run,
             force_run_dependencies=options.force_run_dependencies,
             log_level=log_level,

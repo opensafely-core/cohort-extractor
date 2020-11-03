@@ -30,6 +30,8 @@ def localrun(
     action_id,
     backend,
     db,
+    medium_privacy_storage_base=None,
+    high_privacy_storage_base=None,
     force_run=False,
     force_run_dependencies=False,
     log_level=logging.WARNING,
@@ -54,10 +56,12 @@ def localrun(
         },
         "workspace_id": 1,
     }
-    os.environ["HIGH_PRIVACY_STORAGE_BASE"] = tempfile.mkdtemp(
-        prefix="opensafely_high_privacy"
-    )
-    os.environ["MEDIUM_PRIVACY_STORAGE_BASE"] = tempfile.mkdtemp(
+    os.environ[
+        "HIGH_PRIVACY_STORAGE_BASE"
+    ] = high_privacy_storage_base or tempfile.mkdtemp(prefix="opensafely_high_privacy")
+    os.environ[
+        "MEDIUM_PRIVACY_STORAGE_BASE"
+    ] = medium_privacy_storage_base or tempfile.mkdtemp(
         prefix="opensafely_medium_privacy"
     )
     job = Job(job_spec, workdir=os.getcwd())
