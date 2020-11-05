@@ -49,6 +49,8 @@ COPY requirements.txt /app
 RUN apt-get install -y unixodbc-dev
 RUN curl https://bootstrap.pypa.io/get-pip.py | python
 RUN pip install --requirement requirements.txt
+RUN apt-get update
+RUN apt-get install -y docker.io
 
 COPY . /app
 
