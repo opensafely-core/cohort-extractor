@@ -124,14 +124,21 @@ def registered_as_of(
     return_expectations=None,
 ):
     """
-    All patients registered on the given date. This functions passes arguments
+    All patients registered on the given date. Note this function passes arguments
     to registered_with_one_practice_between()
 
     Args:
         reference_date (str): date in format of YYYY-MM-DD
+        return_expectations (dict, None): An expectation definition defining a rate
 
     Returns:
         list: Ones (as ints)
+
+    Example:
+        registered=patients.registered_as_of(
+            "2020-03-01",
+            return_expectations={"incidence": 0.98}
+            )
 
     """
     return "registered_as_of", locals()
@@ -145,6 +152,21 @@ def registered_with_one_practice_between(
 ):
     """
     All patients registered with the same practice through the given period
+
+    Args:
+        start_date (str): date in format of YYYY-MM-DD
+        end_date (str): date in format of YYYY-MM-DD
+        return_expectations (dict, None): An expectation definition defining a rate
+
+    Returns:
+        list: Ones (as ints)
+
+    Example:
+        registered=patients.registered_with_one_practice_between(
+            start_date="2020-03-01",
+            end_date="2020-06-01",
+            return_expectations={"incidence": 0.90}
+            )
     """
     return "registered_with_one_practice_between", locals()
 
@@ -158,6 +180,21 @@ def with_complete_history_between(
     """
     All patients for which we have a full set of records between the given
     dates
+
+    Args:
+        start_date (str): date in format of YYYY-MM-DD
+        end_date (str): date in format of YYYY-MM-DD
+        return_expectations (dict, None): An expectation definition defining a rate
+
+    Returns:
+        list: Ones (as ints)
+
+    Example:
+        has_consultation_history=patients.with_complete_gp_consultation_history_between(
+            start_date="2019-02-01",
+            end_date="2020-01-31",
+            return_expectations={"incidence": 0.9},
+        )
     """
     return "with_complete_history_between", locals()
 
@@ -188,6 +225,35 @@ def most_recent_bmi(
     The date of the measurement can be obtained using `date_of("<bmi-column-name>")`.
     If the BMI is computed from weight and height then we use the date of the
     weight measurement for this.
+
+    Args:
+        on_or_before (str, None): String of Data in YYYY-MM-DD format or None,
+        on_or_after (str, None): String of Data in YYYY-MM-DD format or None,
+        between (list, None): List of two date strings as YYYY-MM-DD format or None,
+        minimum_age_at_measurement (int): Minimum age at measurement. Default value is 16.
+        return_expectations (dict, None): An expectation definition defining an incidence
+            and a distribution as a dict,
+        include_measurement_date (bool): Flag to return an additional column of date of bmi. Set as default to False
+        date_format (str): Date String of format to return date of measurement if flagged
+        include_month (bool): Flag for how granular to return date
+        include_day (bool): Flag for how granular to return date
+
+    Returns:
+        float: Most recent BMI
+
+
+    Example:
+        bmi=patients.most_recent_bmi(
+        between=["2010-02-01", "2020-01-31"],
+        minimum_age_at_measurement=18,
+        include_measurement_date=True,
+        include_month=True,
+        return_expectations={
+            "date": {"earliest": "2010-02-01", "latest": "2020-01-31"},
+            "float": {"distribution": "normal", "mean": 28, "stddev": 8},
+            "incidence": 0.95,
+        }
+
     """
     return "most_recent_bmi", locals()
 
@@ -208,6 +274,44 @@ def mean_recorded_value(
     include_month=False,
     include_day=False,
 ):
+    """
+    Return patients' mean recorded value of a numerical value as defined by
+    a codelist on a particular day within the defined period. This is important as allows
+    us to account for multiple measurements taken on one day.
+
+    The date of the measurement can be included by flagging with date format options.
+
+    Args:
+        codelist (obj: Codelist): Codelist for requested value
+        on_most_recent_day_of_measurement (bool): flag for requesting measurements be on most recent date
+        return_expectations (dict, None): An expectation definition defining an incidence
+            and a distribution as a dict,
+        on_or_before (str, None): String of Data in YYYY-MM-DD format or None,
+        on_or_after (str, None): String of Data in YYYY-MM-DD format or None,
+        between (list, None): List of two date strings as YYYY-MM-DD format or None,
+        include_measurement_date (bool): Flag to return an additional column of date of bmi. Set as default to False
+        date_format (str): Date String of format to return date of measurement if flagged
+        include_month (bool): Flag for how granular to return date. Deprecated.
+        include_day (bool): Flag for how granular to return date. Deprecated.
+
+    Returns:
+        float: Mean of value
+
+    Example:
+        bp_sys=patients.mean_recorded_value(
+        systolic_blood_pressure_codes,
+        on_most_recent_day_of_measurement=True,
+        between=["2017-02-01", "2020-01-31"],
+        include_measurement_date=True,
+        include_month=True,
+        return_expectations={
+            "float": {"distribution": "normal", "mean": 80, "stddev": 10},
+            "date": {"earliest": "2019-02-01", "latest": "2020-01-31"},
+            "incidence": 0.95,
+        },
+    ),
+    """
+
     return "mean_recorded_value", locals()
 
 
