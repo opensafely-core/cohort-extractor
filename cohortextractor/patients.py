@@ -23,9 +23,9 @@ def random_sample(percent=None, return_expectations=None):
         list: zeros and ones
 
     Example:
-        This creates a variable `training_set`, flagging approximately 10% of the population with the value `1`:
+        This creates a variable `example`, flagging approximately 10% of the population with the value `1`:
 
-            training_set=patients.random_sample(percent=10, expectations={'incidence': 0.1})
+            example=patients.random_sample(percent=10, expectations={'incidence': 0.1})
 
     """
     return "random_sample", locals()
@@ -34,6 +34,21 @@ def random_sample(percent=None, return_expectations=None):
 def sex(return_expectations=None):
     """
     Returns M, F or empty string if unknown or other
+
+    Args:
+         return_expectations (dict): An expectation definition defining a rate and a ratio (dict) for
+            sexes
+
+    Returns:
+        list: "M", "F" or ""
+
+    Example:
+        This creates a variable 'sex' with all patients returning a sex of either "M", "F" or ""
+
+            sex=patients.sex(return_expectations={
+                                "rate": "universal",
+                                "category": {"ratios": {"M": 0.49, "F": 0.51}},
+                            }
 
     """
     return "sex", locals()
@@ -44,6 +59,29 @@ def age_as_of(
     # Required keyword
     return_expectations=None,
 ):
+    """
+    Returns age of patient of at a particular date
+
+    Args:
+        reference_date (str): date string in format of "YYYY-MM-DD"
+        return_expectations(dict): An expectation definition defining a rate and a distribution (as a dict). If this
+            is put as "population_ages" it returns likely distribution based on known UK age bands in 2018 (see file:
+            "uk_population_bands_2018.csv"
+
+    Returns:
+        list: Ages as integers
+
+    Examples:
+        This creates a variable "age" with all patient returning an age as an integer:
+
+            age=patients.age_as_of(
+                "2020-02-01",
+                return_expectations={
+                    "rate" : "universal",
+                    "int" : {"distribution" : "population_ages"}
+                },
+
+    """
     return "age_as_of", locals()
 
 
@@ -52,10 +90,31 @@ def date_of_birth(
     # Required keyword
     return_expectations=None,
 ):
+    """
+    Returns date of birth as a string with format "YYYY-MM"
+
+    Args:
+        date_format (str, None): "YYYY-MM", "YYYY" format or None
+        return_expectations (dict, None): An expectation definition defining a rate and a distribution (as a dict)
+
+    Returns:
+        list: Dates as strings with "YYYY-MM" format
+
+    Raises:
+        ValueError: If Date of Birth is attempted to be returned with a YYYY-MM-DD format.
+
+    Example:
+        dob=patients.date_of_birth(
+            "YYYY-MM",
+            return_expectations={ TODO: find out about this!!
+                }
+    """
+
     # The actual enforcement of this information governance rule is done in the
     # database; this is just to give early warning to the user
     if date_format == "YYYY-MM-DD":
         raise ValueError("Date of birth can only be retrieved to month granularity")
+
     return "date_of_birth", locals()
 
 
@@ -65,7 +124,15 @@ def registered_as_of(
     return_expectations=None,
 ):
     """
-    All patients registed on the given date
+    All patients registered on the given date. This functions passes arguments
+    to registered_with_one_practice_between()
+
+    Args:
+        reference_date (str): date in format of YYYY-MM-DD
+
+    Returns:
+        list: Ones (as ints)
+
     """
     return "registered_as_of", locals()
 
