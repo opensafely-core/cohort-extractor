@@ -71,7 +71,7 @@ def age_as_of(
     Returns:
         list: Ages as integers
 
-    Examples:
+    Example:
         This creates a variable "age" with all patient returning an age as an integer:
 
             age=patients.age_as_of(
@@ -104,10 +104,13 @@ def date_of_birth(
         ValueError: If Date of Birth is attempted to be returned with a YYYY-MM-DD format.
 
     Example:
-        dob=patients.date_of_birth(
-            "YYYY-MM",
-            return_expectations={ TODO: find out about this!!
-                }
+
+        This creates a variable "dob" with all patient returning a year and month as a string:
+
+            dob=patients.date_of_birth(
+                "YYYY-MM",
+                return_expectations={ TODO: find out about this!!
+                    }
     """
 
     # The actual enforcement of this information governance rule is done in the
@@ -135,10 +138,14 @@ def registered_as_of(
         list: Ones (as ints)
 
     Example:
-        registered=patients.registered_as_of(
-            "2020-03-01",
-            return_expectations={"incidence": 0.98}
-            )
+
+        This creates a variable "registered" with patient returning an integer of 1 if patient registered
+        at date. Patients who are not registered do not return a value:
+
+            registered=patients.registered_as_of(
+                "2020-03-01",
+                return_expectations={"incidence": 0.98}
+                )
 
     """
     return "registered_as_of", locals()
@@ -162,11 +169,15 @@ def registered_with_one_practice_between(
         list: Ones (as ints)
 
     Example:
-        registered=patients.registered_with_one_practice_between(
-            start_date="2020-03-01",
-            end_date="2020-06-01",
-            return_expectations={"incidence": 0.90}
-            )
+
+        This creates a variable "registered_one" with patient returning an integer of 1 if patient registered
+        at one practice between two dates. Patients who are not registered do not return a value:
+
+            registered_one=patients.registered_with_one_practice_between(
+                start_date="2020-03-01",
+                end_date="2020-06-01",
+                return_expectations={"incidence": 0.90}
+                )
     """
     return "registered_with_one_practice_between", locals()
 
@@ -190,6 +201,11 @@ def with_complete_history_between(
         list: Ones (as ints)
 
     Example:
+
+        This creates a variable "has_consultation_history" with patient returning an integer of 1 if
+        patient registered at one practice between two dates and has a completed record. Patients who
+        are not registered do not return a value:
+
         has_consultation_history=patients.with_complete_gp_consultation_history_between(
             start_date="2019-02-01",
             end_date="2020-01-31",
@@ -243,16 +259,21 @@ def most_recent_bmi(
 
 
     Example:
-        bmi=patients.most_recent_bmi(
-        between=["2010-02-01", "2020-01-31"],
-        minimum_age_at_measurement=18,
-        include_measurement_date=True,
-        include_month=True,
-        return_expectations={
-            "date": {"earliest": "2010-02-01", "latest": "2020-01-31"},
-            "float": {"distribution": "normal", "mean": 28, "stddev": 8},
-            "incidence": 0.95,
-        }
+
+        This creates a variable "bmi" returning a float of the most recent bmi calculated from recorded
+        height and weight, or from a recorded bmi record. Patient who do not have this information
+        available do not return a value:
+
+            bmi=patients.most_recent_bmi(
+            between=["2010-02-01", "2020-01-31"],
+            minimum_age_at_measurement=18,
+            include_measurement_date=True,
+            include_month=True,
+            return_expectations={
+                "date": {"earliest": "2010-02-01", "latest": "2020-01-31"},
+                "float": {"distribution": "normal", "mean": 28, "stddev": 8},
+                "incidence": 0.80,
+            }
 
     """
     return "most_recent_bmi", locals()
@@ -298,18 +319,24 @@ def mean_recorded_value(
         float: Mean of value
 
     Example:
-        bp_sys=patients.mean_recorded_value(
-        systolic_blood_pressure_codes,
-        on_most_recent_day_of_measurement=True,
-        between=["2017-02-01", "2020-01-31"],
-        include_measurement_date=True,
-        include_month=True,
-        return_expectations={
-            "float": {"distribution": "normal", "mean": 80, "stddev": 10},
-            "date": {"earliest": "2019-02-01", "latest": "2020-01-31"},
-            "incidence": 0.95,
-        },
-    ),
+
+        This creates a variable "bp_sys" returning a float of the most recent systolic blood pressure from
+        the record within the time period. In the event of repeated measurements on the same day, these
+        are averaged. Patient who do not have this information
+        available do not return a value:
+
+            bp_sys=patients.mean_recorded_value(
+            systolic_blood_pressure_codes,
+            on_most_recent_day_of_measurement=True,
+            between=["2017-02-01", "2020-01-31"],
+            include_measurement_date=True,
+            date_format="YYYY-MM",
+            return_expectations={
+                "float": {"distribution": "normal", "mean": 80, "stddev": 10},
+                "date": {"earliest": "2019-02-01", "latest": "2020-01-31"},
+                "incidence": 0.95,
+            },
+        ),
     """
 
     return "mean_recorded_value", locals()
