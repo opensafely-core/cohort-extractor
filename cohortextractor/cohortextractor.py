@@ -529,10 +529,12 @@ def main():
     run_parser.add_argument(
         "--medium-privacy-storage-base",
         help="Location to store medium privacy data",
+        default=os.environ.get("MEDIUM_PRIVACY_STORAGE_BASE"),
     )
     run_parser.add_argument(
         "--high-privacy-storage-base",
         help="Location to store high privacy data",
+        default=os.environ.get("HIGH_PRIVACY_STORAGE_BASE"),
     )
     run_parser.add_argument(
         "--force-run",
