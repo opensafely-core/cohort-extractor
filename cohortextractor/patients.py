@@ -16,8 +16,8 @@ def random_sample(percent=None, return_expectations=None):
     Flags a random sample of approximately `percent` patients.
 
     Args:
-        percent (int): Number between 1 and 100
-        return_expectations (dict): an expectations definition defining at least an `incidence`
+        percent: Number between 1 and 100
+        return_expectations: an expectations definition defining at least an `incidence`
 
     Returns:
         list: zeros and ones
@@ -243,17 +243,33 @@ def most_recent_bmi(
     weight measurement for this.
 
     Args:
-        on_or_before (str, None): String of Data in YYYY-MM-DD format or None,
-        on_or_after (str, None): String of Data in YYYY-MM-DD format or None,
-        between (list, None): List of two date strings as YYYY-MM-DD format or None,
-        minimum_age_at_measurement (int): Minimum age at measurement. Default value is 16.
-        return_expectations (dict, None): An expectation definition defining an incidence
-            and a distribution as a dict,
-        include_measurement_date (bool): Flag to return an additional column of date of bmi. Set as default to False
-        date_format (str): Date String of format to return date of measurement if flagged
-        include_month (bool): Flag for how granular to return date
-        include_day (bool): Flag for how granular to return date
-
+        on_or_before: Date of interest as a string with the format "YYYY-MM-DD". This will find data
+            on or before the date of interest. The default value is None.
+        on_or_after: Date of interest as a string with the format "YYYY-MM-DD". This will find data
+            on or after the date of interest. The default value is None.
+        between: Two dates of interest as a list with each date as a string with the format "YYYY-MM-DD".
+            This will find data between the two dates only. The default value in None.
+        minimum_age_at_measurement: This is the minimum age at measurement of BMI. It is an integer
+            and the default value is 16.
+        return_expectations: This is a dictionary defining the incidence and distribution of expected BMI
+            within the population in question. This is a 3-item key-value dictionary of "date" and "float".
+            "date" is dictionary itself and should contain the "earliest" and "latest" dates needed in the
+            dummy data. "float" is a dictionary of "distribution", "mean", and "stddev". These values determine
+            the shape of the dummy data returned, and the float means a float will be returned rather than an
+            integer. "incidence" must have a value and this is what percentage of dummy patients have
+            a BMI. It needs to be a number between 0 and 1.
+        include_measurement_date: This is a boolean flag (i.e. True or False) which if True allows us to
+            return an additional column of date of bmi. The default value is False.
+        date_format: This is a string detailing the format of the dates to be returned. It can be "YYYY-MM-DD",
+            "YYYY-MM" or "YYYY" and wherever possible the least disclosive data should be returned. i.e returning
+            only year is less disclosive than a date with day, month and year. The "include_measurement_date" flag
+            needs to be True for this to return a date.
+        include_month: This is a boolean flag for how granular to return date. In this case to return month as
+            well as year.. This is a deprecated argument, which is still supported for old versions and has been
+            replaced by the "date_format" argument.
+        include_day: This is a boolean flag for how granular to return date. In this case to return day as
+            well as year and month. This is a deprecated argument, which is still supported for old versions and
+            has been replaced by the "date_format" argument.
     Returns:
         float: Most recent BMI
 
