@@ -16,8 +16,8 @@ def random_sample(percent=None, return_expectations=None):
     Flags a random sample of approximately `percent` patients.
 
     Args:
-        percent: Number between 1 and 100
-        return_expectations: an expectations definition defining at least an `incidence`
+        percent: an integer between 1 and 100 for the percent of patients to include within the random sample
+        return_expectations: a dict containing an expectations definition defining at least an `incidence`
 
     Returns:
         list: zeros and ones
@@ -36,7 +36,7 @@ def sex(return_expectations=None):
     Returns M, F or empty string if unknown or other
 
     Args:
-         return_expectations (dict): An expectation definition defining a rate and a ratio (dict) for
+         return_expectations: a dict containing an expectation definition defining a rate and a ratio for
             sexes
 
     Returns:
@@ -63,13 +63,13 @@ def age_as_of(
     Returns age of patient of at a particular date
 
     Args:
-        reference_date (str): date string in format of "YYYY-MM-DD"
-        return_expectations(dict): An expectation definition defining a rate and a distribution (as a dict). If this
-            is put as "population_ages" it returns likely distribution based on known UK age bands in 2018 (see file:
-            "uk_population_bands_2018.csv"
+        reference_date: date of interest as a string with the format `YYYY-MM-DD`
+        return_expectations: a dict defining an expectation definition that includes at least a rate
+            and a distribution. If `distribution` is defined as "population_ages" it returns likely distribution
+            based on known UK age bands in 2018 (see file: "uk_population_bands_2018.csv")
 
     Returns:
-        list: Ages as integers
+        list: ages as integers
 
     Example:
         This creates a variable "age" with all patient returning an age as an integer:
@@ -94,18 +94,20 @@ def date_of_birth(
     Returns date of birth as a string with format "YYYY-MM"
 
     Args:
-        date_format (str, None): "YYYY-MM", "YYYY" format or None
-        return_expectations (dict, None): An expectation definition defining a rate and a distribution (as a dict)
+        date_format: a string detailing the format of the dates for date of birth to be returned.
+            It can be "YYYY-MM" or "YYYY" and wherever possible the least disclosive data should be
+            returned. i.e returning only year is less disclosive than a date with month and year.
+        return_expectations: a dictionary containing an expectation definition defining a rate and a distribution
 
     Returns:
-        list: Dates as strings with "YYYY-MM" format
+        list: dates as strings with "YYYY-MM" format
 
     Raises:
-        ValueError: If Date of Birth is attempted to be returned with a YYYY-MM-DD format.
+        ValueError: if Date of Birth is attempted to be returned with a YYYY-MM-DD format.
 
     Example:
 
-        This creates a variable "dob" with all patient returning a year and month as a string:
+        This creates a variable `dob` with all patient returning a year and month as a string:
 
             dob=patients.date_of_birth(
                 "YYYY-MM",
@@ -131,16 +133,18 @@ def registered_as_of(
     to registered_with_one_practice_between()
 
     Args:
-        reference_date (str): date in format of YYYY-MM-DD
-        return_expectations (dict, None): An expectation definition defining a rate
+        reference_date: date of interest as a string with the format `YYYY-MM-DD`. Filters results to
+            patients registered at a practice on the given date.
+        return_expectations: a dictionary containing an expectation definition defining an `incidence`
+            between `0` and `1`.
 
     Returns:
-        list: Ones (as ints)
+        list: of integers of `1` or `0`.
 
     Example:
 
-        This creates a variable "registered" with patient returning an integer of 1 if patient registered
-        at date. Patients who are not registered do not return a value:
+        This creates a variable "registered" with patient returning an integer of `1` if patient registered
+        at date. Patients who are not registered return an integer of `0`:
 
             registered=patients.registered_as_of(
                 "2020-03-01",
@@ -161,17 +165,25 @@ def registered_with_one_practice_between(
     All patients registered with the same practice through the given period
 
     Args:
-        start_date (str): date in format of YYYY-MM-DD
-        end_date (str): date in format of YYYY-MM-DD
-        return_expectations (dict, None): An expectation definition defining a rate
+        reference_date: .
+        return_expectations: a dictionary containing an expectation definition defining an `incidence`
+            between `0` and `1`.
+
+    Args:
+        start_date: start date of interest of period as a string with the format `YYYY-MM-DD`.
+            Together with end date, this filters results to patients registered at a practice between two dates
+        end_date: end date of interest of period as a string with the format `YYYY-MM-DD`.
+            Together with start date, this filters results to patients registered at a practice between two dates
+        return_expectations: a dictionary containing an expectation definition defining an `incidence`
+            between `0` and `1`.
 
     Returns:
-        list: Ones (as ints)
+        list: of integers of `1` or `0`.
 
     Example:
 
-        This creates a variable "registered_one" with patient returning an integer of 1 if patient registered
-        at one practice between two dates. Patients who are not registered do not return a value:
+        This creates a variable `registered_one` with patient returning an integer of `1` if patient registered
+        at one practice between two dates. Patients who are not registered return an integer of `0`.
 
             registered_one=patients.registered_with_one_practice_between(
                 start_date="2020-03-01",
@@ -193,18 +205,23 @@ def with_complete_history_between(
     dates
 
     Args:
-        start_date (str): date in format of YYYY-MM-DD
-        end_date (str): date in format of YYYY-MM-DD
-        return_expectations (dict, None): An expectation definition defining a rate
+        start_date: start date of interest of period as a string with the format `YYYY-MM-DD`.
+            Together with end date, this filters results to patients registered at a practice between two dates
+            who have a complete history.
+        end_date: end date of interest of period as a string with the format `YYYY-MM-DD`.
+            Together with start date, this filters results to patients registered at a practice between two dates
+            who have a complete history.
+        return_expectations: a dictionary containing an expectation definition defining an `incidence`
+            between `0` and `1`.
 
     Returns:
-        list: Ones (as ints)
+        list: of integers of `1` or `0`
 
     Example:
 
-        This creates a variable "has_consultation_history" with patient returning an integer of 1 if
-        patient registered at one practice between two dates and has a completed record. Patients who
-        are not registered do not return a value:
+        This creates a variable `has_consultation_history` with patient returning an integer of `1` if
+        patient registered at one practice between two dates and has a completed record. Patients who are
+        not registered  with a complete record return an integer of `0`.
 
         has_consultation_history=patients.with_complete_gp_consultation_history_between(
             start_date="2019-02-01",
@@ -243,33 +260,34 @@ def most_recent_bmi(
     weight measurement for this.
 
     Args:
-        on_or_before: Date of interest as a string with the format `YYYY-MM-DD`. Filters results to measurements
-            on or before the given date.The default value is None.
-        on_or_after: Date of interest as a string with the format `YYYY-MM-DD`. Filters results to measurements
-            on or after the given date.The default value is None.
-        between: Two dates of interest as a list with each date as a string with the format `YYYY-MM-DD`.
-            Filters results to measurements between the two dates provided. The default value is None.
+        on_or_before: date of interest as a string with the format `YYYY-MM-DD`. Filters results to measurements
+            on or before the given date.The default value is `None`.
+        on_or_after: date of interest as a string with the format `YYYY-MM-DD`. Filters results to measurements
+            on or after the given date.The default value is `None`.
+        between: two dates of interest as a list with each date as a string with the format `YYYY-MM-DD`.
+            Filters results to measurements between the two dates provided. The default value is `None`.
         minimum_age_at_measurement: Measurements taken before this age will not count towards BMI
             calculations. It is an integer and the default value is 16.
-        return_expectations: This is a dictionary defining the incidence and distribution of expected BMI
+        return_expectations: a dictionary defining the incidence and distribution of expected BMI
             within the population in question. This is a 3-item key-value dictionary of "date" and "float".
-            "date" is dictionary itself and should contain the "earliest" and "latest" dates needed in the
-            dummy data. "float" is a dictionary of "distribution", "mean", and "stddev". These values determine
+            "date" is dictionary itself and should contain the `earliest` and `latest` dates needed in the
+            dummy data. `float` is a dictionary of `distribution`, `mean`, and `stddev`. These values determine
             the shape of the dummy data returned, and the float means a float will be returned rather than an
-            integer. "incidence" must have a value and this is what percentage of dummy patients have
+            integer. `incidence` must have a value and this is what percentage of dummy patients have
             a BMI. It needs to be a number between 0 and 1.
-        include_measurement_date: A boolean indicating if an extra column, named date_of_bmi,
-            should be included in the output. The default value is False.
-        date_format: This is a string detailing the format of the dates to be returned. It can be "YYYY-MM-DD",
+        include_measurement_date: a boolean indicating if an extra column, named `date_of_bmi`,
+            should be included in the output. The default value is `False`.
+        date_format: a string detailing the format of the dates to be returned. It can be "YYYY-MM-DD",
             "YYYY-MM" or "YYYY" and wherever possible the least disclosive data should be returned. i.e returning
             only year is less disclosive than a date with day, month and year. Only used if
-            include_measurement_date is True
+            include_measurement_date is `True`
         include_month: a boolean indicating if day should be included in addition to year (deprecated: use
             `date_format` instead).
         include_day: a boolean indicating if day should be included in addition to year and
             month (deprecated: use `date_format` instead).
+
     Returns:
-        float: Most recent BMI
+        float: most recent BMI
 
 
     Example:
@@ -282,7 +300,7 @@ def most_recent_bmi(
             between=["2010-02-01", "2020-01-31"],
             minimum_age_at_measurement=18,
             include_measurement_date=True,
-            include_month=True,
+            date_format="YYYY-MM",
             return_expectations={
                 "date": {"earliest": "2010-02-01", "latest": "2020-01-31"},
                 "float": {"distribution": "normal", "mean": 28, "stddev": 8},
@@ -317,24 +335,38 @@ def mean_recorded_value(
     The date of the measurement can be included by flagging with date format options.
 
     Args:
-        codelist (obj: Codelist): Codelist for requested value
-        on_most_recent_day_of_measurement (bool): flag for requesting measurements be on most recent date
-        return_expectations (dict, None): An expectation definition defining an incidence
-            and a distribution as a dict,
-        on_or_before (str, None): String of Data in YYYY-MM-DD format or None,
-        on_or_after (str, None): String of Data in YYYY-MM-DD format or None,
-        between (list, None): List of two date strings as YYYY-MM-DD format or None,
-        include_measurement_date (bool): Flag to return an additional column of date of bmi. Set as default to False
-        date_format (str): Date String of format to return date of measurement if flagged
-        include_month (bool): Flag for how granular to return date. Deprecated.
-        include_day (bool): Flag for how granular to return date. Deprecated.
+        codelist: a codelist for requested value
+        on_most_recent_day_of_measurement: boolean flag for requesting measurements be on most recent date
+        return_expectations: a dictionary defining the incidence and distribution of expected value
+            within the population in question. This is a 3-item key-value dictionary of "date" and "float".
+            "date" is dictionary itself and should contain the `earliest` and `latest` dates needed in the
+            dummy data. `float` is a dictionary of `distribution`, `mean`, and `stddev`. These values determine
+            the shape of the dummy data returned, and the float means a float will be returned rather than an
+            integer. `incidence` must have a value and this is what percentage of dummy patients have
+            a value. It needs to be a number between 0 and 1.
+        on_or_before: date of interest as a string with the format `YYYY-MM-DD`. Filters results to measurements
+            on or before the given date.The default value is `None`.
+        on_or_after: date of interest as a string with the format `YYYY-MM-DD`. Filters results to measurements
+            on or after the given date.The default value is `None`.
+        between: two dates of interest as a list with each date as a string with the format `YYYY-MM-DD`.
+            Filters results to measurements between the two dates provided. The default value is `None`.
+        include_measurement_date: a boolean indicating if an extra column, named `date_of_bmi`,
+            should be included in the output. The default value is `False`.
+        date_format: a string detailing the format of the dates to be returned. It can be "YYYY-MM-DD",
+            "YYYY-MM" or "YYYY" and wherever possible the least disclosive data should be returned. i.e returning
+            only year is less disclosive than a date with day, month and year. Only used if
+            include_measurement_date is `True`
+        include_month: a boolean indicating if day should be included in addition to year (deprecated: use
+            `date_format` instead).
+        include_day: a boolean indicating if day should be included in addition to year and
+            month (deprecated: use `date_format` instead).
 
     Returns:
-        float: Mean of value
+        float: mean of value
 
     Example:
 
-        This creates a variable "bp_sys" returning a float of the most recent systolic blood pressure from
+        This creates a variable `bp_sys` returning a float of the most recent systolic blood pressure from
         the record within the time period. In the event of repeated measurements on the same day, these
         are averaged. Patient who do not have this information
         available do not return a value:
@@ -387,6 +419,72 @@ def with_these_medications(
     """
     Patients who have been prescribed at least one of this list of medications
     in the defined period
+
+    Args:
+        codelist: a codelist for requested medication(s)
+        return_expectations: a dictionary defining the incidence and distribution of expected value
+            within the population in question. If returning an integer (returning number_of_matches_in_period,
+            number_of_episodes), this is a 2-item key-value dictionary of `int` and `incidence`.
+            `int` is a dictionary of `distribution`, `mean`, and `stddev`. These values determine
+            the shape of the dummy data returned, and the int means a int will be returned rather than a
+            float. `incidence` must have a value and this is what percentage of dummy patients have
+            a value. It needs to be a number between 0 and 1. If returning `binary_flag` this is a 1-item
+            dictionary of `incidence` as described above. If returning either `first_date_in_period` or
+            `last_date_in_period`, this is a 2-item dictionary of `date` and `incidence`. `date` is a dict
+            of `earliest` and/or `latest` date possible.
+        on_or_before: date of interest as a string with the format `YYYY-MM-DD`. Filters results to on or
+            before the given date.The default value is `None`.
+        on_or_after: date of interest as a string with the format `YYYY-MM-DD`. Filters results to
+            on or after the given date.The default value is `None`.
+        between: two dates of interest as a list with each date as a string with the format `YYYY-MM-DD`.
+            Filters results to between the two dates provided. The default value is `None`.
+        returning: a str defining the type of data to be returned. options include `binary_flag`,
+            `number_of_matches_in_period`, `number_of_episodes`, `first_date_in_period` and
+            `last_date_in_period`. The default value is `binary_flag`.
+        include_date_of_match: a boolean indicating if an extra column, should be included in the output.
+            The default value is `False`.
+        date_format: a string detailing the format of the dates to be returned. It can be "YYYY-MM-DD",
+            "YYYY-MM" or "YYYY" and wherever possible the least disclosive data should be returned. i.e returning
+            only year is less disclosive than a date with day, month and year. Only used if include_date_of_match
+            is `True`
+        ignore_days_where_these_clinical_codes_occur: a codelist that contains codes for medications to be
+            ignored. if a medication is found on this day, the date is not matched even it matches a
+            code in the main `codelist`
+        episode_defined_as: a string expression indicating how an episode should be defined
+        return_binary_flag=None,
+        return_number_of_matches_in_period: a boolean indicating if the number of matches in a period should be
+            returned (deprecated: use `date_format` instead)
+        return_first_date_in_period: a boolean indicating if the first matches in a period should be
+            returned (deprecated: use `date_format` instead)
+        return_last_date_in_period: a boolean indicating if the last matches in a period should be
+            returned (deprecated: use `date_format` instead)
+        include_month: a boolean indicating if day should be included in addition to year (deprecated: use
+            `date_format` instead).
+        include_day: a boolean indicating if day should be included in addition to year and
+            month (deprecated: use `date_format` instead).
+
+    Returns:
+        list: of integers of `1` or `0` if `returning` argument is set to `binary_flag`, `number_of_episodes`
+            or `number_of_matches_in_period`; list of strings with a date format returned if `returning`
+            argument is set to `first_date_in_period` or `last_date_in_period`.
+
+    Example:
+
+        This creates a variable `exacerbation_count` returning an int of the number of episodes of oral
+        steroids being prescribed within the time period where a prescription is counted as part of the same
+        episode if it falls within 28 days of a previous prescription. Days where oral steroids
+        are prescribed on the same day as a COPD review are also ignored as may not represent true exacerbations.
+
+        exacerbation_count=patients.with_these_medications(
+            oral_steroid_med_codes,
+            between=["2019-03-01", "2020-02-29"],
+            ignore_days_where_these_clinical_codes_occur=copd_reviews,
+            returning="number_of_episodes",
+            episode_defined_as="series of events each <= 28 days apart",
+            return_expectations={
+                "int": {"distribution": "normal", "mean": 2, "stddev": 1},
+                "incidence": 0.2,
+            },
     """
     return "with_these_medications", locals()
 
@@ -422,6 +520,66 @@ def with_these_clinical_events(
     """
     Patients who have had at least one of these clinical events in the defined
     period
+
+    Args:
+        codelist: a codelist for requested event(s)
+        return_expectations: a dictionary defining the incidence and distribution of expected value
+            within the population in question. If returning an integer (returning number_of_matches_in_period,
+            number_of_episodes), this is a 2-item key-value dictionary of `int` and `incidence`.
+            `int` is a dictionary of `distribution`, `mean`, and `stddev`. These values determine
+            the shape of the dummy data returned, and the int means a int will be returned rather than a
+            float. `incidence` must have a value and this is what percentage of dummy patients have
+            a value. It needs to be a number between 0 and 1. If returning `binary_flag` this is a 1-item
+            dictionary of `incidence` as described above. If returning either `first_date_in_period` or
+            `last_date_in_period`, this is a 2-item dictionary of `date` and `incidence`. `date` is a dict
+            of `earliest` and/or `latest` date possible.
+        on_or_before: date of interest as a string with the format `YYYY-MM-DD`. Filters results to on or
+            before the given date.The default value is `None`.
+        on_or_after: date of interest as a string with the format `YYYY-MM-DD`. Filters results to
+            on or after the given date.The default value is `None`.
+        between: two dates of interest as a list with each date as a string with the format `YYYY-MM-DD`.
+            Filters results to between the two dates provided. The default value is `None`.
+        returning: a str defining the type of data to be returned. options include `binary_flag`,
+            `number_of_matches_in_period`, `number_of_episodes`, `first_date_in_period` and
+            `last_date_in_period`. The default value is `binary_flag`.
+        include_date_of_match: a boolean indicating if an extra column, should be included in the output.
+            The default value is `False`.
+        date_format: a string detailing the format of the dates to be returned. It can be "YYYY-MM-DD",
+            "YYYY-MM" or "YYYY" and wherever possible the least disclosive data should be returned. i.e returning
+            only year is less disclosive than a date with day, month and year. Only used if include_date_of_match
+            is `True`
+        ignore_days_where_these_codes_occur: a codelist that contains codes for events to be
+            ignored. if a events is found on this day, the date is not matched even it matches a
+            code in the main `codelist`
+        episode_defined_as: a string expression indicating how an episode should be defined
+        return_binary_flag=None,
+        return_number_of_matches_in_period: a boolean indicating if the number of matches in a period should be
+            returned (deprecated: use `date_format` instead)
+        return_first_date_in_period: a boolean indicating if the first matches in a period should be
+            returned (deprecated: use `date_format` instead)
+        return_last_date_in_period: a boolean indicating if the last matches in a period should be
+            returned (deprecated: use `date_format` instead)
+        include_month: a boolean indicating if day should be included in addition to year (deprecated: use
+            `date_format` instead).
+        include_day: a boolean indicating if day should be included in addition to year and
+            month (deprecated: use `date_format` instead).
+
+    Returns:
+        list: of integers of `1` or `0` if `returning` argument is set to `binary_flag`, `number_of_episodes`
+            or `number_of_matches_in_period`; list of strings with a date format returned if `returning`
+            argument is set to `first_date_in_period` or `last_date_in_period`.
+
+    Example:
+
+        This creates a variable `haem_cancer` returning the first date of a diagnosis of haematology
+         malignancy within the time period.
+
+        haem_cancer=patients.with_these_clinical_events(
+            haem_cancer_codes,
+            between=["2015-03-01", "2020-02-29"],
+            returning="first_date_in_period",
+            return_expectations={"date": {"latest": "2020-02-29"}
+            },
     """
     return "with_these_clinical_events", locals()
 
