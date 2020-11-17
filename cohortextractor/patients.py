@@ -540,7 +540,7 @@ def with_these_clinical_events(
         between: two dates of interest as a list with each date as a string with the format `YYYY-MM-DD`.
             Filters results to between the two dates provided. The default value is `None`.
         returning: a str defining the type of data to be returned. options include `binary_flag`,
-            `number_of_matches_in_period`, `number_of_episodes`, `first_date_in_period` and
+            `number_of_matches_in_period`, `number_of_episodes`, `category`, `first_date_in_period` and
             `last_date_in_period`. The default value is `binary_flag`.
         include_date_of_match: a boolean indicating if an extra column, should be included in the output.
             The default value is `False`.
@@ -552,7 +552,8 @@ def with_these_clinical_events(
             ignored. if a events is found on this day, the date is not matched even it matches a
             code in the main `codelist`
         episode_defined_as: a string expression indicating how an episode should be defined
-        return_binary_flag=None,
+        return_binary_flag:  a boolean indicating if the number of matches in a period should be
+            returned (deprecated: use `date_format` instead),
         return_number_of_matches_in_period: a boolean indicating if the number of matches in a period should be
             returned (deprecated: use `date_format` instead)
         return_first_date_in_period: a boolean indicating if the first matches in a period should be
@@ -567,7 +568,8 @@ def with_these_clinical_events(
     Returns:
         list: of integers of `1` or `0` if `returning` argument is set to `binary_flag`, `number_of_episodes`
             or `number_of_matches_in_period`; list of strings with a date format returned if `returning`
-            argument is set to `first_date_in_period` or `last_date_in_period`.
+            argument is set to `first_date_in_period` or `last_date_in_period`. a list of strings with a category
+            represented in an extra column in the codelist object `category` is returned.
 
     Example:
 
@@ -585,10 +587,81 @@ def with_these_clinical_events(
 
 
 def categorised_as(category_definitions, return_expectations=None, **extra_columns):
+    """
+    Patients who had had 1 or more code from 1 or more codelists are categorised into
+    groups according to a prescribed algorithm.
+
+    Args:
+        category_definitions: a dict that defines the algorithm and the associated category
+            The keys of the dict are strings representing categories from a defined by other
+            arguments such as `with_these_clinical_events`. The values are expressions of logic using
+            statements and AND/OR statements. A default argument should be provided if a particular
+            patient cannot be categorised to the algorithm.
+        return_expectations: a dict that defined the ratios of each category. The keys are the category values
+            as strings and the values are ratios as floats. The ratios should add up to 1.
+
+    Retyrns:
+        list: of strings which each letter representing a category as defined by the algorithm
+
+    Example:
+
+        This creates a variable of asthma status based on codes for asthma and categorising for recent steroid use.
+
+            current_asthma=patients.categorised_as(
+                {
+                    "1": "DEFAULT",
+                    "2": "recent_asthma_code AND
+                          prednisolone_last_year = 0"
+                    "3": "recent_asthma_code AND prednisolone_last_year > 0"
+                },
+                return_expectations={"category":
+                    {"ratios":
+                        {"0": 0.8, "1": 0.1, "2": 0.1}
+                        },
+                    },
+                recent_asthma_code=patients.with_these_clinical_events(
+                    asthma_codes, between=["2017-02-01", "2020-01-31"],
+                ),
+                prednisolone_last_year=patients.with_these_medications(
+                    pred_codes,
+                    between=["2019-02-01", "2020-01-31"],
+                    returning="number_of_matches_in_period",
+                ),
+    """
+
     return "categorised_as", locals()
 
 
 def satisfying(expression, return_expectations=None, **extra_columns):
+    """
+    Patients who meet the criteria for one or more expressions. Used as a way of combining groups
+    or making subgroups based on certain characteristics.
+
+    Args:
+        expression: a string in that links together 2 or more expressions into one statement. key variables
+            for this expression can be defined under this statement or anywhere in study definition.
+        return_expectations: a dictionary defining the rate of expected value
+            within the population in question
+
+    Returns:
+        list: of integers, either `1` or `0`
+
+    Example:
+
+        This creates a study population where patients included have asthma and not copd:
+
+            population=patients.satisfying(
+                " ""
+                has_asthma AND NOT
+                has_copd
+                " "",
+                has_asthma=patients.with_these_clinical_events(
+                    asthma_codes, between=["2017-02-28", "2020-02-29"],
+                has_copd=patients.with_these_clinical_events(
+                    copd_codes, between=["2017-02-28", "2020-02-29"],
+                ),
+    """
+
     category_definitions = {1: expression, 0: "DEFAULT"}
     if return_expectations is None:
         return_expectations = {}
@@ -601,6 +674,45 @@ def satisfying(expression, return_expectations=None, **extra_columns):
 def registered_practice_as_of(
     date, returning=None, return_expectations=None  # Required keyword
 ):
+    """
+    Return patients' practice address characteristics such as STP or MSOA
+
+    Args:
+        date: date of interest as a string with the format `YYYY-MM-DD`. Filters results to the given date.
+        returning: a str defining the type of data to be returned. options include `msoa_code`, nuts1_region_name,
+             and `stp_code`. The default value is `None`.
+        return_expectations: a dict defining the `rate` and the `categories` returned with ratios
+
+    Returns:
+        list: of integers representing a scale of `stp_code`, `msoa_code` or `nuts1_region_name`
+
+    Raises:
+        ValueError: if unsupported `returning` argument is provided
+
+    Example:
+
+        This creates a variable called `region` based on practice address of the patient:
+
+            region=patients.registered_practice_as_of(
+                "2020-02-01",
+                returning="nuts1_region_name",
+                return_expectations={
+                    "rate": "universal",
+                    "category": {
+                        "ratios": {
+                            "North East": 0.1,
+                            "North West": 0.1,
+                            "Yorkshire and the Humber": 0.1,
+                            "East Midlands": 0.1,
+                            "West Midlands": 0.1,
+                            "East of England": 0.1,
+                            "London": 0.2,
+                            "South East": 0.2,
+                        },
+                    },
+                },
+    """
+
     return "registered_practice_as_of", locals()
 
 
@@ -610,6 +722,36 @@ def address_as_of(
     round_to_nearest=None,
     return_expectations=None,  # Required keyword
 ):
+    """
+    Return patients' address characteristics such as IMD as of a particular date
+
+    Args:
+        date: date of interest as a string with the format `YYYY-MM-DD`. Filters results to the given date.
+        returning: a str defining the type of data to be returned. options include `index_of_multiple_deprivation`
+             and `rural_urban_classification`. The default value is `None`.
+        round_to_nearest: an integer that represents how `index_of_multiple_deprivation` value are rounded.
+            Only use when returning is `index_of_multiple_deprivation`
+        return_expectations: a dict defining the `rate` and the `categories` returned with ratios
+
+    Returns:
+        list: of integers representing a scale of either imd or rural-urban classificaiton
+
+    Raises:
+        ValueError: if unsupported `returning` argument is provided
+
+    Example:
+
+        This creates a variable called `imd` based on patient address.
+
+            imd=patients.address_as_of(
+                "2020-02-29",
+                returning="index_of_multiple_deprivation",
+                round_to_nearest=100,
+                return_expectations={
+                    "rate": "universal",
+                    "category": {"ratios": {"100": 0.1, "200": 0.2, "300": 0.7}},
+                },
+    """
     return "address_as_of", locals()
 
 
@@ -637,6 +779,41 @@ def care_home_status_as_of(
     `categorised_as` function except that the only columns that can be referred
     to are those belonging to the care home table (i.e. the two nursing fields
     above) and the boolean `IsPotentialCareHome`
+
+    Args:
+        date: date of interest as a string with the format `YYYY-MM-DD`. Filters results to the given date
+        categorised_as: a logic expression that applies an algorithm to specific variables to create categories
+        return_expectations: a dict defining the `rate` and the `categories` returned with ratios
+
+    Returns:
+        list: of strings which each letter representing a category as defined by the algorithm
+
+    Example:
+
+        This creates a variable called `care_home_type` which contains a 2 letter string which represents a type
+        of care home environment.
+
+        care_home_type=patients.care_home_status_as_of(
+        "2020-02-01",
+        categorised_as={
+            "PC": "" "
+              IsPotentialCareHome
+              AND LocationDoesNotRequireNursing='Y'
+              AND LocationRequiresNursing='N'
+            " "",
+            "PN": "" "
+              IsPotentialCareHome
+              AND LocationDoesNotRequireNursing='N'
+              AND LocationRequiresNursing='Y'
+            "" ",
+            "PS": "IsPotentialCareHome",
+            "U": "DEFAULT",
+        },
+        return_expectations={
+            "rate": "universal",
+            "category": {"ratios": {"PC": 0.05, "PN": 0.05, "PS": 0.05, "U": 0.85,},},
+        },
+    ),
     """
     if categorised_as is None:
         categorised_as = {1: "IsPotentialCareHome", 0: "DEFAULT"}
@@ -657,17 +834,66 @@ def admitted_to_icu(
     include_month=False,
     include_day=False,
 ):
-    """Return information about being admitted to ICU.
+    """
+    Return information about being admitted to ICU.
 
-    Options for `returning` are:
+    Args:
+        on_or_before: date of interest as a string with the format `YYYY-MM-DD`. Filters results to measurements
+            on or before the given date.The default value is `None`.
+        on_or_after: date of interest as a string with the format `YYYY-MM-DD`. Filters results to measurements
+            on or after the given date.The default value is `None`.
+        between: two dates of interest as a list with each date as a string with the format `YYYY-MM-DD`.
+        find_first_match_in_period: a boolean that indicates if the data returned is first admission to icu if
+            there are multiple admissions within the time period
+        find_last_match_in_period: a boolean that indicates if the data returned is last admission to icu if
+            there are multiple admissions within the time period
+        returning:
+            binary_flag: Whether patient attended A&E
+            date_admitted: Date patient arrived in A&E
+            had_respiratory_support: Whether patient received any form of respiratory support
+            had_basic_respiratory_support: Whether patient received "basic" respiratory support
+            had_advanced_respiratory_support: Whether patient received "advanced" respiratory support
+            (Note that the terms "basic" and "advanced" are derived from the underlying ICNARC data.)
+        date_format: a string detailing the format of the dates to be returned. It can be "YYYY-MM-DD",
+            "YYYY-MM" or "YYYY" and wherever possible the least disclosive data should be returned. i.e returning
+            only year is less disclosive than a date with day, month and year. Only used if
+            `returning` is `binary_flag`
+        return_expectations: a dictionary defining the incidence and distribution of expected value
+            within the population in question. This is a 2-item key-value dictionary of `date` and `rate`.
+        include_month: a boolean indicating if day should be included in addition to year (deprecated: use
+            `date_format` instead).
+        include_day: a boolean indicating if day should be included in addition to year and
+            month (deprecated: use `date_format` instead).
 
-        binary_flag: Whether patient attended A&E
-        date_admitted: Date patient arrived in A&E
-        had_respiratory_support: Whether patient received any form of respiratory support
-        had_basic_respiratory_support: Whether patient received "basic" respiratory support
-        had_advanced_respiratory_support: Whether patient received "advanced" respiratory support
+    Returns:
+        list: of integers of `1` or `0` if `returning` argument is set to `binary_flag`, `had_respiratory_support`,
+        `had_basic_respiratory_support` or `had_advanced_respiratory_support`; list of strings with a date format
+        returned if `returning` argument is set to `date_admitted`
 
-        (Note that the terms "basic" and "advanced" are derived from the underlying ICNARC data.)
+    Example:
+
+        This returns two variables - one called `icu_date_admitted` and another `had_resp_support`:
+
+            has_resp_support=patients.admitted_to_icu(
+                on_or_after="2020-02-01",
+                find_first_match_in_period=True,
+                returning="had_respiratory_support",
+                return_expectations={
+                        "date": {"earliest" : "2020-02-01"},
+                        "rate" : "exponential_increase"
+                   },
+                ),
+
+            icu_date_admitted=patients.admitted_to_icu(
+                on_or_after="2020-02-01",
+                find_first_match_in_period=True,
+                returning="date_admitted",
+                date_format="YYYY-MM-DD",
+                return_expectations={
+                    "date": {"earliest" : "2020-02-01"},
+                    "rate" : "exponential_increase"
+               },
+            ),
     """
 
     return "admitted_to_icu", locals()
@@ -692,12 +918,45 @@ def with_these_codes_on_death_certificate(
     """Identify patients with ONS-registered death, where cause of death
     matches the supplied icd10 codelist
 
-    Options for `returning` are:
+    Args:
+        codelist: a codelist for requested value
+        on_or_before: date of interest as a string with the format `YYYY-MM-DD`. Filters results to measurements
+            on or before the given date.The default value is `None`.
+        on_or_after: date of interest as a string with the format `YYYY-MM-DD`. Filters results to measurements
+            on or after the given date.The default value is `None`.
+        between: two dates of interest as a list with each date as a string with the format `YYYY-MM-DD`.
+            Filters results to measurements between the two dates provided. The default value is `None`.
+        match_only_underlying_cause: boolean for indicating if filters results to only specified cause of death.
+        returning: a string indicating what type of value should be returned. The options are:
+           date_of_death: Date of death
+           binary_flag: If they died or not
+           underlying_cause_of_death: The icd10 code corresponding to the underlying cause of death
+        date_format: a string detailing the format of the dates to be returned. It can be "YYYY-MM-DD",
+            "YYYY-MM" or "YYYY" and wherever possible the least disclosive data should be returned. i.e returning
+            only year is less disclosive than a date with day, month and year.
+        include_month: a boolean indicating if day should be included in addition to year (deprecated: use
+            `date_format` instead).
+        include_day: a boolean indicating if day should be included in addition to year and
+            month (deprecated: use `date_format` instead).
+        return_expectations: a dictionary defining the incidence and distribution of expected value
+            within the population in question.
 
-       date_of_death: Date of death
-       binary_flag: If they died or not
-       underlying_cause_of_death: The icd10 code corresponding to the underlying cause of death
+    Returns:
+        list: of integers of `1` or `0` if `returning` argument is set to `binary_flag` or `underlying_cause_of_death`;
+            list of strings with a date format returned if `returning` argument is set to `date_of_death`
 
+    Example:
+
+        A variable called `died_ons_covid_flag_any` is created that returns the date of death for
+        any patients that have covid on their death certificate even if that is the not the underlying cause
+        of death.
+
+            died_ons_covid_flag_any=patients.with_these_codes_on_death_certificate(
+                covid_codelist,
+                on_or_after="2020-02-01",
+                match_only_underlying_cause=False,
+                return_expectations={"date": {"earliest" : "2020-02-01"},
+                    "rate" : "exponential_increase"},
     """
     return "with_these_codes_on_death_certificate", locals()
 
@@ -715,13 +974,45 @@ def died_from_any_cause(
     include_day=False,
     return_expectations=None,
 ):
-    """Identify patients who with ONS-registered deaths
+    """
+    Identify patients who with ONS-registered deaths
 
-    Options for `returning` are:
+    Args:
+        on_or_before: date of interest as a string with the format `YYYY-MM-DD`. Filters results to measurements
+            on or before the given date.The default value is `None`.
+        on_or_after: date of interest as a string with the format `YYYY-MM-DD`. Filters results to measurements
+            on or after the given date.The default value is `None`.
+        between: two dates of interest as a list with each date as a string with the format `YYYY-MM-DD`.
+            Filters results to measurements between the two dates provided. The default value is `None`.
+        returning: a string indicating what type of value should be returned. The options are:
+           date_of_death: Date of death
+            binary_flag: If they died or not
+        date_format: a string detailing the format of the dates to be returned. It can be "YYYY-MM-DD",
+            "YYYY-MM" or "YYYY" and wherever possible the least disclosive data should be returned. i.e returning
+            only year is less disclosive than a date with day, month and year.
+        include_month: a boolean indicating if day should be included in addition to year (deprecated: use
+            `date_format` instead).
+        include_day: a boolean indicating if day should be included in addition to year and
+            month (deprecated: use `date_format` instead).
+        return_expectations: a dictionary defining the incidence and distribution of expected value
+            within the population in question.
 
-       date_of_death: Date of death
-       binary_flag: If they died or not
-       underlying_cause_of_death: The icd10 code corresponding to the underlying cause of death
+    Returns:
+        list: of integers of `1` or `0` if `returning` argument is set to `binary_flag`;
+            list of strings with a date format returned if `returning` argument is set to `date_of_death`
+
+    Example:
+
+        A variable called `died_any` is created that returns the date of death for
+        any patients that have died in the time period.
+
+            died_any=patients.died_from_any_cause(
+                on_or_after="2020-02-01",
+                returning="date_of_death",
+                date_format="YYYY-MM-DD",
+                return_expectations={"date": {"earliest" : "2020-02-01"},
+                    "rate" : "exponential_increase"},
+                ),
 
     """
     return "died_from_any_cause", locals()
@@ -740,6 +1031,48 @@ def with_death_recorded_in_cpns(
     include_day=False,
     return_expectations=None,
 ):
+    """
+    Identify patients who with death registered in CPNS dataset
+
+    Args:
+        on_or_before: date of interest as a string with the format `YYYY-MM-DD`. Filters results to measurements
+            on or before the given date.The default value is `None`.
+        on_or_after: date of interest as a string with the format `YYYY-MM-DD`. Filters results to measurements
+            on or after the given date.The default value is `None`.
+        between: two dates of interest as a list with each date as a string with the format `YYYY-MM-DD`.
+            Filters results to measurements between the two dates provided. The default value is `None`.
+        returning: a string indicating what type of value should be returned. The options are:
+            date_of_death: Date of death
+            binary_flag: If they died or not
+        date_format: a string detailing the format of the dates to be returned. It can be "YYYY-MM-DD",
+            "YYYY-MM" or "YYYY" and wherever possible the least disclosive data should be returned. i.e returning
+            only year is less disclosive than a date with day, month and year.
+        include_month: a boolean indicating if day should be included in addition to year (deprecated: use
+            `date_format` instead).
+        include_day: a boolean indicating if day should be included in addition to year and
+            month (deprecated: use `date_format` instead).
+        return_expectations: a dictionary defining the incidence and distribution of expected value
+            within the population in question.
+
+    Returns:
+        list: of integers of `1` or `0` if `returning` argument is set to `binary_flag`;
+            list of strings with a date format returned if `returning` argument is set to `date_of_death`
+
+    Example:
+
+        A variable called `died_date_cpns` is created that returns the date of death for
+        any patients have died in the CPNS dataset.
+
+            died_date_cpns=patients.with_death_recorded_in_cpns(
+                on_or_after="2020-02-01",
+                returning="date_of_death",
+                include_month=True,
+                include_day=True,
+                return_expectations={"date": {"earliest" : "2020-02-01"},
+                "rate" : "exponential_increase"},
+            ),
+    """
+
     return "with_death_recorded_in_cpns", locals()
 
 
@@ -761,10 +1094,37 @@ def with_death_recorded_in_primary_care(
     reliable when it appears. By contrast, cause of death is often not accurate
     in the primary care record so we don't make it available to query here.
 
-    Options for `returning` are:
+        Args:
+        on_or_before: date of interest as a string with the format `YYYY-MM-DD`. Filters results to measurements
+            on or before the given date.The default value is `None`.
+        on_or_after: date of interest as a string with the format `YYYY-MM-DD`. Filters results to measurements
+            on or after the given date.The default value is `None`.
+        between: two dates of interest as a list with each date as a string with the format `YYYY-MM-DD`.
+            Filters results to measurements between the two dates provided. The default value is `None`.
+        returning: a string indicating what type of value should be returned. The options are:
+            date_of_death: Date of death
+            binary_flag: If they died or not
+        date_format: a string detailing the format of the dates to be returned. It can be "YYYY-MM-DD",
+            "YYYY-MM" or "YYYY" and wherever possible the least disclosive data should be returned. i.e returning
+            only year is less disclosive than a date with day, month and year.
+        return_expectations: a dictionary defining the incidence and distribution of expected value
+            within the population in question.
 
-       binary_flag: If they died or not
-       date_of_death: Date of death
+    Returns:
+        list: of integers of `1` or `0` if `returning` argument is set to `binary_flag`;
+            list of strings with a date format returned if `returning` argument is set to `date_of_death`
+
+    Example:
+
+        A variable called `died_date_gp` is created that returns the date of death for
+        any patients have died in the GP dataset.
+
+            died_date_gp=patients.with_death_recorded_in_primary_care(
+                on_or_after="2020-02-01",
+                returning="date_of_death",
+                return_expectations={"date": {"earliest" : "2020-02-01"},
+                    "rate" : "exponential_increase"},
+            ),
     """
     return "with_death_recorded_in_primary_care", locals()
 
