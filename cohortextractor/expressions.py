@@ -95,7 +95,7 @@ def validate_string(token):
     value = token.value[1:-1]
     if len(value) > 16:
         raise ValueError(f"String literals must be 16 characters or less: {value}")
-    if not SAFE_CHARS_RE.match(value):
+    if not SAFE_CHARS_RE.match(value) and not value == "":
         raise ValueError(
             f"String literals can only contain alphanumeric characters and "
             f"underscore: {value}"
