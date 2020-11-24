@@ -1072,7 +1072,6 @@ def with_death_recorded_in_cpns(
                 "rate" : "exponential_increase"},
             ),
     """
-
     return "with_death_recorded_in_cpns", locals()
 
 
