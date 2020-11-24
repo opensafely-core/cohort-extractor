@@ -1,12 +1,12 @@
+""" This module provides the methods for making a study definition """
 # These methods don't *do* anything; they just return their name and arguments.
-# This provides a friendlier API then having to build some big nested data
+# This provides a friendlier API than having to build some big nested data
 # structure by hand and means we can make use of autocomplete, docstrings etc to
 # make it a bit more discoverable.
 
-
-
 # Yes this clashes with the builtin, but we don't need the builtin in this
 # context
+
 def all():
     return "all", locals()
 
@@ -60,7 +60,7 @@ def age_as_of(
     return_expectations=None,
 ):
     """
-    Returns age of patient of at a particular date
+    Returns age of patient of at a particular date. Note can be negative if born after `reference_date`.
 
     Args:
         reference_date: date of interest as a string with the format `YYYY-MM-DD`
