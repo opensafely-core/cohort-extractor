@@ -1156,6 +1156,53 @@ def with_tpp_vaccination_record(
     find_last_match_in_period=None,
     return_expectations=None,
 ):
+    """
+    Identify patients with a vaccination record for a target disease within the tpp vaccination record
+
+    Vaccinations can be recorded via a Vaccination Record or via prescription of a vaccine i.e a product code.
+
+    Args:
+        target_disease_matches: the target disease as a string
+        product_name_matches: the product name as a string
+        on_or_before: date of interest as a string with the format `YYYY-MM-DD`. Filters results to measurements
+            on or before the given date.The default value is `None`.
+        on_or_after: date of interest as a string with the format `YYYY-MM-DD`. Filters results to measurements
+            on or after the given date.The default value is `None`.
+        between: two dates of interest as a list with each date as a string with the format `YYYY-MM-DD`.
+            Filters results to measurements between the two dates provided. The default value is `None`.
+        returning: a string indicating what type of value should be returned. The options are limited to binary_flag
+            (which indicates if they have had the vaccination or not) or a date of vaccination
+        date_format: a string detailing the format of the dates to be returned. It can be "YYYY-MM-DD",
+            "YYYY-MM" or "YYYY" and wherever possible the least disclosive data should be returned. i.e returning
+            only year is less disclosive than a date with day, month and year.
+        find_first_match_in_period: a boolean that indicates if the data returned is first indication of vaccination
+            if there are multiple matches within the time period
+        find_last_match_in_period: a boolean that indicates if the data returned is last indication of vaccination
+            if there are multiple matches within the time period
+        return_expectations: a dictionary defining the incidence and distribution of expected value
+            within the population in question.
+
+    Returns:
+        list: of integers of `1` or `0` if `returning` argument is set to `binary_flag`;
+            list of strings with a date format returned if `returning` argument is set to `date`
+
+    Example:
+
+        A variable called `flu_vaccine` is created that returns the date of vaccination for
+        any patients in the GP dataset between 2 dates.
+
+            flu_vaccine=patients.with_tpp_vaccination_record(
+                target_disease_matches="influenza",
+                between=["2019-09-01", "2020-04-01"],
+                returning="date",
+                date_format="YYYY-MM",
+                find_first_match_in_period=True,
+                return_expectations={
+                    date": {"earliest": "2019-09-01", "latest": "2020-03-29"}
+                    }
+            ),
+    """
+
     return "with_tpp_vaccination_record", locals()
 
 
@@ -1177,6 +1224,46 @@ def with_gp_consultations(
     call. The concept of a "consultation" in EHR systems is generally broader
     and might include things like updating a phone number with the
     receptionist.
+
+    Args:
+        on_or_before: date of interest as a string with the format `YYYY-MM-DD`. Filters results to measurements
+            on or before the given date.The default value is `None`.
+        on_or_after: date of interest as a string with the format `YYYY-MM-DD`. Filters results to measurements
+            on or after the given date.The default value is `None`.
+        between: two dates of interest as a list with each date as a string with the format `YYYY-MM-DD`.
+            Filters results to measurements between the two dates provided. The default value is `None`.
+        find_first_match_in_period: a boolean that indicates if the data returned is first event
+            if there are multiple matches within the time period
+        find_last_match_in_period: a boolean that indicates if the data returned is last event
+            if there are multiple matches within the time period
+        returning: a string indicating what type of value should be returned. The options are limited to binary_flag
+            (which indicates if they have had the an event or not), date (which indicate date of event and used
+            with either find_first_match_in_period or find_last_match_in_period), or number_of_matches_in_period
+            (which counts the events in the period)
+        date_format: a string detailing the format of the dates to be returned. It can be "YYYY-MM-DD",
+            "YYYY-MM" or "YYYY" and wherever possible the least disclosive data should be returned. i.e returning
+            only year is less disclosive than a date with day, month and year.
+        return_expectations: a dictionary defining the incidence and distribution of expected value
+            within the population in question.
+
+    Returns:
+        list: of integers of `1` or `0` if `returning` argument is set to `binary_flag`;
+            list of strings with a date format returned if `returning` argument is set to `date`; a list of
+            integers if `returning` argument is set to number_of_matches_in_period
+
+    Example:
+
+        A variable called `gp_count` is created that counts number of GP consultation between two dates in
+        2019.
+
+            gp_count=patients.with_gp_consultations(
+                between=["2019-01-01", "2020-12-31"],
+                returning="number_of_matches_in_period",
+                return_expectations={
+                    "int": {"distribution": "normal", "mean": 6, "stddev": 3},
+                    "incidence": 0.6,
+                }
+            )
     """
     return "with_gp_consultations", locals()
 
@@ -1188,12 +1275,21 @@ def with_complete_gp_consultation_history_between(
     return_expectations=None,
 ):
     """
-    Because the concept of a "consultation" in EHR systems does not map exactly
-    to the GP-patient interaction we're interested in (see above) there is some
+    The concept of a "consultation" in EHR systems does not map exactly
+    to the GP-patient interaction we're interested in (see above) so there is some
     processing required on the part of the EHR vendor to produce the
     consultation record we need. This does not happen automatically as part of
     the GP2GP transfer, and therefore this query can be used to find just those
-    patients for which the full history is available.
+    patients for which the full history is available. This means finding patients
+    who have been continuously registered with a single TPP-using practice
+    throughout a time period.
+
+    Args:
+        start_date: start date of interest as a string with the format `YYYY-MM-DD`
+        end_date: end date of interest as a string with the format `YYYY-MM-DD`
+        return_expectations: a dictionary defining the incidence and distribution of expected value
+            within the population in question.
+
     """
     return (
         "with_complete_gp_consultation_history_between",
@@ -1218,13 +1314,9 @@ def with_test_result_in_sgss(
 ):
     """
     Finds lab test results recorded in SGSS (Second Generation Surveillance
-    System). Only SARS-CoV-2 results are included in our data extract so this
-    will throw an error if the specified pathogen is anything other than
-    "SARS-CoV-2".
+    System).
 
-    `test_result` must be one of: "positive", "negative" or "any"
-
-    The date field used is the date the specimen was taken, rather than the
+    Please note for the dates this is used in the database as the date the specimen was taken, rather than the
     date of the lab result.
 
     There's an important caveat here: where a patient has multiple positive
@@ -1257,6 +1349,60 @@ def with_test_result_in_sgss(
         episode. This may change, but is set as it is due to limited
         information around re-infection and virus clearance.
 
+    Args:
+        pathogen: pathogen we are interested in. Only SARS-CoV-2 results are included in our data extract so this
+            will throw an error if the specified pathogen is anything other than
+            "SARS-CoV-2".
+        test_result: must be one of "positive", "negative" or "any"
+        on_or_before: date of interest as a string with the format `YYYY-MM-DD`. Filters results to measurements
+            on or before the given date.The default value is `None`.
+        on_or_after: date of interest as a string with the format `YYYY-MM-DD`. Filters results to measurements
+            on or after the given date.The default value is `None`.
+        between: two dates of interest as a list with each date as a string with the format `YYYY-MM-DD`.
+            Filters results to measurements between the two dates provided. The default value is `None`.
+        find_first_match_in_period: a boolean that indicates if the data returned is first event
+            if there are multiple matches within the time period
+        find_last_match_in_period: a boolean that indicates if the data returned is last event
+            if there are multiple matches within the time period
+        returning: a string indicating what type of value should be returned. The options are limited to binary_flag
+            (which indicates if they have had the an event or not) and date (which indicate date of event and used
+            with either find_first_match_in_period or find_last_match_in_period)
+        date_format: a string detailing the format of the dates to be returned. It can be "YYYY-MM-DD",
+            "YYYY-MM" or "YYYY" and wherever possible the least disclosive data should be returned. i.e returning
+            only year is less disclosive than a date with day, month and year.
+        return_expectations: a dictionary defining the incidence and distribution of expected value
+            within the population in question.
+
+    Returns:
+        list: of integers of `1` or `0` if `returning` argument is set to `binary_flag`;
+            list of strings with a date format returned if `returning` argument is set to `date`;
+
+    Example:
+
+        Two variables are created. One called `first_tested_for_covid` is the first date that a patient has a
+        covid test never mind the result. The second called `first_positive_test_date` is the first date
+        that a patient has a positive test result.
+
+            first_tested_for_covid=patients.with_test_result_in_sgss(
+                pathogen="SARS-CoV-2",
+                test_result="any",
+                on_or_after="2020-02-01",
+                find_first_match_in_period=True,
+                returning="date",
+                date_format="YYYY-MM-DD",
+                return_expectations={"date": {"earliest" : "2020-02-01"},
+                "rate" : "exponential_increase"},
+            ),
+            first_positive_test_date=patients.with_test_result_in_sgss(
+                pathogen="SARS-CoV-2",
+                test_result="positive",
+                on_or_after="2020-02-01",
+                find_first_match_in_period=True,
+                returning="date",
+                date_format="YYYY-MM-DD",
+                return_expectations={"date": {"earliest" : "2020-02-01"},
+                "rate" : "exponential_increase"},
+            ),
     """
     return "with_test_result_in_sgss", locals()
 
@@ -1305,49 +1451,54 @@ def minimum_of(*column_names, **extra_columns):
 
 
 def household_as_of(reference_date, returning=None, return_expectations=None):
+    # noinspection PyPackageRequirements
     """
-    Return information about the household to which the patient belonged as of
-    the reference date. This is inferred from address data using an algorithm
-    developed by TPP (to be documented soon) so the results are not 100%
-    reliable but are apparently pretty good.
+        Return information about the household to which the patient belonged as of
+        the reference date. This is inferred from address data using an algorithm
+        developed by TPP (to be documented soon) so the results are not 100%
+        reliable but are apparently pretty good.
 
-    Options for `returning` are:
+        Args:
+            reference_date: date of interest as a string with the format `YYYY-MM-DD`. Filters results to a particular
+            set date
+            returning: a string indicating what type of value should be returned. The options for `returning` are:
+                pseudo_id: An integer identifier for the household which has no meaning
+                           other than to identify individual members of the same
+                           household (0 if no household information available)
+                household_size: the number of individuals in the household (0 if no
+                                household information available)
+                is_prison: Boolean indicating whether household is a prison.  See
+                           https://github.com/opensafely/cohort-extractor/issues/271#issuecomment-679069981
+                           for details of how this is determined.
+                has_members_in_other_ehr_systems: Boolean indicating whether some household
+                                                  members are registered with GPs using a
+                                                  different EHR system, meaning that our
+                                                  coverage of the household is incomplete.
+                percentage_of_members_with_data_in_this_backend: Integer giving the (estimated)
+                                                                 percentage of household members
+                                                                 where we have EHR data available
+                                                                 in this backend (i.e. not in other
+                                                                 systems as above)
+                msoa: Returns the MSOA (Middle Super Output Area) in which the household is
+                  situated
+            return_expectations: a dictionary defining the incidence and distribution of expected value
+            within the population in question.
 
-        pseudo_id: An integer identifier for the household which has no meaning
-                   other than to identify individual members of the same
-                   household (0 if no household information available)
+    Returns:
+        list: of integers if `returning` argument is set to `pseudo_id`, `household_size` or
+        `percentage_of_members_with_data_in_this_backend`. a list of `1` or `0` is `returning` is set to
+        `is_prison` or `has_members_in_other_ehr_systems`
 
-        household_size: the number of individuals in the household (0 if no
-                        household information available)
+        Examples:
 
-        is_prison: Boolean indicating whether household is a prison.  See
-                   https://github.com/opensafely/cohort-extractor/issues/271#issuecomment-679069981
-                   for details of how this is determined.
+            household_id=patients.household_as_of(
+                "2020-02-01", returning="pseudo_id"
+            )
 
-        has_members_in_other_ehr_systems: Boolean indicating whether some household
-                                          members are registered with GPs using a
-                                          different EHR system, meaning that our
-                                          coverage of the household is incomplete.
-
-        percentage_of_members_with_data_in_this_backend: Integer giving the (estimated)
-                                                         percentage of household members
-                                                         where we have EHR data available
-                                                         in this backend (i.e. not in other
-                                                         systems as above)
-
-        msoa: Returns the MSOA (Middle Super Output Area) in which the household is
-              situated
-
-    Examples:
-
-        household_id=patients.household_as_of(
-            "2020-02-01", returning="pseudo_id"
-        )
-
-        household_size=patients.household_as_of(
-            "2020-02-01", returning="household_size"
-        ),
-    """
+            household_size=patients.household_as_of(
+                "2020-02-01", returning="household_size"
+            ),
+        """
     return "household_as_of", locals()
 
 
@@ -1363,20 +1514,56 @@ def attended_emergency_care(
     discharged_to=None,
     return_expectations=None,
 ):
-    """Return information about attendance of A&E.
+    """
+    Return information about attendance of A&E from the ECDS dataset. Please note that there is a limited
+    number of diagnoses allowed within this dataset, and so will not match with the range of diagnoses allowed
+    in other datasets such as the primary care record.
 
-    Options for `returning` are:
+    Args:
+        on_or_before: date of interest as a string with the format `YYYY-MM-DD`. Filters results to
+            on or before the given date.The default value is `None`.
+        on_or_after: date of interest as a string with the format `YYYY-MM-DD`. Filters results to
+            on or after the given date.The default value is `None`.
+        between: two dates of interest as a list with each date as a string with the format `YYYY-MM-DD`.
+            Filters results to between the two dates provided. The default value is `None`.
+        returning: a string indicating what type of value should be returned. Options for `returning` are:
+            binary_flag: Whether patient attended A&E
+            date_arrived: date patient arrived in A&E
+            number_of_matches_in_period: number of times patient attended A&E
+            discharge_destination: SNOMED CT code of discharge destination.  This
+                                   will be a member of refset 999003011000000105.
+        find_first_match_in_period: a boolean that indicates if the data returned is first event
+            if there are multiple matches within the time period
+        find_last_match_in_period: a boolean that indicates if the data returned is last event
+            if there are multiple matches within the time period
+        date_format: a string detailing the format of the dates to be returned. It can be "YYYY-MM-DD",
+            "YYYY-MM" or "YYYY" and wherever possible the least disclosive data should be returned. i.e returning
+            only year is less disclosive than a date with day, month and year.
+        with_these_diagnoses: a list of SNOMED CT codes
+        discharged_to:a list of members of refset 999003011000000105.
+        return_expectations: a dictionary defining the incidence and distribution of expected value
+            within the population in question.
 
-        binary_flag: Whether patient attended A&E
-        date_arrived: date patient arrived in A&E
-        number_of_matches_in_period: number of times patient attended A&E
-        discharge_destination: SNOMED CT code of discharge destination.  This
-                               will be a member of refset 999003011000000105.
+    Returns:
+        list: of integers of `1` or `0` if `returning` argument is set to `binary_flag`; list of strings with a
+            date format returned if `returning` argument is set to `date_arrived`; of integers if `returning`
+            argument is set to `number_of_matches_in_period` or `discharge_destination` (with SNOMED CT code as
+            a numerical value)
 
-    `with_these_diagnoses` is optional, and is a list of SNOMED CT codes
-    `discharged_to` is optional, and is a list of members of refset 999003011000000105.
+    Example:
 
-    See https://github.com/opensafely/cohort-extractor/issues/182 for discussoin.
+        A variable called `emergency_care` is created with returns a date of first attendence in A&E if
+        patient had attended emergency room during the time period.
+
+            emergency_care=patients.attended_emergency_care(
+                on_or_after="2020-01-01",
+                returning="date_arrived",
+                date_format="YYYY-MM-DD",
+                find_first_match_in_period=True,
+                return_expectations={
+                    "date": {"earliest" : "2020-02-01"},
+                    "rate" : "exponential_increase"},
+            )
     """
     return "attended_emergency_care", locals()
 
@@ -1393,6 +1580,35 @@ def date_deregistered_from_all_supported_practices(
     practices for which OpenSAFELY has data. Events which occur in primary care
     after this date will not be recorded in the platform (though there may be
     data from other sources e.g. SGSS, CPNS).
+
+    Args:
+        on_or_before: date of interest as a string with the format `YYYY-MM-DD`. Filters results to
+            on or before the given date.The default value is `None`.
+        on_or_after: date of interest as a string with the format `YYYY-MM-DD`. Filters results to
+            on or after the given date.The default value is `None`.
+        between: two dates of interest as a list with each date as a string with the format `YYYY-MM-DD`.
+            Filters results to between the two dates provided. The default value is `None`.
+        date_format: a string detailing the format of the dates to be returned. It can be "YYYY-MM-DD",
+            "YYYY-MM" or "YYYY" and wherever possible the least disclosive data should be returned. i.e returning
+            only year is less disclosive than a date with day, month and year.
+        return_expectations: a dictionary defining the incidence and distribution of expected value
+            within the population in question.
+
+    Returns:
+        list: of strings with a date format returned if patient had deregistered, otherwise empty
+
+    Example:
+
+        A variable called `dereg_date` is created with returns a date of de-registration if patient has
+        deregistered from a practice within the dataset within the specified time period.
+
+            dereg_date=patients.date_deregistered_from_all_supported_practices(
+                on_or_after="2020-03-01",
+                date_format="YYYY-MM",
+                return_expectations={
+                    {"date": {"earliest": "2020-03-01"},
+                    "incidence": 0.05
+                }
     """
     return "date_deregistered_from_all_supported_practices", locals()
 
@@ -1416,19 +1632,36 @@ def admitted_to_hospital(
     See https://github.com/opensafely/cohort-extractor/issues/186 for in-depth discussion and background.
 
     Args:
-        on_or_before (str): The latest date of admission
-        on_or_after (str): The earliest date of admission
-        between (list): A tuple of [`on_or_after`, `on_or_before`]
-        returning (str): One of `binary_flag` (if they were admitted at all), `date_admitted`, `date_discharged`, `number_of_matches_in_period`, `primary_diagnosis`
-        find_first_match_in_period (bool): For date return values, always choose the earliest matching occurence
-        find_last_match_in_period (bool): For date return values, always choose the latest matching occurence
-        date_format (str): A date format string of the form `YYYY`, `YYYY-MM` or `YYYY-MM-DD`
-        with_these_diagnoses (codelist): icd10 codes to match against any diagnosis
-        with_these_primary_diagnoses (codelist): icd10 codes to match against the primary diagnosis
-        with_these_procedures (codelist): OPCS-4 codes to match against the procedure
+        on_or_before: date of interest as a string with the format `YYYY-MM-DD`. Filters results to
+            on or before the given date.The default value is `None`.
+        on_or_after: date of interest as a string with the format `YYYY-MM-DD`. Filters results to
+            on or after the given date.The default value is `None`.
+        between: two dates of interest as a list with each date as a string with the format `YYYY-MM-DD`.
+            Filters results to between the two dates provided. The default value is `None`.
+        returning: a string indicating what type of value should be returned. Options for `returning` are:
+            binary_flag: if they were admitted at all
+            date_admitted: date patient admitted to hospital
+            date_discharged: date patient discharged from hospital
+            number_of_matches_in_period: number of times patient was admitted in time period specified
+            primary_diagnosis: primary diagnosis code for admission
+        find_first_match_in_period: a boolean that indicates if the data returned is first event
+            if there are multiple matches within the time period
+        find_last_match_in_period: a boolean that indicates if the data returned is last event
+            if there are multiple matches within the time period
+        date_format: a string detailing the format of the dates to be returned. It can be "YYYY-MM-DD",
+            "YYYY-MM" or "YYYY" and wherever possible the least disclosive data should be returned. i.e returning
+            only year is less disclosive than a date with day, month and year.
+        with_these_diagnoses: icd10 codes to match against any diagnosis
+        with_these_primary_diagnoses: icd10 codes to match against the primary diagnosis
+        with_these_procedures: OPCS-4 codes to match against the procedure
+        return_expectations: a dictionary defining the incidence and distribution of expected value
+            within the population in question.
 
     Returns:
-        list: strings corresponding to the requested `returning` value
+        list: of integers of `1` or `0` if `returning` argument is set to `binary_flag`; list of strings with a
+            date format returned if `returning` argument is set to `date_admitted` or `date_discharged`; of
+            integers if `returning` argument is set to `number_of_matches_in_period`. list of strings with
+            alphanumerical code format for ICD10 code if `returning` argument is set to `primary_diagnosis`
 
     Example:
         The day of each patient's first hospital admission for Covid19:
