@@ -20,7 +20,7 @@ def random_sample(percent=None, return_expectations=None):
         return_expectations: a dict containing an expectations definition defining at least an `incidence`
 
     Returns:
-        list: zeros and ones
+        list: of integers of `1` or `0`
 
     Example:
         This creates a variable `example`, flagging approximately 10% of the population with the value `1`:
@@ -103,7 +103,7 @@ def date_of_birth(
         list: dates as strings with "YYYY-MM" format
 
     Raises:
-        ValueError: if Date of Birth is attempted to be returned with a YYYY-MM-DD format.
+        ValueError: if Date of Birth is attempted to be returned with a `YYYY-MM-DD` format.
 
     Example:
 
@@ -277,8 +277,8 @@ def most_recent_bmi(
             a BMI. It needs to be a number between 0 and 1.
         include_measurement_date: a boolean indicating if an extra column, named `date_of_bmi`,
             should be included in the output. The default value is `False`.
-        date_format: a string detailing the format of the dates to be returned. It can be "YYYY-MM-DD",
-            "YYYY-MM" or "YYYY" and wherever possible the least disclosive data should be returned. i.e returning
+        date_format: a string detailing the format of the dates to be returned. It can be `YYYY-MM-DD`,
+            `YYYY-MM` or `YYYY` and wherever possible the least disclosive data should be returned. i.e returning
             only year is less disclosive than a date with day, month and year. Only used if
             include_measurement_date is `True`
         include_month: a boolean indicating if day should be included in addition to year (deprecated: use
@@ -352,8 +352,8 @@ def mean_recorded_value(
             Filters results to measurements between the two dates provided. The default value is `None`.
         include_measurement_date: a boolean indicating if an extra column, named `date_of_bmi`,
             should be included in the output. The default value is `False`.
-        date_format: a string detailing the format of the dates to be returned. It can be "YYYY-MM-DD",
-            "YYYY-MM" or "YYYY" and wherever possible the least disclosive data should be returned. i.e returning
+        date_format: a string detailing the format of the dates to be returned. It can be `YYYY-MM-DD`,
+            `YYYY-MM` or `YYYY` and wherever possible the least disclosive data should be returned. i.e returning
             only year is less disclosive than a date with day, month and year. Only used if
             include_measurement_date is `True`
         include_month: a boolean indicating if day should be included in addition to year (deprecated: use
@@ -443,15 +443,15 @@ def with_these_medications(
             `last_date_in_period`. The default value is `binary_flag`.
         include_date_of_match: a boolean indicating if an extra column, should be included in the output.
             The default value is `False`.
-        date_format: a string detailing the format of the dates to be returned. It can be "YYYY-MM-DD",
-            "YYYY-MM" or "YYYY" and wherever possible the least disclosive data should be returned. i.e returning
+        date_format: a string detailing the format of the dates to be returned. It can be `YYYY-MM-DD`,
+            `YYYY-MM` or `YYYY` and wherever possible the least disclosive data should be returned. i.e returning
             only year is less disclosive than a date with day, month and year. Only used if include_date_of_match
             is `True`
         ignore_days_where_these_clinical_codes_occur: a codelist that contains codes for medications to be
             ignored. if a medication is found on this day, the date is not matched even it matches a
             code in the main `codelist`
         episode_defined_as: a string expression indicating how an episode should be defined
-        return_binary_flag=None,
+        return_binary_flag: a bool indicatin if a binary flag should be returned (deprecated: use `date_format` instead)
         return_number_of_matches_in_period: a boolean indicating if the number of matches in a period should be
             returned (deprecated: use `date_format` instead)
         return_first_date_in_period: a boolean indicating if the first matches in a period should be
@@ -544,8 +544,8 @@ def with_these_clinical_events(
             `last_date_in_period`. The default value is `binary_flag`.
         include_date_of_match: a boolean indicating if an extra column, should be included in the output.
             The default value is `False`.
-        date_format: a string detailing the format of the dates to be returned. It can be "YYYY-MM-DD",
-            "YYYY-MM" or "YYYY" and wherever possible the least disclosive data should be returned. i.e returning
+        date_format: a string detailing the format of the dates to be returned. It can be `YYYY-MM-DD`,
+            `YYYY-MM` or `YYYY` and wherever possible the least disclosive data should be returned. i.e returning
             only year is less disclosive than a date with day, month and year. Only used if include_date_of_match
             is `True`
         ignore_days_where_these_codes_occur: a codelist that contains codes for events to be
@@ -838,9 +838,9 @@ def admitted_to_icu(
     Return information about being admitted to ICU.
 
     Args:
-        on_or_before: date of interest as a string with the format `YYYY-MM-DD`. Filters results to measurements
+        on_or_before: date of interest as a string with the format `YYYY-MM-DD`. Filters results
             on or before the given date.The default value is `None`.
-        on_or_after: date of interest as a string with the format `YYYY-MM-DD`. Filters results to measurements
+        on_or_after: date of interest as a string with the format `YYYY-MM-DD`. Filters results
             on or after the given date.The default value is `None`.
         between: two dates of interest as a list with each date as a string with the format `YYYY-MM-DD`.
         find_first_match_in_period: a boolean that indicates if the data returned is first admission to icu if
@@ -854,8 +854,8 @@ def admitted_to_icu(
             had_basic_respiratory_support: Whether patient received "basic" respiratory support
             had_advanced_respiratory_support: Whether patient received "advanced" respiratory support
             (Note that the terms "basic" and "advanced" are derived from the underlying ICNARC data.)
-        date_format: a string detailing the format of the dates to be returned. It can be "YYYY-MM-DD",
-            "YYYY-MM" or "YYYY" and wherever possible the least disclosive data should be returned. i.e returning
+        date_format: a string detailing the format of the dates to be returned. It can be `YYYY-MM-DD`,
+            `YYYY-MM` or `YYYY` and wherever possible the least disclosive data should be returned. i.e returning
             only year is less disclosive than a date with day, month and year. Only used if
             `returning` is `binary_flag`
         return_expectations: a dictionary defining the incidence and distribution of expected value
@@ -920,19 +920,19 @@ def with_these_codes_on_death_certificate(
 
     Args:
         codelist: a codelist for requested value
-        on_or_before: date of interest as a string with the format `YYYY-MM-DD`. Filters results to measurements
+        on_or_before: date of interest as a string with the format `YYYY-MM-DD`. Filters results
             on or before the given date.The default value is `None`.
-        on_or_after: date of interest as a string with the format `YYYY-MM-DD`. Filters results to measurements
+        on_or_after: date of interest as a string with the format `YYYY-MM-DD`. Filters results
             on or after the given date.The default value is `None`.
         between: two dates of interest as a list with each date as a string with the format `YYYY-MM-DD`.
-            Filters results to measurements between the two dates provided. The default value is `None`.
+            Filters results between the two dates provided. The default value is `None`.
         match_only_underlying_cause: boolean for indicating if filters results to only specified cause of death.
         returning: a string indicating what type of value should be returned. The options are:
            date_of_death: Date of death
            binary_flag: If they died or not
            underlying_cause_of_death: The icd10 code corresponding to the underlying cause of death
-        date_format: a string detailing the format of the dates to be returned. It can be "YYYY-MM-DD",
-            "YYYY-MM" or "YYYY" and wherever possible the least disclosive data should be returned. i.e returning
+        date_format: a string detailing the format of the dates to be returned. It can be `YYYY-MM-DD`,
+            `YYYY-MM` or `YYYY` and wherever possible the least disclosive data should be returned. i.e returning
             only year is less disclosive than a date with day, month and year.
         include_month: a boolean indicating if day should be included in addition to year (deprecated: use
             `date_format` instead).
@@ -978,17 +978,17 @@ def died_from_any_cause(
     Identify patients who with ONS-registered deaths
 
     Args:
-        on_or_before: date of interest as a string with the format `YYYY-MM-DD`. Filters results to measurements
+        on_or_before: date of interest as a string with the format `YYYY-MM-DD`. Filters results
             on or before the given date.The default value is `None`.
-        on_or_after: date of interest as a string with the format `YYYY-MM-DD`. Filters results to measurements
+        on_or_after: date of interest as a string with the format `YYYY-MM-DD`. Filters results
             on or after the given date.The default value is `None`.
         between: two dates of interest as a list with each date as a string with the format `YYYY-MM-DD`.
-            Filters results to measurements between the two dates provided. The default value is `None`.
+            Filters results to between the two dates provided. The default value is `None`.
         returning: a string indicating what type of value should be returned. The options are:
            date_of_death: Date of death
             binary_flag: If they died or not
-        date_format: a string detailing the format of the dates to be returned. It can be "YYYY-MM-DD",
-            "YYYY-MM" or "YYYY" and wherever possible the least disclosive data should be returned. i.e returning
+        date_format: a string detailing the format of the dates to be returned. It can be `YYYY-MM-DD`,
+            `YYYY-MM` or `YYYY` and wherever possible the least disclosive data should be returned. i.e returning
             only year is less disclosive than a date with day, month and year.
         include_month: a boolean indicating if day should be included in addition to year (deprecated: use
             `date_format` instead).
@@ -1035,17 +1035,17 @@ def with_death_recorded_in_cpns(
     Identify patients who with death registered in CPNS dataset
 
     Args:
-        on_or_before: date of interest as a string with the format `YYYY-MM-DD`. Filters results to measurements
+        on_or_before: date of interest as a string with the format `YYYY-MM-DD`. Filters results
             on or before the given date.The default value is `None`.
-        on_or_after: date of interest as a string with the format `YYYY-MM-DD`. Filters results to measurements
+        on_or_after: date of interest as a string with the format `YYYY-MM-DD`. Filters results
             on or after the given date.The default value is `None`.
         between: two dates of interest as a list with each date as a string with the format `YYYY-MM-DD`.
-            Filters results to measurements between the two dates provided. The default value is `None`.
+            Filters results to between the two dates provided. The default value is `None`.
         returning: a string indicating what type of value should be returned. The options are:
             date_of_death: Date of death
             binary_flag: If they died or not
-        date_format: a string detailing the format of the dates to be returned. It can be "YYYY-MM-DD",
-            "YYYY-MM" or "YYYY" and wherever possible the least disclosive data should be returned. i.e returning
+        date_format: a string detailing the format of the dates to be returned. It can be `YYYY-MM-DD`,
+            `YYYY-MM` or `YYYY` and wherever possible the least disclosive data should be returned. i.e returning
             only year is less disclosive than a date with day, month and year.
         include_month: a boolean indicating if day should be included in addition to year (deprecated: use
             `date_format` instead).
@@ -1095,17 +1095,17 @@ def with_death_recorded_in_primary_care(
     in the primary care record so we don't make it available to query here.
 
         Args:
-        on_or_before: date of interest as a string with the format `YYYY-MM-DD`. Filters results to measurements
+        on_or_before: date of interest as a string with the format `YYYY-MM-DD`. Filters results
             on or before the given date.The default value is `None`.
-        on_or_after: date of interest as a string with the format `YYYY-MM-DD`. Filters results to measurements
+        on_or_after: date of interest as a string with the format `YYYY-MM-DD`. Filters results
             on or after the given date.The default value is `None`.
         between: two dates of interest as a list with each date as a string with the format `YYYY-MM-DD`.
-            Filters results to measurements between the two dates provided. The default value is `None`.
+            Filters results to  between the two dates provided. The default value is `None`.
         returning: a string indicating what type of value should be returned. The options are:
             date_of_death: Date of death
             binary_flag: If they died or not
-        date_format: a string detailing the format of the dates to be returned. It can be "YYYY-MM-DD",
-            "YYYY-MM" or "YYYY" and wherever possible the least disclosive data should be returned. i.e returning
+        date_format: a string detailing the format of the dates to be returned. It can be `YYYY-MM-DD`,
+            `YYYY-MM` or `YYYY` and wherever possible the least disclosive data should be returned. i.e returning
             only year is less disclosive than a date with day, month and year.
         return_expectations: a dictionary defining the incidence and distribution of expected value
             within the population in question.
@@ -1164,16 +1164,16 @@ def with_tpp_vaccination_record(
     Args:
         target_disease_matches: the target disease as a string
         product_name_matches: the product name as a string
-        on_or_before: date of interest as a string with the format `YYYY-MM-DD`. Filters results to measurements
+        on_or_before: date of interest as a string with the format `YYYY-MM-DD`. Filters results to
             on or before the given date.The default value is `None`.
-        on_or_after: date of interest as a string with the format `YYYY-MM-DD`. Filters results to measurements
+        on_or_after: date of interest as a string with the format `YYYY-MM-DD`. Filters results to
             on or after the given date.The default value is `None`.
         between: two dates of interest as a list with each date as a string with the format `YYYY-MM-DD`.
-            Filters results to measurements between the two dates provided. The default value is `None`.
+            Filters results to between the two dates provided. The default value is `None`.
         returning: a string indicating what type of value should be returned. The options are limited to binary_flag
             (which indicates if they have had the vaccination or not) or a date of vaccination
-        date_format: a string detailing the format of the dates to be returned. It can be "YYYY-MM-DD",
-            "YYYY-MM" or "YYYY" and wherever possible the least disclosive data should be returned. i.e returning
+        date_format: a string detailing the format of the dates to be returned. It can be `YYYY-MM-DD`,
+            `YYYY-MM` or `YYYY` and wherever possible the least disclosive data should be returned. i.e returning
             only year is less disclosive than a date with day, month and year.
         find_first_match_in_period: a boolean that indicates if the data returned is first indication of vaccination
             if there are multiple matches within the time period
@@ -1226,12 +1226,12 @@ def with_gp_consultations(
     receptionist.
 
     Args:
-        on_or_before: date of interest as a string with the format `YYYY-MM-DD`. Filters results to measurements
+        on_or_before: date of interest as a string with the format `YYYY-MM-DD`. Filters results to
             on or before the given date.The default value is `None`.
-        on_or_after: date of interest as a string with the format `YYYY-MM-DD`. Filters results to measurements
+        on_or_after: date of interest as a string with the format `YYYY-MM-DD`. Filters results to
             on or after the given date.The default value is `None`.
         between: two dates of interest as a list with each date as a string with the format `YYYY-MM-DD`.
-            Filters results to measurements between the two dates provided. The default value is `None`.
+            Filters results to between the two dates provided. The default value is `None`.
         find_first_match_in_period: a boolean that indicates if the data returned is first event
             if there are multiple matches within the time period
         find_last_match_in_period: a boolean that indicates if the data returned is last event
@@ -1240,8 +1240,8 @@ def with_gp_consultations(
             (which indicates if they have had the an event or not), date (which indicate date of event and used
             with either find_first_match_in_period or find_last_match_in_period), or number_of_matches_in_period
             (which counts the events in the period)
-        date_format: a string detailing the format of the dates to be returned. It can be "YYYY-MM-DD",
-            "YYYY-MM" or "YYYY" and wherever possible the least disclosive data should be returned. i.e returning
+        date_format: a string detailing the format of the dates to be returned. It can be `YYYY-MM-DD`,
+            `YYYY-MM` or `YYYY` and wherever possible the least disclosive data should be returned. i.e returning
             only year is less disclosive than a date with day, month and year.
         return_expectations: a dictionary defining the incidence and distribution of expected value
             within the population in question.
@@ -1354,12 +1354,12 @@ def with_test_result_in_sgss(
             will throw an error if the specified pathogen is anything other than
             "SARS-CoV-2".
         test_result: must be one of "positive", "negative" or "any"
-        on_or_before: date of interest as a string with the format `YYYY-MM-DD`. Filters results to measurements
+        on_or_before: date of interest as a string with the format `YYYY-MM-DD`. Filters results to
             on or before the given date.The default value is `None`.
-        on_or_after: date of interest as a string with the format `YYYY-MM-DD`. Filters results to measurements
+        on_or_after: date of interest as a string with the format `YYYY-MM-DD`. Filters results to
             on or after the given date.The default value is `None`.
         between: two dates of interest as a list with each date as a string with the format `YYYY-MM-DD`.
-            Filters results to measurements between the two dates provided. The default value is `None`.
+            Filters results to between the two dates provided. The default value is `None`.
         find_first_match_in_period: a boolean that indicates if the data returned is first event
             if there are multiple matches within the time period
         find_last_match_in_period: a boolean that indicates if the data returned is last event
@@ -1367,8 +1367,8 @@ def with_test_result_in_sgss(
         returning: a string indicating what type of value should be returned. The options are limited to binary_flag
             (which indicates if they have had the an event or not) and date (which indicate date of event and used
             with either find_first_match_in_period or find_last_match_in_period)
-        date_format: a string detailing the format of the dates to be returned. It can be "YYYY-MM-DD",
-            "YYYY-MM" or "YYYY" and wherever possible the least disclosive data should be returned. i.e returning
+        date_format: a string detailing the format of the dates to be returned. It can be `YYYY-MM-DD`,
+            `YYYY-MM` or `YYYY` and wherever possible the least disclosive data should be returned. i.e returning
             only year is less disclosive than a date with day, month and year.
         return_expectations: a dictionary defining the incidence and distribution of expected value
             within the population in question.
@@ -1536,8 +1536,8 @@ def attended_emergency_care(
             if there are multiple matches within the time period
         find_last_match_in_period: a boolean that indicates if the data returned is last event
             if there are multiple matches within the time period
-        date_format: a string detailing the format of the dates to be returned. It can be "YYYY-MM-DD",
-            "YYYY-MM" or "YYYY" and wherever possible the least disclosive data should be returned. i.e returning
+        date_format: a string detailing the format of the dates to be returned. It can be `YYYY-MM-DD`,
+            `YYYY-MM` or `YYYY` and wherever possible the least disclosive data should be returned. i.e returning
             only year is less disclosive than a date with day, month and year.
         with_these_diagnoses: a list of SNOMED CT codes
         discharged_to:a list of members of refset 999003011000000105.
@@ -1588,8 +1588,8 @@ def date_deregistered_from_all_supported_practices(
             on or after the given date.The default value is `None`.
         between: two dates of interest as a list with each date as a string with the format `YYYY-MM-DD`.
             Filters results to between the two dates provided. The default value is `None`.
-        date_format: a string detailing the format of the dates to be returned. It can be "YYYY-MM-DD",
-            "YYYY-MM" or "YYYY" and wherever possible the least disclosive data should be returned. i.e returning
+        date_format: a string detailing the format of the dates to be returned. It can be `YYYY-MM-DD`,
+            `YYYY-MM` or `YYYY` and wherever possible the least disclosive data should be returned. i.e returning
             only year is less disclosive than a date with day, month and year.
         return_expectations: a dictionary defining the incidence and distribution of expected value
             within the population in question.
@@ -1648,8 +1648,8 @@ def admitted_to_hospital(
             if there are multiple matches within the time period
         find_last_match_in_period: a boolean that indicates if the data returned is last event
             if there are multiple matches within the time period
-        date_format: a string detailing the format of the dates to be returned. It can be "YYYY-MM-DD",
-            "YYYY-MM" or "YYYY" and wherever possible the least disclosive data should be returned. i.e returning
+        date_format: a string detailing the format of the dates to be returned. It can be `YYYY-MM-DD`,
+            `YYYY-MM` or `YYYY` and wherever possible the least disclosive data should be returned. i.e returning
             only year is less disclosive than a date with day, month and year.
         with_these_diagnoses: icd10 codes to match against any diagnosis
         with_these_primary_diagnoses: icd10 codes to match against the primary diagnosis
