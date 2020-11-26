@@ -1,8 +1,11 @@
-""" This module provides the methods for making a study definition """
-# These methods don't *do* anything; they just return their name and arguments.
-# This provides a friendlier API than having to build some big nested data
-# structure by hand and means we can make use of autocomplete, docstrings etc to
-# make it a bit more discoverable.
+"""
+This module provides the methods for making a study definition
+
+These methods don't *do* anything; they just return their name and arguments.
+This provides a friendlier API than having to build some big nested data
+structure by hand and means we can make use of autocomplete, docstrings etc to
+make it a bit more discoverable.
+"""
 
 # Yes this clashes with the builtin, but we don't need the builtin in this
 # context
