@@ -157,7 +157,7 @@ def registered_as_of(
             registered=patients.registered_as_of(
                 "2020-03-01",
                 return_expectations={"incidence": 0.98}
-                )
+            )
 
     """
     return "registered_as_of", locals()
@@ -192,7 +192,7 @@ def registered_with_one_practice_between(
                 start_date="2020-03-01",
                 end_date="2020-06-01",
                 return_expectations={"incidence": 0.90}
-                )
+            )
     """
     return "registered_with_one_practice_between", locals()
 
@@ -804,16 +804,18 @@ def care_home_status_as_of(
             care_home_type=patients.care_home_status_as_of(
                 "2020-02-01",
                 categorised_as={
-                    "PC": "" "
+                    "PC": 
+                    \"\"\"
                       IsPotentialCareHome
                       AND LocationDoesNotRequireNursing='Y'
                       AND LocationRequiresNursing='N'
-                    " "",
-                    "PN": "" "
+                    \"\"\",
+                    "PN":
+                    \"\"\"
                       IsPotentialCareHome
                       AND LocationDoesNotRequireNursing='N'
                       AND LocationRequiresNursing='Y'
-                    "" ",
+                    \"\"\",
                     "PS": "IsPotentialCareHome",
                     "U": "DEFAULT",
                 },
@@ -923,7 +925,8 @@ def with_these_codes_on_death_certificate(
     include_day=False,
     return_expectations=None,
 ):
-    """Identify patients with ONS-registered death, where cause of death
+    """
+    Identify patients with ONS-registered death, where cause of death
     matches the supplied icd10 codelist
 
     Args:
