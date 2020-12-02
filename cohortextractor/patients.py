@@ -10,6 +10,7 @@ make it a bit more discoverable.
 # Yes this clashes with the builtin, but we don't need the builtin in this
 # context
 
+
 def all():
     return "all", locals()
 
@@ -39,7 +40,7 @@ def sex(return_expectations=None):
     Returns M, F or empty string if unknown or other
 
     Args:
-         return_expectations: a dict containing an expectation definition defining a rate and a ratio for sexes
+        return_expectations: a dict containing an expectation definition      defining a rate and a ratio for sexes
 
     Returns:
         list: "M", "F" or ""
@@ -47,12 +48,10 @@ def sex(return_expectations=None):
     Example:
         This creates a variable 'sex' with all patients returning a sex of either "M", "F" or ""
 
-            sex=patients.sex(
-                return_expectations={
-                    "rate": "universal",
-                    "category": {"ratios": {"M": 0.49, "F": 0.51}},
-                }
-            )
+            sex=patients.sex(return_expectations={
+                                "rate": "universal",
+                                "category": {"ratios": {"M": 0.49, "F": 0.51}},
+                            }
 
     """
     return "sex", locals()
@@ -83,8 +82,7 @@ def age_as_of(
                 return_expectations={
                     "rate" : "universal",
                     "int" : {"distribution" : "population_ages"}
-                }
-            )
+                },
 
     """
     return "age_as_of", locals()
@@ -116,11 +114,8 @@ def date_of_birth(
 
             dob=patients.date_of_birth(
                 "YYYY-MM",
-                return_expectations={ 
-                    "date": {"earliest": "1950-01-01", "latest": "today"},
-                    "rate": "uniform",
-                }
-            )
+                return_expectations={ TODO: find out about this!!
+                    }
     """
 
     # The actual enforcement of this information governance rule is done in the
@@ -157,7 +152,7 @@ def registered_as_of(
             registered=patients.registered_as_of(
                 "2020-03-01",
                 return_expectations={"incidence": 0.98}
-            )
+                )
 
     """
     return "registered_as_of", locals()
@@ -192,7 +187,7 @@ def registered_with_one_practice_between(
                 start_date="2020-03-01",
                 end_date="2020-06-01",
                 return_expectations={"incidence": 0.90}
-            )
+                )
     """
     return "registered_with_one_practice_between", locals()
 
@@ -226,11 +221,11 @@ def with_complete_history_between(
         patient registered at one practice between two dates and has a completed record. Patients who are
         not registered  with a complete record return an integer of `0`.
 
-            has_consultation_history=patients.with_complete_gp_consultation_history_between(
-                start_date="2019-02-01",
-                end_date="2020-01-31",
-                return_expectations={"incidence": 0.9},
-            )
+        has_consultation_history=patients.with_complete_gp_consultation_history_between(
+            start_date="2019-02-01",
+            end_date="2020-01-31",
+            return_expectations={"incidence": 0.9},
+        )
     """
     return "with_complete_history_between", locals()
 
@@ -264,9 +259,9 @@ def most_recent_bmi(
 
     Args:
         on_or_before: date of interest as a string with the format `YYYY-MM-DD`. Filters results to measurements
-            on or before the given date. The default value is `None`.
+            on or before the given date.The default value is `None`.
         on_or_after: date of interest as a string with the format `YYYY-MM-DD`. Filters results to measurements
-            on or after the given date. The default value is `None`.
+            on or after the given date.The default value is `None`.
         between: two dates of interest as a list with each date as a string with the format `YYYY-MM-DD`.
             Filters results to measurements between the two dates provided. The default value is `None`.
         minimum_age_at_measurement: Measurements taken before this age will not count towards BMI
@@ -300,16 +295,16 @@ def most_recent_bmi(
         available do not return a value:
 
             bmi=patients.most_recent_bmi(
-                between=["2010-02-01", "2020-01-31"],
-                minimum_age_at_measurement=18,
-                include_measurement_date=True,
-                date_format="YYYY-MM",
-                return_expectations={
-                    "date": {"earliest": "2010-02-01", "latest": "2020-01-31"},
-                    "float": {"distribution": "normal", "mean": 28, "stddev": 8},
-                    "incidence": 0.80,
-                }
-            )
+            between=["2010-02-01", "2020-01-31"],
+            minimum_age_at_measurement=18,
+            include_measurement_date=True,
+            date_format="YYYY-MM",
+            return_expectations={
+                "date": {"earliest": "2010-02-01", "latest": "2020-01-31"},
+                "float": {"distribution": "normal", "mean": 28, "stddev": 8},
+                "incidence": 0.80,
+            }
+
     """
     return "most_recent_bmi", locals()
 
@@ -348,9 +343,9 @@ def mean_recorded_value(
             integer. `incidence` must have a value and this is what percentage of dummy patients have
             a value. It needs to be a number between 0 and 1.
         on_or_before: date of interest as a string with the format `YYYY-MM-DD`. Filters results to measurements
-            on or before the given date. The default value is `None`.
+            on or before the given date.The default value is `None`.
         on_or_after: date of interest as a string with the format `YYYY-MM-DD`. Filters results to measurements
-            on or after the given date. The default value is `None`.
+            on or after the given date.The default value is `None`.
         between: two dates of interest as a list with each date as a string with the format `YYYY-MM-DD`.
             Filters results to measurements between the two dates provided. The default value is `None`.
         include_measurement_date: a boolean indicating if an extra column, named `date_of_bmi`,
@@ -375,17 +370,17 @@ def mean_recorded_value(
         available do not return a value:
 
             bp_sys=patients.mean_recorded_value(
-                systolic_blood_pressure_codes,
-                on_most_recent_day_of_measurement=True,
-                between=["2017-02-01", "2020-01-31"],
-                include_measurement_date=True,
-                date_format="YYYY-MM",
-                return_expectations={
-                    "float": {"distribution": "normal", "mean": 80, "stddev": 10},
-                    "date": {"earliest": "2019-02-01", "latest": "2020-01-31"},
-                    "incidence": 0.95,
-                },
-            )
+            systolic_blood_pressure_codes,
+            on_most_recent_day_of_measurement=True,
+            between=["2017-02-01", "2020-01-31"],
+            include_measurement_date=True,
+            date_format="YYYY-MM",
+            return_expectations={
+                "float": {"distribution": "normal", "mean": 80, "stddev": 10},
+                "date": {"earliest": "2019-02-01", "latest": "2020-01-31"},
+                "incidence": 0.95,
+            },
+        ),
     """
 
     return "mean_recorded_value", locals()
@@ -436,9 +431,9 @@ def with_these_medications(
             `last_date_in_period`, this is a 2-item dictionary of `date` and `incidence`. `date` is a dict
             of `earliest` and/or `latest` date possible.
         on_or_before: date of interest as a string with the format `YYYY-MM-DD`. Filters results to on or
-            before the given date. The default value is `None`.
+            before the given date.The default value is `None`.
         on_or_after: date of interest as a string with the format `YYYY-MM-DD`. Filters results to
-            on or after the given date. The default value is `None`.
+            on or after the given date.The default value is `None`.
         between: two dates of interest as a list with each date as a string with the format `YYYY-MM-DD`.
             Filters results to between the two dates provided. The default value is `None`.
         returning: a str defining the type of data to be returned. options include `binary_flag`,
@@ -478,17 +473,16 @@ def with_these_medications(
         episode if it falls within 28 days of a previous prescription. Days where oral steroids
         are prescribed on the same day as a COPD review are also ignored as may not represent true exacerbations.
 
-            exacerbation_count=patients.with_these_medications(
-                oral_steroid_med_codes,
-                between=["2019-03-01", "2020-02-29"],
-                ignore_days_where_these_clinical_codes_occur=copd_reviews,
-                returning="number_of_episodes",
-                episode_defined_as="series of events each <= 28 days apart",
-                return_expectations={
-                    "int": {"distribution": "normal", "mean": 2, "stddev": 1},
-                    "incidence": 0.2,
-                },
-            )
+        exacerbation_count=patients.with_these_medications(
+            oral_steroid_med_codes,
+            between=["2019-03-01", "2020-02-29"],
+            ignore_days_where_these_clinical_codes_occur=copd_reviews,
+            returning="number_of_episodes",
+            episode_defined_as="series of events each <= 28 days apart",
+            return_expectations={
+                "int": {"distribution": "normal", "mean": 2, "stddev": 1},
+                "incidence": 0.2,
+            },
     """
     return "with_these_medications", locals()
 
@@ -538,9 +532,9 @@ def with_these_clinical_events(
             `last_date_in_period`, this is a 2-item dictionary of `date` and `incidence`. `date` is a dict
             of `earliest` and/or `latest` date possible.
         on_or_before: date of interest as a string with the format `YYYY-MM-DD`. Filters results to on or
-            before the given date. The default value is `None`.
+            before the given date.The default value is `None`.
         on_or_after: date of interest as a string with the format `YYYY-MM-DD`. Filters results to
-            on or after the given date. The default value is `None`.
+            on or after the given date.The default value is `None`.
         between: two dates of interest as a list with each date as a string with the format `YYYY-MM-DD`.
             Filters results to between the two dates provided. The default value is `None`.
         returning: a str defining the type of data to be returned. options include `binary_flag`,
@@ -580,12 +574,12 @@ def with_these_clinical_events(
         This creates a variable `haem_cancer` returning the first date of a diagnosis of haematology
          malignancy within the time period.
 
-            haem_cancer=patients.with_these_clinical_events(
-                haem_cancer_codes,
-                between=["2015-03-01", "2020-02-29"],
-                returning="first_date_in_period",
-                return_expectations={"date": {earliest; "2015-03-01", "latest": "2020-02-29"}},
-            )
+        haem_cancer=patients.with_these_clinical_events(
+            haem_cancer_codes,
+            between=["2015-03-01", "2020-02-29"],
+            returning="first_date_in_period",
+            return_expectations={"date": {"latest": "2020-02-29"}
+            },
     """
     return "with_these_clinical_events", locals()
 
@@ -618,6 +612,11 @@ def categorised_as(category_definitions, return_expectations=None, **extra_colum
                           prednisolone_last_year = 0"
                     "3": "recent_asthma_code AND prednisolone_last_year > 0"
                 },
+                return_expectations={"category":
+                    {"ratios":
+                        {"0": 0.8, "1": 0.1, "2": 0.1}
+                        },
+                    },
                 recent_asthma_code=patients.with_these_clinical_events(
                     asthma_codes, between=["2017-02-01", "2020-01-31"],
                 ),
@@ -626,10 +625,6 @@ def categorised_as(category_definitions, return_expectations=None, **extra_colum
                     between=["2019-02-01", "2020-01-31"],
                     returning="number_of_matches_in_period",
                 ),
-                return_expectations={
-                    "category":{"ratios": {"0": 0.8, "1": 0.1, "2": 0.1}}
-                },
-            )
     """
 
     return "categorised_as", locals()
@@ -654,16 +649,15 @@ def satisfying(expression, return_expectations=None, **extra_columns):
         This creates a study population where patients included have asthma and not copd:
 
             population=patients.satisfying(
-                \"\"\"
+                " ""
                 has_asthma AND NOT
                 has_copd
-                \"\"\",
+                " "",
                 has_asthma=patients.with_these_clinical_events(
                     asthma_codes, between=["2017-02-28", "2020-02-29"],
                 has_copd=patients.with_these_clinical_events(
                     copd_codes, between=["2017-02-28", "2020-02-29"],
                 ),
-            )
     """
 
     category_definitions = {1: expression, 0: "DEFAULT"}
@@ -715,7 +709,6 @@ def registered_practice_as_of(
                         },
                     },
                 },
-            )
     """
 
     return "registered_practice_as_of", locals()
@@ -756,15 +749,12 @@ def address_as_of(
                     "rate": "universal",
                     "category": {"ratios": {"100": 0.1, "200": 0.2, "300": 0.7}},
                 },
-            )
     """
     return "address_as_of", locals()
 
 
 def care_home_status_as_of(
-    date,
-    categorised_as=None,
-    return_expectations=None,  # Required keyword
+    date, categorised_as=None, return_expectations=None,  # Required keyword
 ):
     """
     TPP have attempted to match patient addresses to care homes as stored in
@@ -801,29 +791,27 @@ def care_home_status_as_of(
         This creates a variable called `care_home_type` which contains a 2 letter string which represents a type
         of care home environment.
 
-            care_home_type=patients.care_home_status_as_of(
-                "2020-02-01",
-                categorised_as={
-                    "PC": 
-                    \"\"\"
-                      IsPotentialCareHome
-                      AND LocationDoesNotRequireNursing='Y'
-                      AND LocationRequiresNursing='N'
-                    \"\"\",
-                    "PN":
-                    \"\"\"
-                      IsPotentialCareHome
-                      AND LocationDoesNotRequireNursing='N'
-                      AND LocationRequiresNursing='Y'
-                    \"\"\",
-                    "PS": "IsPotentialCareHome",
-                    "U": "DEFAULT",
-                },
-                return_expectations={
-                    "rate": "universal",
-                    "category": {"ratios": {"PC": 0.05, "PN": 0.05, "PS": 0.05, "U": 0.85,},},
-                },
-            ),
+        care_home_type=patients.care_home_status_as_of(
+        "2020-02-01",
+        categorised_as={
+            "PC": "" "
+              IsPotentialCareHome
+              AND LocationDoesNotRequireNursing='Y'
+              AND LocationRequiresNursing='N'
+            " "",
+            "PN": "" "
+              IsPotentialCareHome
+              AND LocationDoesNotRequireNursing='N'
+              AND LocationRequiresNursing='Y'
+            "" ",
+            "PS": "IsPotentialCareHome",
+            "U": "DEFAULT",
+        },
+        return_expectations={
+            "rate": "universal",
+            "category": {"ratios": {"PC": 0.05, "PN": 0.05, "PS": 0.05, "U": 0.85,},},
+        },
+    ),
     """
     if categorised_as is None:
         categorised_as = {1: "IsPotentialCareHome", 0: "DEFAULT"}
@@ -849,9 +837,9 @@ def admitted_to_icu(
 
     Args:
         on_or_before: date of interest as a string with the format `YYYY-MM-DD`. Filters results
-            on or before the given date. The default value is `None`.
+            on or before the given date.The default value is `None`.
         on_or_after: date of interest as a string with the format `YYYY-MM-DD`. Filters results
-            on or after the given date. The default value is `None`.
+            on or after the given date.The default value is `None`.
         between: two dates of interest as a list with each date as a string with the format `YYYY-MM-DD`.
         find_first_match_in_period: a boolean that indicates if the data returned is first admission to icu if
             there are multiple admissions within the time period
@@ -882,7 +870,7 @@ def admitted_to_icu(
 
     Example:
 
-        This returns two variables &mdash; one called `icu_date_admitted` and another `had_resp_support`:
+        This returns two variables - one called `icu_date_admitted` and another `had_resp_support`:
 
             has_resp_support=patients.admitted_to_icu(
                 on_or_after="2020-02-01",
@@ -891,8 +879,8 @@ def admitted_to_icu(
                 return_expectations={
                         "date": {"earliest" : "2020-02-01"},
                         "rate" : "exponential_increase"
-                },
-            ),
+                   },
+                ),
 
             icu_date_admitted=patients.admitted_to_icu(
                 on_or_after="2020-02-01",
@@ -925,23 +913,22 @@ def with_these_codes_on_death_certificate(
     include_day=False,
     return_expectations=None,
 ):
-    """
-    Identify patients with ONS-registered death, where cause of death
+    """Identify patients with ONS-registered death, where cause of death
     matches the supplied icd10 codelist
 
     Args:
         codelist: a codelist for requested value
         on_or_before: date of interest as a string with the format `YYYY-MM-DD`. Filters results
-            on or before the given date. The default value is `None`.
+            on or before the given date.The default value is `None`.
         on_or_after: date of interest as a string with the format `YYYY-MM-DD`. Filters results
-            on or after the given date. The default value is `None`.
+            on or after the given date.The default value is `None`.
         between: two dates of interest as a list with each date as a string with the format `YYYY-MM-DD`.
             Filters results between the two dates provided. The default value is `None`.
         match_only_underlying_cause: boolean for indicating if filters results to only specified cause of death.
         returning: a string indicating what type of value should be returned. The options are:
-            date_of_death: Date of death
-            binary_flag: If they died or not
-            underlying_cause_of_death: The icd10 code corresponding to the underlying cause of death
+            `date_of_death`: Date of death
+            `binary_flag`: If they died or not
+            `underlying_cause_of_death`: The icd10 code corresponding to the underlying cause of death
         date_format: a string detailing the format of the dates to be returned. It can be `YYYY-MM-DD`,
             `YYYY-MM` or `YYYY` and wherever possible the least disclosive data should be returned. i.e returning
             only year is less disclosive than a date with day, month and year.
@@ -966,11 +953,8 @@ def with_these_codes_on_death_certificate(
                 covid_codelist,
                 on_or_after="2020-02-01",
                 match_only_underlying_cause=False,
-                return_expectations={
-                    "date": {"earliest" : "2020-02-01"},
-                    "rate" : "exponential_increase"
-                },
-            )
+                return_expectations={"date": {"earliest" : "2020-02-01"},
+                    "rate" : "exponential_increase"},
     """
     return "with_these_codes_on_death_certificate", locals()
 
@@ -993,14 +977,14 @@ def died_from_any_cause(
 
     Args:
         on_or_before: date of interest as a string with the format `YYYY-MM-DD`. Filters results
-            on or before the given date. The default value is `None`.
+            on or before the given date.The default value is `None`.
         on_or_after: date of interest as a string with the format `YYYY-MM-DD`. Filters results
-            on or after the given date. The default value is `None`.
+            on or after the given date.The default value is `None`.
         between: two dates of interest as a list with each date as a string with the format `YYYY-MM-DD`.
             Filters results to between the two dates provided. The default value is `None`.
         returning: a string indicating what type of value should be returned. The options are:
-            date_of_death: Date of death
-            binary_flag: If they died or not
+            `date_of_death`: Date of death
+            `binary_flag`: If they died or not
         date_format: a string detailing the format of the dates to be returned. It can be `YYYY-MM-DD`,
             `YYYY-MM` or `YYYY` and wherever possible the least disclosive data should be returned. i.e returning
             only year is less disclosive than a date with day, month and year.
@@ -1024,11 +1008,9 @@ def died_from_any_cause(
                 on_or_after="2020-02-01",
                 returning="date_of_death",
                 date_format="YYYY-MM-DD",
-                return_expectations={
-                    "date": {"earliest" : "2020-02-01"},
-                    "rate" : "exponential_increase"
-                },
-            )
+                return_expectations={"date": {"earliest" : "2020-02-01"},
+                    "rate" : "exponential_increase"},
+                ),
 
     """
     return "died_from_any_cause", locals()
@@ -1052,9 +1034,9 @@ def with_death_recorded_in_cpns(
 
     Args:
         on_or_before: date of interest as a string with the format `YYYY-MM-DD`. Filters results
-            on or before the given date. The default value is `None`.
+            on or before the given date.The default value is `None`.
         on_or_after: date of interest as a string with the format `YYYY-MM-DD`. Filters results
-            on or after the given date. The default value is `None`.
+            on or after the given date.The default value is `None`.
         between: two dates of interest as a list with each date as a string with the format `YYYY-MM-DD`.
             Filters results to between the two dates provided. The default value is `None`.
         returning: a string indicating what type of value should be returned. The options are:
@@ -1084,10 +1066,8 @@ def with_death_recorded_in_cpns(
                 returning="date_of_death",
                 include_month=True,
                 include_day=True,
-                return_expectations={
-                    "date": {"earliest" : "2020-02-01"},
-                    "rate" : "exponential_increase"
-                },
+                return_expectations={"date": {"earliest" : "2020-02-01"},
+                "rate" : "exponential_increase"},
             ),
     """
     return "with_death_recorded_in_cpns", locals()
@@ -1113,9 +1093,9 @@ def with_death_recorded_in_primary_care(
 
         Args:
         on_or_before: date of interest as a string with the format `YYYY-MM-DD`. Filters results
-            on or before the given date. The default value is `None`.
+            on or before the given date.The default value is `None`.
         on_or_after: date of interest as a string with the format `YYYY-MM-DD`. Filters results
-            on or after the given date. The default value is `None`.
+            on or after the given date.The default value is `None`.
         between: two dates of interest as a list with each date as a string with the format `YYYY-MM-DD`.
             Filters results to  between the two dates provided. The default value is `None`.
         returning: a string indicating what type of value should be returned. The options are:
@@ -1139,10 +1119,8 @@ def with_death_recorded_in_primary_care(
             died_date_gp=patients.with_death_recorded_in_primary_care(
                 on_or_after="2020-02-01",
                 returning="date_of_death",
-                return_expectations={
-                    "date": {"earliest" : "2020-02-01"},
-                    "rate" : "exponential_increase"
-                },
+                return_expectations={"date": {"earliest" : "2020-02-01"},
+                    "rate" : "exponential_increase"},
             ),
     """
     return "with_death_recorded_in_primary_care", locals()
@@ -1184,9 +1162,9 @@ def with_tpp_vaccination_record(
         target_disease_matches: the target disease as a string
         product_name_matches: the product name as a string
         on_or_before: date of interest as a string with the format `YYYY-MM-DD`. Filters results to
-            on or before the given date. The default value is `None`.
+            on or before the given date.The default value is `None`.
         on_or_after: date of interest as a string with the format `YYYY-MM-DD`. Filters results to
-            on or after the given date. The default value is `None`.
+            on or after the given date.The default value is `None`.
         between: two dates of interest as a list with each date as a string with the format `YYYY-MM-DD`.
             Filters results to between the two dates provided. The default value is `None`.
         returning: a string indicating what type of value should be returned. The options are limited to binary_flag
@@ -1218,7 +1196,7 @@ def with_tpp_vaccination_record(
                 find_first_match_in_period=True,
                 return_expectations={
                     date": {"earliest": "2019-09-01", "latest": "2020-03-29"}
-                }
+                    }
             ),
     """
 
@@ -1246,9 +1224,9 @@ def with_gp_consultations(
 
     Args:
         on_or_before: date of interest as a string with the format `YYYY-MM-DD`. Filters results to
-            on or before the given date. The default value is `None`.
+            on or before the given date.The default value is `None`.
         on_or_after: date of interest as a string with the format `YYYY-MM-DD`. Filters results to
-            on or after the given date. The default value is `None`.
+            on or after the given date.The default value is `None`.
         between: two dates of interest as a list with each date as a string with the format `YYYY-MM-DD`.
             Filters results to between the two dates provided. The default value is `None`.
         find_first_match_in_period: a boolean that indicates if the data returned is first event
@@ -1281,7 +1259,7 @@ def with_gp_consultations(
                 return_expectations={
                     "int": {"distribution": "normal", "mean": 6, "stddev": 3},
                     "incidence": 0.6,
-                },
+                }
             )
     """
     return "with_gp_consultations", locals()
@@ -1374,9 +1352,9 @@ def with_test_result_in_sgss(
             "SARS-CoV-2".
         test_result: must be one of "positive", "negative" or "any"
         on_or_before: date of interest as a string with the format `YYYY-MM-DD`. Filters results to
-            on or before the given date. The default value is `None`.
+            on or before the given date.The default value is `None`.
         on_or_after: date of interest as a string with the format `YYYY-MM-DD`. Filters results to
-            on or after the given date. The default value is `None`.
+            on or after the given date.The default value is `None`.
         between: two dates of interest as a list with each date as a string with the format `YYYY-MM-DD`.
             Filters results to between the two dates provided. The default value is `None`.
         find_first_match_in_period: a boolean that indicates if the data returned is first event
@@ -1409,10 +1387,8 @@ def with_test_result_in_sgss(
                 find_first_match_in_period=True,
                 returning="date",
                 date_format="YYYY-MM-DD",
-                return_expectations={
-                    "date": {"earliest" : "2020-02-01"},
-                    "rate" : "exponential_increase"
-                },
+                return_expectations={"date": {"earliest" : "2020-02-01"},
+                "rate" : "exponential_increase"},
             ),
             first_positive_test_date=patients.with_test_result_in_sgss(
                 pathogen="SARS-CoV-2",
@@ -1421,10 +1397,8 @@ def with_test_result_in_sgss(
                 find_first_match_in_period=True,
                 returning="date",
                 date_format="YYYY-MM-DD",
-                return_expectations={
-                    "date": {"earliest" : "2020-02-01"},
-                    "rate" : "exponential_increase"
-                },
+                return_expectations={"date": {"earliest" : "2020-02-01"},
+                "rate" : "exponential_increase"},
             ),
     """
     return "with_test_result_in_sgss", locals()
@@ -1544,9 +1518,9 @@ def attended_emergency_care(
 
     Args:
         on_or_before: date of interest as a string with the format `YYYY-MM-DD`. Filters results to
-            on or before the given date. The default value is `None`.
+            on or before the given date.The default value is `None`.
         on_or_after: date of interest as a string with the format `YYYY-MM-DD`. Filters results to
-            on or after the given date. The default value is `None`.
+            on or after the given date.The default value is `None`.
         between: two dates of interest as a list with each date as a string with the format `YYYY-MM-DD`.
             Filters results to between the two dates provided. The default value is `None`.
         returning: a string indicating what type of value should be returned. Options for `returning` are:
@@ -1585,8 +1559,7 @@ def attended_emergency_care(
                 find_first_match_in_period=True,
                 return_expectations={
                     "date": {"earliest" : "2020-02-01"},
-                    "rate" : "exponential_increase"
-                },
+                    "rate" : "exponential_increase"},
             )
     """
     return "attended_emergency_care", locals()
@@ -1607,9 +1580,9 @@ def date_deregistered_from_all_supported_practices(
 
     Args:
         on_or_before: date of interest as a string with the format `YYYY-MM-DD`. Filters results to
-            on or before the given date. The default value is `None`.
+            on or before the given date.The default value is `None`.
         on_or_after: date of interest as a string with the format `YYYY-MM-DD`. Filters results to
-            on or after the given date. The default value is `None`.
+            on or after the given date.The default value is `None`.
         between: two dates of interest as a list with each date as a string with the format `YYYY-MM-DD`.
             Filters results to between the two dates provided. The default value is `None`.
         date_format: a string detailing the format of the dates to be returned. It can be `YYYY-MM-DD`,
@@ -1633,7 +1606,6 @@ def date_deregistered_from_all_supported_practices(
                     {"date": {"earliest": "2020-03-01"},
                     "incidence": 0.05
                 }
-            )
     """
     return "date_deregistered_from_all_supported_practices", locals()
 
@@ -1658,9 +1630,9 @@ def admitted_to_hospital(
 
     Args:
         on_or_before: date of interest as a string with the format `YYYY-MM-DD`. Filters results to
-            on or before the given date. The default value is `None`.
+            on or before the given date.The default value is `None`.
         on_or_after: date of interest as a string with the format `YYYY-MM-DD`. Filters results to
-            on or after the given date. The default value is `None`.
+            on or after the given date.The default value is `None`.
         between: two dates of interest as a list with each date as a string with the format `YYYY-MM-DD`.
             Filters results to between the two dates provided. The default value is `None`.
         returning: a string indicating what type of value should be returned. Options for `returning` are:
