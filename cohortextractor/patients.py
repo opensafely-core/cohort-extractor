@@ -224,7 +224,7 @@ def with_complete_history_between(
 
         This creates a variable `has_consultation_history` with patient returning an integer of `1` if
         patient registered at one practice between two dates and has a completed record. Patients who are
-        not registered  with a complete record return an integer of `0`.
+        not registered with a complete record return an integer of `0`.
 
             has_consultation_history=patients.with_complete_gp_consultation_history_between(
                 start_date="2019-02-01",
@@ -807,8 +807,7 @@ def care_home_status_as_of(
 
     Example:
 
-        This creates a variable called `care_home_type` which contains a 2 letter string which represents a type
-        of care home environment.
+        This creates a variable called `care_home_type` which contains a 2 letter string which represents a type of care home environment.
 
             care_home_type=patients.care_home_status_as_of(
                 "2020-02-01",
