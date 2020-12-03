@@ -14,7 +14,7 @@ setup(
     author_email="tech@opensafely.org",
     python_requires=">=3.7",
     install_requires=[
-        "opensafely-jobrunner>=1.8.1",
+        "opensafely-jobrunner>=2.0,<3.0",
         "pandas",
         "prettytable",
         "pyyaml",
