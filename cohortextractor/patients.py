@@ -224,7 +224,7 @@ def with_complete_history_between(
 
         This creates a variable `has_consultation_history` with patient returning an integer of `1` if
         patient registered at one practice between two dates and has a completed record. Patients who are
-        not registered  with a complete record return an integer of `0`.
+        not registered with a complete record return an integer of `0`.
 
             has_consultation_history=patients.with_complete_gp_consultation_history_between(
                 start_date="2019-02-01",
@@ -441,10 +441,14 @@ def with_these_medications(
             on or after the given date. The default value is `None`.
         between: two dates of interest as a list with each date as a string with the format `YYYY-MM-DD`.
             Filters results to between the two dates provided. The default value is `None`.
-        returning: a str defining the type of data to be returned. options include `binary_flag`,
-            `number_of_matches_in_period`, `number_of_episodes`, `first_date_in_period` and
-            `last_date_in_period`. The default value is `binary_flag`.
-        include_date_of_match: a boolean indicating if an extra column, should be included in the output.
+        returning: a str defining the type of data to be returned. Options include `binary_flag`, `date`,
+            `number_of_matches_in_period`, `number_of_episodes`, `code`, `category`.
+            The default value is `binary_flag`.
+        find_first_match_in_period: a boolean indicating if any returned date, code, category, or numeric value
+            should be based on the first match in the period.
+        find_last_match_in_period: a boolean indicating if any returned date, code, category, or numeric value
+            should be based on the last match in the period.
+        include_date_of_match: a boolean indicating if an extra column should be included in the output.
             The default value is `False`.
         date_format: a string detailing the format of the dates to be returned. It can be `YYYY-MM-DD`,
             `YYYY-MM` or `YYYY` and wherever possible the least disclosive data should be returned. i.e returning
@@ -528,8 +532,8 @@ def with_these_clinical_events(
     Args:
         codelist: a codelist for requested event(s)
         return_expectations: a dictionary defining the incidence and distribution of expected value
-            within the population in question. If returning an integer (returning number_of_matches_in_period,
-            number_of_episodes), this is a 2-item key-value dictionary of `int` and `incidence`.
+            within the population in question. If returning an integer (`returning=number_of_matches_in_period`
+            or `returning=number_of_episodes`), this is a 2-item key-value dictionary of `int` and `incidence`.
             `int` is a dictionary of `distribution`, `mean`, and `stddev`. These values determine
             the shape of the dummy data returned, and the int means a int will be returned rather than a
             float. `incidence` must have a value and this is what percentage of dummy patients have
@@ -543,10 +547,14 @@ def with_these_clinical_events(
             on or after the given date. The default value is `None`.
         between: two dates of interest as a list with each date as a string with the format `YYYY-MM-DD`.
             Filters results to between the two dates provided. The default value is `None`.
-        returning: a str defining the type of data to be returned. options include `binary_flag`,
-            `number_of_matches_in_period`, `number_of_episodes`, `category`, `first_date_in_period` and
-            `last_date_in_period`. The default value is `binary_flag`.
-        include_date_of_match: a boolean indicating if an extra column, should be included in the output.
+        returning: a str defining the type of data to be returned. Options include `binary_flag`, `date`,
+            `number_of_matches_in_period`, `number_of_episodes`, `code`, `category`, or `numeric_value`. 
+            The default value is `binary_flag`.
+        find_first_match_in_period: a boolean indicating if any returned date, code, category, or numeric value
+            should be based on the first match in the period.
+        find_last_match_in_period: a boolean indicating if any returned date, code, category, or numeric value
+            should be based on the last match in the period.
+        include_date_of_match: a boolean indicating if an extra column should be included in the output.
             The default value is `False`.
         date_format: a string detailing the format of the dates to be returned. It can be `YYYY-MM-DD`,
             `YYYY-MM` or `YYYY` and wherever possible the least disclosive data should be returned. i.e returning
@@ -556,7 +564,7 @@ def with_these_clinical_events(
             ignored. if a events is found on this day, the date is not matched even it matches a
             code in the main `codelist`
         episode_defined_as: a string expression indicating how an episode should be defined
-        return_binary_flag:  a boolean indicating if the number of matches in a period should be
+        return_binary_flag: a boolean indicating if the number of matches in a period should be
             returned (deprecated: use `date_format` instead),
         return_number_of_matches_in_period: a boolean indicating if the number of matches in a period should be
             returned (deprecated: use `date_format` instead)
@@ -578,12 +586,13 @@ def with_these_clinical_events(
     Example:
 
         This creates a variable `haem_cancer` returning the first date of a diagnosis of haematology
-         malignancy within the time period.
+        malignancy within the time period.
 
             haem_cancer=patients.with_these_clinical_events(
                 haem_cancer_codes,
                 between=["2015-03-01", "2020-02-29"],
-                returning="first_date_in_period",
+                returning="date",
+                find_first_match_in_period=True,
                 return_expectations={"date": {earliest; "2015-03-01", "latest": "2020-02-29"}},
             )
     """
@@ -798,8 +807,7 @@ def care_home_status_as_of(
 
     Example:
 
-        This creates a variable called `care_home_type` which contains a 2 letter string which represents a type
-        of care home environment.
+        This creates a variable called `care_home_type` which contains a 2 letter string which represents a type of care home environment.
 
             care_home_type=patients.care_home_status_as_of(
                 "2020-02-01",
