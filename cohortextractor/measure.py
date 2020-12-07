@@ -3,4 +3,9 @@ class Measure:
         self.id = id
         self.denominator = denominator
         self.numerator = numerator
-        self.group_by = group_by
+        if group_by is None:
+            self.group_by = []
+        elif not isinstance(group_by, (list, tuple)):
+            self.group_by = [group_by]
+        else:
+            self.group_by = group_by
