@@ -25,6 +25,7 @@ def test_smoketest(tmp_path):
         "--output-dir",
         tmp_path,
     )
+    # liver_disease_by_stp
     with open(tmp_path / "measure_liver_disease_by_stp.csv") as f:
         contents = list(csv.reader(f))
     assert contents[0] == [
@@ -37,6 +38,21 @@ def test_smoketest(tmp_path):
     assert len(contents) == 1 + (2 * 4)  # Header row + 2 STPs * 4 dates
     dates = set(row[4] for row in contents[1:])
     assert dates == {"2020-01-01", "2020-02-01", "2020-03-01", "2020-04-01"}
+    # liver_disease_by_stp_and_sex
+    with open(tmp_path / "measure_liver_disease_by_stp_and_sex.csv") as f:
+        contents = list(csv.reader(f))
+    assert contents[0] == [
+        "stp",
+        "sex",
+        "has_chronic_liver_disease",
+        "population",
+        "value",
+        "date",
+    ]
+    assert len(contents) == 1 + (2 * 2 * 4)  # Header row + 2 STPs * 2 sexes * 4 dates
+    dates = set(row[5] for row in contents[1:])
+    assert dates == {"2020-01-01", "2020-02-01", "2020-03-01", "2020-04-01"}
+    # liver_disease
     with open(tmp_path / "measure_liver_disease.csv") as f:
         contents = list(csv.reader(f))
     assert contents[0] == [
