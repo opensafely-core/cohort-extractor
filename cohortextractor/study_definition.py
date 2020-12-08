@@ -69,8 +69,6 @@ class StudyDefinition:
     def to_csv(self, filename, expectations_population=False, **kwargs):
         if expectations_population:
             df = self.make_df_from_expectations(expectations_population)
-            # Turn the index into a dummy patient_id column; longer
-            # term, we don't plan to include this in the output
             df["patient_id"] = default_rng().choice(
                 (len(df) * 10), size=len(df), replace=False
             )
