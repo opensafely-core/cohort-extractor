@@ -3,6 +3,7 @@ import copy
 import os
 
 import pandas as pd
+from numpy.random import default_rng
 
 from .expectation_generators import generate
 from .process_covariate_definitions import process_covariate_definitions
@@ -68,10 +69,11 @@ class StudyDefinition:
     def to_csv(self, filename, expectations_population=False, **kwargs):
         if expectations_population:
             df = self.make_df_from_expectations(expectations_population)
-            # Turn the index into a dummy patient_id column; longer
-            # term, we don't plan to include this in the output
-            df = df.reset_index()
-            df = df.rename(columns={"index": "patient_id"})
+            # Add a patient ID - a randomly generated integer from an
+            # array 10x larger than the cohort.
+            df["patient_id"] = default_rng().choice(
+                (len(df) * 10), size=len(df), replace=False
+            )
             df.to_csv(filename, index=False)
         else:
             self.assert_backend_is_configured()
