@@ -2,7 +2,11 @@ import datetime
 
 import pytest
 
-from cohortextractor.date_expressions import DateExpressionEvaluator, InvalidDateError
+from cohortextractor.date_expressions import (
+    DateExpressionEvaluator,
+    InvalidDateError,
+    InvalidExpressionError,
+)
 
 
 def test_date_expression_evaluator():
@@ -18,6 +22,8 @@ def test_date_expression_evaluator():
     assert expr("first_day_of_year(index_date)") == "2017-01-01"
     assert expr("last_day_of_year(index_date)") == "2017-12-31"
     assert expr("first_day_of_month(index_date) - 15 days") == "2017-07-17"
+    # Test date literals are passed through
+    assert expr("2019-06-10") == "2019-06-10"
 
 
 def test_date_expression_evaluator_errors():
@@ -25,3 +31,7 @@ def test_date_expression_evaluator_errors():
         DateExpressionEvaluator("2020-02-29")("index_date + 1 year")
     with pytest.raises(InvalidDateError, match="No such date 31 February 2020"):
         DateExpressionEvaluator("2020-01-31")("index_date + 1 month")
+    with pytest.raises(
+        InvalidExpressionError, match="Unknown date name 'no_such_column'"
+    ):
+        DateExpressionEvaluator("2020-01-01")("no_such_column + 1 month")
