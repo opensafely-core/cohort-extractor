@@ -13,7 +13,9 @@ def evaluate_date_expressions_in_covariate_definitions(
     them all with ISO date strings and returning the modified definition
     """
     output = {}
-    evaluate_date_expression = DateExpressionEvaluator(index_date)
+    evaluate_date_expression = DateExpressionEvaluator(
+        index_date, column_names=covariate_definitions.keys()
+    )
     for name, (query_type, query_args) in covariate_definitions.items():
         query_args = query_args.copy()
         for key in ("date", "reference_date", "start_date", "end_date"):
@@ -91,8 +93,9 @@ class DateExpressionEvaluator:
 
     regex = create_regex()
 
-    def __init__(self, index_date):
+    def __init__(self, index_date, column_names=()):
         self.index_date = index_date
+        self.column_names = set(column_names)
 
     def __call__(self, date_str):
         """
@@ -117,8 +120,16 @@ class DateExpressionEvaluator:
         match = self.regex.match(expression_str.replace(" ", ""))
         if not match:
             raise UnparseableExpressionError(expression_str)
+        args = match.groupdict()
+        # Date expressions that involve other column names (e.g
+        # "hospital_admission + 6 months") can't be evaluated here as they need
+        # to get transformed into the appropriate SQL queries. So we pass them
+        # through unmodified.
+        if args["name"] in self.column_names:
+            self.validate_expression_arguments(**args)
+            return expression_str
         try:
-            return self.evaluate(**match.groupdict())
+            return self.evaluate(**args)
         except (InvalidExpressionError, InvalidDateError) as e:
             # Add the expression to the error message for easier debugging
             message = f"{e} in: {expression_str}"
@@ -137,6 +148,20 @@ class DateExpressionEvaluator:
             add_units = self.get_method("unit", units)
             date = add_units(date, value)
         return date.isoformat()
+
+    def validate_expression_arguments(
+        self, function, operator, quantity, units, name=None
+    ):
+        """
+        Where a date expression contains a reference to another column we can't
+        evaluate it here, but we can check that the rest of the expression is
+        valid
+        """
+        if function:
+            self.get_method("function", function)
+        if operator:
+            int(quantity)
+            self.get_method("unit", units)
 
     def get_method(self, method_type, name):
         prefix = f"date_{method_type}_"
