@@ -306,6 +306,79 @@ class TPPBackend:
         else:
             raise ValueError(f"Unhandled column type: {column_type}")
 
+    def get_case_expression(
+        self, column_types, column_definitions, category_definitions
+    ):
+        category_definitions = category_definitions.copy()
+        defaults = [k for (k, v) in category_definitions.items() if v == "DEFAULT"]
+        if len(defaults) > 1:
+            raise ValueError("At most one default category can be defined")
+        if len(defaults) == 1:
+            default_value = defaults[0]
+            category_definitions.pop(default_value)
+        else:
+            raise ValueError(
+                "At least one category must be given the definition 'DEFAULT'"
+            )
+        # For each column already defined, determine its corresponding "empty"
+        # value (i.e. the default value for that column's type). This allows us
+        # to support implicit boolean conversion because we know what the
+        # "falsey" value for each column should be.
+        empty_value_map = {
+            name: self.get_default_value_for_type(column_type)
+            for name, column_type in column_types.items()
+        }
+        clauses = []
+        for category, expression in category_definitions.items():
+            # The column references in the supplied expression need to be
+            # rewritten to ensure they refer to the correct CTE. The formatting
+            # function also ensures that the expression matches the very
+            # limited subset of SQL we support here.
+            formatted_expression = format_expression(
+                expression, column_definitions, empty_value_map=empty_value_map
+            )
+            clauses.append(f"WHEN ({formatted_expression}) THEN {quote(category)}")
+        return f"CASE {' '.join(clauses)} ELSE {quote(default_value)} END"
+
+    def get_aggregate_expression(
+        self, column_type, column_definitions, column_names, aggregate_function
+    ):
+        assert aggregate_function in ("MIN", "MAX")
+        default_value = quote(self.get_default_value_for_type(column_type))
+        # In other databases we could use GREATEST/LEAST to aggregate over
+        # columns, but for MSSQL we need to use this Table Value Constructor
+        # trick: https://stackoverflow.com/a/6871572
+        components = ", ".join(f"({column_definitions[name]})" for name in column_names)
+        aggregate_expression = (
+            f"SELECT {aggregate_function}(value)"
+            f" FROM (VALUES {components}) AS _table(value)"
+            # This is slightly awkward: MIN and MAX ignore NULL values which is
+            # the behaviour we want here. For instance, given a column like:
+            #
+            #   minimum_of("covid_test_date", "hosptial_admission_date")
+            #
+            # We want this value to be equal to "covid_test_date" for patients
+            # which have not been admitted to hospital (i.e. patients for which
+            # "hospital_admission_date" is NULL).
+            #
+            # However, the values we have here have already been passed through
+            # the `ISNULL` function to replace NULLs with a default value
+            # (which for dates is the empty string). This means that if we just
+            # took the minimum over these values in the example above, we'd get
+            # the empty string from "hosptial_admission_date" rather than the
+            # value in "covid_test_date".
+            #
+            # To workaround this we add a WHERE clause to filter out any
+            # default values (essentially treating them as if they were NULL).
+            # This gives us the result we want but it does mean we can't
+            # distinguish e.g. a recorded value of 0.0 from a missing value.
+            # This, however, is a general problem with the way we handle NULLs
+            # in our system, and so we're not introducing any new difficulty
+            # here.  (It's also unlikely to be a problem in practice.)
+            f" WHERE value != {default_value}"
+        )
+        return f"ISNULL(({aggregate_expression}), {default_value})"
+
     def execute_queries(self, queries):
         cursor = self.get_db_connection().cursor()
         for query in queries:
@@ -1636,79 +1709,6 @@ class TPPBackend:
             GROUP BY APCS.Patient_ID
             """
         return sql
-
-    def get_case_expression(
-        self, column_types, column_definitions, category_definitions
-    ):
-        category_definitions = category_definitions.copy()
-        defaults = [k for (k, v) in category_definitions.items() if v == "DEFAULT"]
-        if len(defaults) > 1:
-            raise ValueError("At most one default category can be defined")
-        if len(defaults) == 1:
-            default_value = defaults[0]
-            category_definitions.pop(default_value)
-        else:
-            raise ValueError(
-                "At least one category must be given the definition 'DEFAULT'"
-            )
-        # For each column already defined, determine its corresponding "empty"
-        # value (i.e. the default value for that column's type). This allows us
-        # to support implicit boolean conversion because we know what the
-        # "falsey" value for each column should be.
-        empty_value_map = {
-            name: self.get_default_value_for_type(column_type)
-            for name, column_type in column_types.items()
-        }
-        clauses = []
-        for category, expression in category_definitions.items():
-            # The column references in the supplied expression need to be
-            # rewritten to ensure they refer to the correct CTE. The formatting
-            # function also ensures that the expression matches the very
-            # limited subset of SQL we support here.
-            formatted_expression = format_expression(
-                expression, column_definitions, empty_value_map=empty_value_map
-            )
-            clauses.append(f"WHEN ({formatted_expression}) THEN {quote(category)}")
-        return f"CASE {' '.join(clauses)} ELSE {quote(default_value)} END"
-
-    def get_aggregate_expression(
-        self, column_type, column_definitions, column_names, aggregate_function
-    ):
-        assert aggregate_function in ("MIN", "MAX")
-        default_value = quote(self.get_default_value_for_type(column_type))
-        # In other databases we could use GREATEST/LEAST to aggregate over
-        # columns, but for MSSQL we need to use this Table Value Constructor
-        # trick: https://stackoverflow.com/a/6871572
-        components = ", ".join(f"({column_definitions[name]})" for name in column_names)
-        aggregate_expression = (
-            f"SELECT {aggregate_function}(value)"
-            f" FROM (VALUES {components}) AS _table(value)"
-            # This is slightly awkward: MIN and MAX ignore NULL values which is
-            # the behaviour we want here. For instance, given a column like:
-            #
-            #   minimum_of("covid_test_date", "hosptial_admission_date")
-            #
-            # We want this value to be equal to "covid_test_date" for patients
-            # which have not been admitted to hospital (i.e. patients for which
-            # "hospital_admission_date" is NULL).
-            #
-            # However, the values we have here have already been passed through
-            # the `ISNULL` function to replace NULLs with a default value
-            # (which for dates is the empty string). This means that if we just
-            # took the minimum over these values in the example above, we'd get
-            # the empty string from "hosptial_admission_date" rather than the
-            # value in "covid_test_date".
-            #
-            # To workaround this we add a WHERE clause to filter out any
-            # default values (essentially treating them as if they were NULL).
-            # This gives us the result we want but it does mean we can't
-            # distinguish e.g. a recorded value of 0.0 from a missing value.
-            # This, however, is a general problem with the way we handle NULLs
-            # in our system, and so we're not introducing any new difficulty
-            # here.  (It's also unlikely to be a problem in practice.)
-            f" WHERE value != {default_value}"
-        )
-        return f"ISNULL(({aggregate_expression}), {default_value})"
 
 
 def codelist_to_sql_list(codelist):
