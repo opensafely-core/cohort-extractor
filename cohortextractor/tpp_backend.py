@@ -486,6 +486,27 @@ class TPPBackend:
         else:
             return "1=1", join_str
 
+    def get_date_sql(self, table, *date_expressions):
+        """
+        Given a table name and one or more date expressions return the
+        corresponding SQL expressions followed by a fragment of SQL supplying
+        any necessary JOINs
+        """
+        all_join_tables = set()
+        sql_expressions = []
+        for date_expression in date_expressions:
+            assert date_expression is not None
+            sql_expression, join_tables = self.date_ref_to_sql_expr(date_expression)
+            sql_expressions.append(sql_expression)
+            all_join_tables.update(join_tables)
+        joins = [
+            f"LEFT JOIN {join_table}\n"
+            f"ON {join_table}.patient_id = {table}.patient_id"
+            for join_table in all_join_tables
+        ]
+        join_str = "\n".join(joins)
+        return (*sql_expressions, join_str)
+
     def date_ref_to_sql_expr(self, date):
         """
         Given a date reference return its corresponding SQL expression,
@@ -498,18 +519,19 @@ class TPPBackend:
         return quote(date), []
 
     def patients_age_as_of(self, reference_date):
-        quoted_date = quote(reference_date)
+        date_expr, date_joins = self.get_date_sql("Patient", reference_date)
         return f"""
         SELECT
-          Patient_ID AS patient_id,
+          Patient.Patient_ID AS patient_id,
           CASE WHEN
-             dateadd(year, datediff (year, DateOfBirth, {quoted_date}), DateOfBirth) > {quoted_date}
+             dateadd(year, datediff (year, DateOfBirth, {date_expr}), DateOfBirth) > {date_expr}
           THEN
-             datediff(year, DateOfBirth, {quoted_date}) - 1
+             datediff(year, DateOfBirth, {date_expr}) - 1
           ELSE
-             datediff(year, DateOfBirth, {quoted_date})
+             datediff(year, DateOfBirth, {date_expr})
           END AS value
         FROM Patient
+        {date_joins}
         """
 
     def patients_date_of_birth(self):
@@ -728,6 +750,9 @@ class TPPBackend:
         """
         All patients registered with the same practice through the given period
         """
+        start_date_sql, end_date_sql, date_joins = self.get_date_sql(
+            "Patient", start_date, end_date
+        )
         # Note that current registrations are recorded with an EndDate
         # of 9999-12-31
         extra_condition = ""
@@ -735,7 +760,7 @@ class TPPBackend:
             # We only need to (and only can) check the date the practice
             # *started* using SystmOne.  If they've stopped using it, then we
             # won't have their data in the TPP database at all.
-            extra_condition = f"  AND Organisation.GoLiveDate <= {quote(start_date)}"
+            extra_condition = f"  AND Organisation.GoLiveDate <= {start_date_sql}"
         return f"""
         SELECT DISTINCT Patient.Patient_ID AS patient_id, 1 AS value
         FROM Patient
@@ -743,7 +768,8 @@ class TPPBackend:
         ON RegistrationHistory.Patient_ID = Patient.Patient_ID
         INNER JOIN Organisation
         ON RegistrationHistory.Organisation_ID = Organisation.Organisation_ID
-        WHERE StartDate <= {quote(start_date)} AND EndDate > {quote(end_date)}
+        {date_joins}
+        WHERE StartDate <= {start_date_sql} AND EndDate > {end_date_sql}
         {extra_condition}
         """
 
@@ -1151,6 +1177,7 @@ class TPPBackend:
             column = "RuralUrbanClassificationCode"
         else:
             raise ValueError(f"Unsupported `returning` value: {returning}")
+        date_sql, date_joins = self.get_date_sql("PatientAddress", date)
         # Note that current addresses are recorded with an EndDate of
         # 9999-12-31. Where address periods overlap we use the one with the
         # most recent start date. If there are several with the same start date
@@ -1159,10 +1186,10 @@ class TPPBackend:
         # finally we use the address ID as a tie-breaker.
         return f"""
         SELECT
-          Patient_ID AS patient_id,
+          t.Patient_ID AS patient_id,
           {column} AS {returning}
         FROM (
-          SELECT Patient_ID, {column},
+          SELECT PatientAddress.Patient_ID, {column},
           ROW_NUMBER() OVER (
             PARTITION BY Patient_ID
             ORDER BY
@@ -1172,7 +1199,8 @@ class TPPBackend:
               PatientAddress_ID
           ) AS rownum
           FROM PatientAddress
-          WHERE StartDate <= {quote(date)} AND EndDate > {quote(date)}
+          {date_joins}
+          WHERE StartDate <= {date_sql} AND EndDate > {date_sql}
         ) t
         WHERE rownum = 1
         """
@@ -1193,11 +1221,12 @@ class TPPBackend:
         case_expression = self.get_case_expression(
             allowed_column_types, allowed_columns, categorised_as
         )
+        date_sql, date_joins = self.get_date_sql("PatientAddress", date)
         # See `patients_address_as_of` above for details of the ordering used
         # here
         return f"""
         SELECT
-          Patient_ID AS patient_id,
+          t.Patient_ID AS patient_id,
           {case_expression} AS value
         FROM (
           SELECT
@@ -1216,7 +1245,8 @@ class TPPBackend:
           FROM PatientAddress
           LEFT JOIN PotentialCareHomeAddress
           ON PatientAddress.PatientAddress_ID = PotentialCareHomeAddress.PatientAddress_ID
-          WHERE StartDate <= {quote(date)} AND EndDate > {quote(date)}
+          {date_joins}
+          WHERE StartDate <= {date_sql} AND EndDate > {date_sql}
         ) t
         WHERE rownum = 1
         """
