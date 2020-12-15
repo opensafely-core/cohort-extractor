@@ -449,6 +449,54 @@ class TPPBackend:
         table_name += suffix
         return table_name
 
+    def get_date_condition(self, table, date_expr, between):
+        """
+        Takes a table name, an SQL expression representing a date (which can
+        just be a column name on the table, or something more complicated) and
+        a date interval.
+
+        Returns two fragements of SQL: a "condition" and a "join"
+
+        The condition is SQL which evaluates true when `date_expr` is in the
+        supplied period.
+
+        The join provides the (possibly empty) JOINs which need to be appened
+        to "table" in order to evaluate the condition.
+        """
+        if between is None:
+            between = (None, None)
+        min_date, max_date = between
+        min_date_expr, join_tables1 = self.date_ref_to_sql_expr(min_date)
+        max_date_expr, join_tables2 = self.date_ref_to_sql_expr(max_date)
+        joins = [
+            f"LEFT JOIN {join_table}\n"
+            f"ON {join_table}.patient_id = {table}.patient_id"
+            for join_table in set(join_tables1 + join_tables2)
+        ]
+        join_str = "\n".join(joins)
+        if min_date_expr is not None and max_date_expr is not None:
+            return (
+                f"{date_expr} BETWEEN {min_date_expr} AND {max_date_expr}",
+                join_str,
+            )
+        elif min_date_expr is not None:
+            return f"{date_expr} >= {min_date_expr}", join_str
+        elif max_date_expr is not None:
+            return f"{date_expr} <= {max_date_expr}", join_str
+        else:
+            return "1=1", join_str
+
+    def date_ref_to_sql_expr(self, date):
+        """
+        Given a date reference return its corresponding SQL expression,
+        together with a list of any tables to which this expression refers
+        """
+        if date is None:
+            return None, []
+        # We don't yet handle any of the fancy cross-column references, just
+        # plain date literals
+        return quote(date), []
+
     def patients_age_as_of(self, reference_date):
         quoted_date = quote(reference_date)
         return f"""
@@ -532,7 +580,9 @@ class TPPBackend:
         # 2) If height and weight is not available, then take latest
         # recorded BMI. Both values must be recorded when the patient
         # is >=16, weight must be within the last 10 years
-        date_condition = make_date_filter("ConsultationDate", between)
+        date_condition, date_joins = self.get_date_condition(
+            "CodedEvent", "ConsultationDate", between
+        )
 
         bmi_code = "22K.."
         # XXX these two sets of codes need validating. The final in
@@ -549,11 +599,12 @@ class TPPBackend:
         bmi_cte = f"""
         SELECT t.Patient_ID, t.BMI, t.ConsultationDate
         FROM (
-          SELECT Patient_ID, NumericValue AS BMI, ConsultationDate,
+          SELECT CodedEvent.Patient_ID, NumericValue AS BMI, ConsultationDate,
           ROW_NUMBER() OVER (
-            PARTITION BY Patient_ID ORDER BY ConsultationDate DESC, CodedEvent_ID
+            PARTITION BY CodedEvent.Patient_ID ORDER BY ConsultationDate DESC, CodedEvent_ID
           ) AS rownum
           FROM CodedEvent
+          {date_joins}
           WHERE CTV3Code = {quote(bmi_code)} AND {date_condition}
         ) t
         WHERE t.rownum = 1
@@ -567,11 +618,12 @@ class TPPBackend:
         weights_cte = f"""
           SELECT t.Patient_ID, t.weight, t.ConsultationDate
           FROM (
-            SELECT Patient_ID, NumericValue AS weight, ConsultationDate,
+            SELECT CodedEvent.Patient_ID, NumericValue AS weight, ConsultationDate,
               ROW_NUMBER() OVER (
-                PARTITION BY Patient_ID ORDER BY ConsultationDate DESC, CodedEvent_ID
+                PARTITION BY CodedEvent.Patient_ID ORDER BY ConsultationDate DESC, CodedEvent_ID
               ) AS rownum
             FROM CodedEvent
+            {date_joins}
             WHERE CTV3Code IN ({weight_codes_sql}) AND {date_condition}
           ) t
           WHERE t.rownum = 1
@@ -581,18 +633,20 @@ class TPPBackend:
         # The height date restriction is different from the others. We don't
         # mind using old values as long as the patient was old enough when they
         # were taken.
-        height_date_condition = make_date_filter(
+        height_date_condition, height_date_joins = self.get_date_condition(
+            "CodedEvent",
             "ConsultationDate",
             remove_lower_date_bound(between),
         )
         heights_cte = f"""
           SELECT t.Patient_ID, t.height, t.ConsultationDate
           FROM (
-            SELECT Patient_ID, NumericValue AS height, ConsultationDate,
+            SELECT CodedEvent.Patient_ID, NumericValue AS height, ConsultationDate,
             ROW_NUMBER() OVER (
-              PARTITION BY Patient_ID ORDER BY ConsultationDate DESC, CodedEvent_ID
+              PARTITION BY CodedEvent.Patient_ID ORDER BY ConsultationDate DESC, CodedEvent_ID
             ) AS rownum
             FROM CodedEvent
+            {height_date_joins}
             WHERE CTV3Code IN ({height_codes_sql}) AND {height_date_condition}
           ) t
           WHERE t.rownum = 1
@@ -630,7 +684,9 @@ class TPPBackend:
     ):
         # We only support this option for now
         assert on_most_recent_day_of_measurement
-        date_condition = make_date_filter("ConsultationDate", between)
+        date_condition, date_joins = self.get_date_condition(
+            "CodedEvent", "ConsultationDate", between
+        )
         codelist_sql = codelist_to_sql(codelist)
         # The subquery finds, for each patient, the most recent day on which
         # they've had a measurement. The outer query selects, for each patient,
@@ -643,10 +699,11 @@ class TPPBackend:
           AVG(CodedEvent.NumericValue) AS value,
           days.date_measured AS date
         FROM (
-            SELECT Patient_ID, CAST(MAX(ConsultationDate) AS date) AS date_measured
+            SELECT CodedEvent.Patient_ID, CAST(MAX(ConsultationDate) AS date) AS date_measured
             FROM CodedEvent
+            {date_joins}
             WHERE CTV3Code IN ({codelist_sql}) AND {date_condition}
-            GROUP BY Patient_ID
+            GROUP BY CodedEvent.Patient_ID
         ) AS days
         LEFT JOIN CodedEvent
         ON (
@@ -782,9 +839,11 @@ class TPPBackend:
         codelist_table, codelist_queries = self.create_codelist_table(
             codelist, codes_are_case_sensitive
         )
-        date_condition = make_date_filter("ConsultationDate", between)
+        date_condition, date_joins = self.get_date_condition(
+            from_table, "ConsultationDate", between
+        )
         ignored_day_condition, extra_queries = self._these_codes_occur_on_same_day(
-            from_table, ignore_days_where_these_codes_occur, date_condition
+            from_table, ignore_days_where_these_codes_occur, between
         )
 
         # Result ordering
@@ -827,14 +886,15 @@ class TPPBackend:
               {column_definition} AS {column_name},
               ConsultationDate AS date
             FROM (
-              SELECT Patient_ID, {column_definition}, ConsultationDate,
+              SELECT {from_table}.Patient_ID, {column_definition}, ConsultationDate,
               ROW_NUMBER() OVER (
-                PARTITION BY Patient_ID
+                PARTITION BY {from_table}.Patient_ID
                 ORDER BY ConsultationDate {ordering}, {from_table}_ID
               ) AS rownum
               FROM {from_table}{additional_join}
               INNER JOIN {codelist_table}
               ON {code_column} = {codelist_table}.code
+              {date_joins}
               WHERE {date_condition} AND NOT {ignored_day_condition}
             ) t
             WHERE rownum = 1
@@ -842,14 +902,15 @@ class TPPBackend:
         else:
             sql = f"""
             SELECT
-              Patient_ID AS patient_id,
+              {from_table}.Patient_ID AS patient_id,
               {column_definition} AS {column_name},
               {date_aggregate}(ConsultationDate) AS date
             FROM {from_table}{additional_join}
             INNER JOIN {codelist_table}
             ON {code_column} = {codelist_table}.code
+            {date_joins}
             WHERE {date_condition} AND NOT {ignored_day_condition}
-            GROUP BY Patient_ID
+            GROUP BY {from_table}.Patient_ID
             """
 
         return codelist_queries + extra_queries + [sql]
@@ -865,9 +926,11 @@ class TPPBackend:
         codelist_table, codelist_queries = self.create_codelist_table(
             codelist, case_sensitive=False
         )
-        date_condition = make_date_filter("ConsultationDate", between)
+        date_condition, date_joins = self.get_date_condition(
+            "MedicationIssue", "ConsultationDate", between
+        )
         ignored_day_condition, extra_queries = self._these_codes_occur_on_same_day(
-            "MedicationIssue", ignore_days_where_these_codes_occur, date_condition
+            "MedicationIssue", ignore_days_where_these_codes_occur, between
         )
         if episode_defined_as is not None:
             pattern = r"^series of events each <= (\d+) days apart$"
@@ -882,16 +945,18 @@ class TPPBackend:
 
         sql = f"""
         SELECT
-          Patient_ID AS patient_id,
+          t.Patient_ID AS patient_id,
           SUM(is_new_episode) AS number_of_episodes
         FROM (
             SELECT
-              Patient_ID,
+              MedicationIssue.Patient_ID,
               CASE
                 WHEN
                   DATEDIFF(
                     day,
-                    LAG(ConsultationDate) OVER (PARTITION BY Patient_ID ORDER BY ConsultationDate),
+                    LAG(ConsultationDate) OVER (
+                      PARTITION BY MedicationIssue.Patient_ID ORDER BY ConsultationDate
+                    ),
                     ConsultationDate
                   ) <= {washout_period}
                 THEN 0
@@ -902,9 +967,10 @@ class TPPBackend:
             ON MedicationIssue.MultilexDrug_ID = MedicationDictionary.MultilexDrug_ID
             INNER JOIN {codelist_table}
             ON DMD_ID = {codelist_table}.code
+            {date_joins}
             WHERE {date_condition} AND NOT {ignored_day_condition}
         ) t
-        GROUP BY Patient_ID
+        GROUP BY t.Patient_ID
         """
         return codelist_queries + extra_queries + [sql]
 
@@ -919,9 +985,11 @@ class TPPBackend:
         codelist_table, codelist_queries = self.create_codelist_table(
             codelist, case_sensitive=True
         )
-        date_condition = make_date_filter("ConsultationDate", between)
+        date_condition, date_joins = self.get_date_condition(
+            "CodedEvent", "ConsultationDate", between
+        )
         ignored_day_condition, extra_queries = self._these_codes_occur_on_same_day(
-            "CodedEvent", ignore_days_where_these_codes_occur, date_condition
+            "CodedEvent", ignore_days_where_these_codes_occur, between
         )
         if episode_defined_as is not None:
             pattern = r"^series of events each <= (\d+) days apart$"
@@ -936,16 +1004,18 @@ class TPPBackend:
 
         sql = f"""
         SELECT
-          Patient_ID AS patient_id,
+          t.Patient_ID AS patient_id,
           SUM(is_new_episode) AS number_of_episodes
         FROM (
             SELECT
-              Patient_ID,
+              CodedEvent.Patient_ID,
               CASE
                 WHEN
                   DATEDIFF(
                     day,
-                    LAG(ConsultationDate) OVER (PARTITION BY Patient_ID ORDER BY ConsultationDate),
+                    LAG(ConsultationDate) OVER (
+                      PARTITION BY CodedEvent.Patient_ID ORDER BY ConsultationDate
+                    ),
                     ConsultationDate
                   ) <= {washout_period}
                 THEN 0
@@ -954,13 +1024,14 @@ class TPPBackend:
             FROM CodedEvent
             INNER JOIN {codelist_table}
             ON CTV3Code = {codelist_table}.code
+            {date_joins}
             WHERE {date_condition} AND NOT {ignored_day_condition}
         ) t
-        GROUP BY Patient_ID
+        GROUP BY t.Patient_ID
         """
         return codelist_queries + extra_queries + [sql]
 
-    def _these_codes_occur_on_same_day(self, joined_table, codelist, date_condition):
+    def _these_codes_occur_on_same_day(self, joined_table, codelist, between):
         """
         Generates a SQL condition that filters rows in `joined_table` so that
         they only include events which happened on days where one of the codes
@@ -979,6 +1050,9 @@ class TPPBackend:
             codelist, case_sensitive=True
         )
         same_day_table = self.get_temp_table_name("same_day_events")
+        date_condition, date_joins = self.get_date_condition(
+            "CodedEvent", "ConsultationDate", between
+        )
         queries += [
             f"""
             SELECT Patient_ID, CAST(ConsultationDate AS date) AS day
@@ -986,6 +1060,7 @@ class TPPBackend:
             FROM CodedEvent
             INNER JOIN {codelist_table}
             ON CTV3Code = {codelist_table}.code
+            {date_joins}
             WHERE {date_condition}
             """,
             f"""
@@ -1168,7 +1243,9 @@ class TPPBackend:
         ELSE
           OriginalIcuAdmissionDate
         END)"""
-        date_condition = make_date_filter(date_expression, between)
+        date_condition, date_joins = self.get_date_condition(
+            "ICNARC", date_expression, between
+        )
 
         greater_than_zero_expr = "CASE WHEN {} > 0 THEN 1 ELSE 0 END"
 
@@ -1192,11 +1269,12 @@ class TPPBackend:
             raise ValueError(f"Unsupported `returning` value: {returning}")
         return f"""
         SELECT
-          Patient_ID AS patient_id,
+          ICNARC.Patient_ID AS patient_id,
           {column_definition} AS {returning}
         FROM
           ICNARC
-        GROUP BY Patient_ID
+        {date_joins}
+        GROUP BY ICNARC.Patient_ID
         HAVING {date_condition}
         """
 
@@ -1210,7 +1288,9 @@ class TPPBackend:
         # Set return type
         returning="binary_flag",
     ):
-        date_condition = make_date_filter("dod", between)
+        date_condition, date_joins = self.get_date_condition(
+            "ONS_Deaths", "dod", between
+        )
         if codelist is not None:
             assert codelist.system == "icd10"
             codelist_sql = codelist_to_sql(codelist)
@@ -1232,10 +1312,11 @@ class TPPBackend:
             # we're going to use the minimum date for now, pending a full
             # discussion of how best to handle this kind of inconsistency.
             return f"""
-            SELECT Patient_ID as patient_id, MIN(dod) AS {returning}
+            SELECT ONS_Deaths.Patient_ID as patient_id, MIN(dod) AS {returning}
             FROM ONS_Deaths
+            {date_joins}
             WHERE ({code_conditions}) AND {date_condition}
-            GROUP BY patient_id
+            GROUP BY ONS_Deaths.Patient_ID
             """
         elif returning == "underlying_cause_of_death":
             column_definition = "icd10u"
@@ -1244,8 +1325,11 @@ class TPPBackend:
         # The SELECT DISTINCT is because completely duplicate rows have previously appeared
         # in the underlying dataset.
         return f"""
-        SELECT DISTINCT Patient_ID as patient_id, {column_definition} AS {returning}
+        SELECT DISTINCT
+          ONS_Deaths.Patient_ID as patient_id,
+          {column_definition} AS {returning}
         FROM ONS_Deaths
+        {date_joins}
         WHERE ({code_conditions}) AND {date_condition}
         """
 
@@ -1269,7 +1353,9 @@ class TPPBackend:
         # Set return type
         returning="binary_flag",
     ):
-        date_condition = make_date_filter("DateOfDeath", between)
+        date_condition, date_joins = self.get_date_condition(
+            "CPNS", "DateOfDeath", between
+        )
         if returning == "binary_flag":
             column_definition = "1"
         elif returning == "date_of_death":
@@ -1278,13 +1364,14 @@ class TPPBackend:
             raise ValueError(f"Unsupported `returning` value: {returning}")
         return f"""
         SELECT
-          Patient_ID as patient_id,
+          CPNS.Patient_ID as patient_id,
           {column_definition} AS {returning},
           -- Crude error check so we blow up in the case of inconsistent dates
           1 / CASE WHEN MAX(DateOfDeath) = MIN(DateOfDeath) THEN 1 ELSE 0 END AS _e
         FROM CPNS
+        {date_joins}
         WHERE {date_condition}
-        GROUP BY Patient_ID
+        GROUP BY CPNS.Patient_ID
         """
 
     def patients_with_death_recorded_in_primary_care(
@@ -1311,14 +1398,19 @@ class TPPBackend:
             max_date = "3000-01-01"
         if min_date is None:
             min_date = "1900-01-01"
+        between = (min_date, max_date)
+        date_condition, date_joins = self.get_date_condition(
+            "Patient", "DateOfDeath", between
+        )
         return f"""
         SELECT
-          Patient_ID AS patient_id,
+          Patient.Patient_ID AS patient_id,
           {column} AS {returning}
         FROM
           Patient
+       {date_joins}
         WHERE
-          DateOfDeath BETWEEN {quote(min_date)} AND {quote(max_date)}
+          {date_condition}
         """
 
     def patients_with_tpp_vaccination_record(
@@ -1334,7 +1426,10 @@ class TPPBackend:
         find_last_match_in_period=None,
         include_date_of_match=False,
     ):
-        conditions = [make_date_filter("VaccinationDate", between)]
+        date_condition, date_joins = self.get_date_condition(
+            "Vaccination", "VaccinationDate", between
+        )
+        conditions = [date_condition]
         target_disease_matches = to_list(target_disease_matches)
         if target_disease_matches:
             content_codes = codelist_to_sql(target_disease_matches)
@@ -1362,14 +1457,15 @@ class TPPBackend:
 
         return f"""
         SELECT
-          Patient_ID AS patient_id,
+          Vaccination.Patient_ID AS patient_id,
           1 AS binary_flag,
           {date_aggregate}(VaccinationDate) AS date
         FROM Vaccination
         INNER JOIN VaccinationReference AS ref
         ON ref.VaccinationName_ID = Vaccination.VaccinationName_ID
+        {date_joins}
         WHERE {conditions_str}
-        GROUP BY Patient_ID
+        GROUP BY Vaccination.Patient_ID
         """
 
     def patients_with_gp_consultations(
@@ -1402,17 +1498,20 @@ class TPPBackend:
         ]
         valid_states_str = codelist_to_sql(map(int, valid_states))
 
-        date_condition = make_date_filter("SeenDate", between)
+        date_condition, date_joins = self.get_date_condition(
+            "Appointment", "SeenDate", between
+        )
         # Result ordering
         date_aggregate = "MIN" if find_first_match_in_period else "MAX"
         return f"""
         SELECT
-          Patient_ID AS patient_id,
+          Appointment.Patient_ID AS patient_id,
           {column_definition} AS {column_name},
           {date_aggregate}(SeenDate) AS date
         FROM Appointment
+        {date_joins}
         WHERE Status IN ({valid_states_str}) AND {date_condition}
-        GROUP BY Patient_ID
+        GROUP BY Appointment.Patient_ID
         """
 
     def patients_with_complete_gp_consultation_history_between(
@@ -1449,7 +1548,7 @@ class TPPBackend:
         if returning not in ("binary_flag", "date"):
             raise ValueError(f"Unsupported `returning` value: {returning}")
 
-        date_condition = make_date_filter("date", between)
+        date_condition, date_joins = self.get_date_condition("t", "t.date", between)
         date_aggregate = "MIN" if find_first_match_in_period else "MAX"
         if test_result == "any":
             result_condition = "1 = 1"
@@ -1465,7 +1564,7 @@ class TPPBackend:
 
         return f"""
         SELECT
-          patient_id,
+          t.patient_id,
           1 AS binary_flag,
           {date_aggregate}(date) AS date,
           -- We have to calculate something over the error check field
@@ -1488,8 +1587,9 @@ class TPPBackend:
             1 / CASE WHEN Organism_Species_Name = '{negative_descr}' THEN 1 ELSE 0 END AS _e
           FROM SGSS_Negative
         ) t
+        {date_joins}
         WHERE {date_condition} AND {result_condition}
-        GROUP BY patient_id
+        GROUP BY t.patient_id
         """
 
     def patients_household_as_of(self, reference_date, returning):
@@ -1552,7 +1652,10 @@ class TPPBackend:
         else:
             assert False
 
-        conditions = [make_date_filter("Arrival_Date", between)]
+        date_condition, date_joins = self.get_date_condition(
+            "EC", "Arrival_Date", between
+        )
+        conditions = [date_condition]
 
         if with_these_diagnoses:
             assert isinstance(with_these_diagnoses, list)
@@ -1579,7 +1682,7 @@ class TPPBackend:
             # good enough.
             sql = f"""
             SELECT
-              Patient_ID AS patient_id,
+              t.Patient_ID AS patient_id,
               {column} AS {returning}
             FROM (
               SELECT EC.Patient_ID, {column},
@@ -1590,6 +1693,7 @@ class TPPBackend:
               FROM EC
               INNER JOIN EC_Diagnosis
                 ON EC.EC_Ident = EC_Diagnosis.EC_Ident
+              {date_joins}
               WHERE {conditions}
             ) t
             WHERE rownum = 1
@@ -1602,6 +1706,7 @@ class TPPBackend:
             FROM EC
             INNER JOIN EC_Diagnosis
               ON EC.EC_Ident = EC_Diagnosis.EC_Ident
+            {date_joins}
             WHERE {conditions}
             GROUP BY EC.Patient_ID
             """
@@ -1642,7 +1747,10 @@ class TPPBackend:
         else:
             raise ValueError(f"Unsupported `returning` value: {returning}")
 
-        conditions = [make_date_filter("Admission_Date", between)]
+        date_condition, date_joins = self.get_date_condition(
+            "APCS", "Admission_Date", between
+        )
+        conditions = [date_condition]
 
         if with_these_primary_diagnoses:
             assert with_these_primary_diagnoses.system == "icd10"
@@ -1682,7 +1790,7 @@ class TPPBackend:
             # sort order, I think it's good enough.
             sql = f"""
             SELECT
-              Patient_ID AS patient_id,
+              t.Patient_ID AS patient_id,
               {column} AS {returning}
             FROM (
               SELECT APCS.Patient_ID, {column},
@@ -1693,6 +1801,7 @@ class TPPBackend:
               FROM APCS
               INNER JOIN APCS_Der
                 ON APCS.APCS_Ident = APCS_Der.APCS_Ident
+              {date_joins}
               WHERE {conditions}
             ) t
             WHERE rownum = 1
@@ -1705,6 +1814,7 @@ class TPPBackend:
             FROM APCS
             INNER JOIN APCS_Der
               ON APCS.APCS_Ident = APCS_Der.APCS_Ident
+            {date_joins}
             WHERE {conditions}
             GROUP BY APCS.Patient_ID
             """
@@ -1764,20 +1874,6 @@ def quote(value):
         if not SAFE_CHARS_RE.match(value) and value != "":
             raise ValueError(f"Value contains disallowed characters: {value}")
         return f"'{value}'"
-
-
-def make_date_filter(column, between):
-    if between is None:
-        between = (None, None)
-    min_date, max_date = between
-    if min_date is not None and max_date is not None:
-        return f"{column} BETWEEN {quote(min_date)} AND {quote(max_date)}"
-    elif min_date is not None:
-        return f"{column} >= {quote(min_date)}"
-    elif max_date is not None:
-        return f"{column} <= {quote(max_date)}"
-    else:
-        return "1=1"
 
 
 def remove_lower_date_bound(between):
