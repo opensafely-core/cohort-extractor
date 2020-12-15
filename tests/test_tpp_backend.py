@@ -2863,3 +2863,51 @@ def test_aggregate_over_different_date_formats_raises_error():
             ),
             last_major_life_event=patients.maximum_of("birth", "death"),
         )
+
+
+def test_dynamic_index_dates():
+    session = make_session()
+    session.add_all(
+        [
+            Patient(
+                CodedEvents=[
+                    CodedEvent(ConsultationDate="2020-01-01", CTV3Code="foo"),
+                    CodedEvent(ConsultationDate="2020-02-01", CTV3Code="foo"),
+                    CodedEvent(ConsultationDate="2020-03-01", CTV3Code="bar"),
+                    CodedEvent(ConsultationDate="2020-04-20", CTV3Code="foo"),
+                    CodedEvent(ConsultationDate="2020-05-01", CTV3Code="foo"),
+                    CodedEvent(ConsultationDate="2020-06-01", CTV3Code="bar"),
+                ],
+            ),
+        ]
+    )
+    session.commit()
+    study = StudyDefinition(
+        population=patients.all(),
+        earliest_bar=patients.with_these_clinical_events(
+            codelist(["bar"], system="ctv3"),
+            returning="date",
+            date_format="YYYY-MM-DD",
+            find_first_match_in_period=True,
+        ),
+        latest_foo_before_bar=patients.with_these_clinical_events(
+            codelist(["foo"], system="ctv3"),
+            returning="date",
+            date_format="YYYY-MM-DD",
+            find_last_match_in_period=True,
+            on_or_before="earliest_bar",
+        ),
+        latest_foo_in_month_after_bar=patients.with_these_clinical_events(
+            codelist(["foo"], system="ctv3"),
+            returning="date",
+            date_format="YYYY-MM-DD",
+            find_last_match_in_period=True,
+            on_or_before="last_day_of_month(earliest_bar) + 1 month",
+        ),
+    )
+    assert_results(
+        study.to_dicts(),
+        earliest_bar=["2020-03-01"],
+        latest_foo_before_bar=["2020-02-01"],
+        latest_foo_in_month_after_bar=["2020-04-20"],
+    )
