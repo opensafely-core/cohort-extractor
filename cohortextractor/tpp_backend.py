@@ -5,6 +5,7 @@ import os
 import re
 import uuid
 
+from .date_expressions import MSSQLDateFormatter
 from .expressions import format_expression
 from .mssql_utils import (
     mssql_dbapi_connection_from_url,
@@ -233,7 +234,9 @@ class TPPBackend:
                 )
             else:
                 date_format_args = pop_keys_from_dict(query_args, ["date_format"])
-                sql_list = self.get_queries_for_column(name, query_type, query_args)
+                sql_list = self.get_queries_for_column(
+                    name, query_type, query_args, output_columns
+                )
                 # Wrap the final SELECT query so that it writes its results
                 # into the appropriate temporary table
                 sql_list[-1] = (
@@ -394,9 +397,15 @@ class TPPBackend:
         )
         print(f"[{timestamp}] {message}", flush=True)
 
-    def get_queries_for_column(self, column_name, query_type, query_args):
+    def get_queries_for_column(
+        self, column_name, query_type, query_args, output_columns
+    ):
         method_name = f"patients_{query_type}"
         method = getattr(self, method_name)
+        # We need to make available the SQL expression for each column in the
+        # output so far in case date expressions in the current column need to
+        # refer to these
+        self.output_columns = output_columns
         # Keep track of the current column name for debugging purposes
         self._current_column_name = column_name
         return_value = method(**query_args)
@@ -514,9 +523,19 @@ class TPPBackend:
         """
         if date is None:
             return None, []
-        # We don't yet handle any of the fancy cross-column references, just
-        # plain date literals
-        return quote(date), []
+        # Simple date literals
+        if is_iso_date(date):
+            return quote(date), []
+        # More complicated date expressions which reference other tables
+        formatter = MSSQLDateFormatter(self.output_columns)
+        date_expr = formatter(date)
+        # For now we just try to regex out table names. This will no doubt
+        # break in amusing ways.  I think the correct approach here is to
+        # enrich the values of `output_columns` to include metadata along with
+        # the SQL expression, in which we can include all the tables referenced
+        # in that expression.
+        tables = [m.group(1) for m in re.finditer(r"(#\w+)\.", date_expr)]
+        return date_expr, tables
 
     def patients_age_as_of(self, reference_date):
         date_expr, date_joins = self.get_date_sql("Patient", reference_date)
@@ -1893,6 +1912,10 @@ def standardise_if_date(value):
     except ValueError:
         pass
     return value
+
+
+def is_iso_date(value):
+    return bool(re.match(r"\d\d\d\d-\d\d-\d\d", value))
 
 
 def quote(value):

@@ -230,3 +230,77 @@ def date_replace(date, **kwargs):
     target_day = kwargs.get("day", date.day)
     target_date = f"{target_day} {first_of_month.strftime('%B %Y')}"
     raise InvalidDateError(f"No such date {target_date}")
+
+
+class MSSQLDateFormatter:
+
+    regex = create_regex()
+
+    def __init__(self, column_definitions):
+        self.column_definitions = column_definitions
+
+    def __call__(self, expression_str):
+        match = self.regex.match(expression_str.replace(" ", ""))
+        if not match:
+            raise UnparseableExpressionError(expression_str)
+        try:
+            return self.evaluate(**match.groupdict())
+        except (InvalidExpressionError, InvalidDateError) as e:
+            # Add the expression to the error message for easier debugging
+            message = f"{e} in: {expression_str}"
+            e.args = (message, *e.args[1:])
+            raise e
+
+    def evaluate(self, name, function, operator, quantity, units):
+        try:
+            date_column = self.column_definitions[name]
+        except KeyError:
+            raise InvalidExpressionError(f"Unknown date column: {name}")
+        date_expr = f"TRY_PARSE({date_column} AS date USING 'en-GB')"
+        if function:
+            date_function = self.get_method("function", function)
+            date_expr = date_function(date_expr)
+        if operator:
+            value = int(quantity)
+            if operator == "-":
+                value = -value
+            add_units = self.get_method("unit", units)
+            date_expr = add_units(date_expr, value)
+        return date_expr
+
+    def get_method(self, method_type, name):
+        prefix = f"date_{method_type}_"
+        try:
+            return getattr(self, f"{prefix}{name}")
+        except AttributeError:
+            methods = [n[len(prefix) :] for n in dir(self) if n.startswith(prefix)]
+            raise InvalidExpressionError(
+                f"Unknown date {method_type} '{name}' "
+                f"(allowed are {', '.join(methods)})"
+            )
+
+    def date_function_first_day_of_month(self, date):
+        return f"DATEADD(DAY, 1, EOMONTH({date}, -1))"
+
+    def date_function_last_day_of_month(self, date):
+        return f"EOMONTH({date})"
+
+    def date_function_first_day_of_year(self, date):
+        return f"DATEFROMPARTS(YEAR({date}), 1, 1)"
+
+    def date_function_last_day_of_year(self, date):
+        return f"DATEFROMPARTS(YEAR({date}), 12, 31)"
+
+    def date_unit_years(self, date, value):
+        return f"DATEADD(YEAR, {value}, {date})"
+
+    def date_unit_months(self, date, value):
+        return f"DATEADD(MONTH, {value}, {date})"
+
+    def date_unit_days(self, date, value):
+        return f"DATEADD(DAY, {value}, {date})"
+
+    # Define the singular units as aliases to the plural
+    date_unit_year = date_unit_years
+    date_unit_month = date_unit_months
+    date_unit_day = date_unit_days
