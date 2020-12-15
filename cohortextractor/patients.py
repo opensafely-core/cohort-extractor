@@ -36,13 +36,13 @@ def random_sample(percent=None, return_expectations=None):
 
 def sex(return_expectations=None):
     """
-    Returns M, F or empty string if unknown or other
+    Returns the sex of the patient.
 
     Args:
          return_expectations: a dict containing an expectation definition defining a rate and a ratio for sexes
 
     Returns:
-        list: "M", "F" or ""
+        list: `"M"` male, `"F"` female, `"I"` intersex, or `"U"` unknown.
 
     Example:
         This creates a variable 'sex' with all patients returning a sex of either "M", "F" or ""
