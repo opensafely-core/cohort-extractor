@@ -214,6 +214,8 @@ class EMISBackend:
         return f"{temporary_database}..Output_{timestamp}"
 
     def get_temp_table_prefix(self):
+        if "TEMP_TABLE_PREFIX" in os.environ:
+            return os.environ["TEMP_TABLE_PREFIX"]
         timestamp = datetime.datetime.now(datetime.timezone.utc).strftime(
             "%Y%m%d_%H%M%S"
         )
