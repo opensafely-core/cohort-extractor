@@ -15,9 +15,9 @@ safe_punctation = r"_.-"
 SAFE_CHARS_RE = re.compile(f"^[a-zA-Z0-9{re.escape(safe_punctation)}]+$")
 
 
-PATIENT_TABLE = "patient_view"
-MEDICATION_TABLE = "medication_view"
-OBSERVATION_TABLE = "observation_view"
+PATIENT_TABLE = "patient_all_orgs_v2"
+MEDICATION_TABLE = "medication_all_orgs_v2"
+OBSERVATION_TABLE = "observation_all_orgs_v2"
 ICNARC_TABLE = "icnarc_view"
 ONS_TABLE = "ons_view"
 CPNS_TABLE = "cpns_view"
