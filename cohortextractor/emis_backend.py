@@ -93,6 +93,11 @@ class EMISBackend:
                 output_columns[name] = self.get_column_expression(
                     column_type, **query_args
                 )
+            # As do `aggregate_of` columns
+            elif query_type == "aggregate_of":
+                output_columns[name] = self.get_aggregate_expression(
+                    column_type, output_columns, **query_args
+                )
             else:
                 date_format_args = pop_keys_from_dict(query_args, ["date_format"])
                 cols, sql = self.get_query(name, query_type, query_args)
@@ -1024,6 +1029,52 @@ class EMISBackend:
         if delta.days > max_delta_days:
             msg = f"{self._current_column_name} must be passed a date more recent than {max_delta_days} days in the past"
             raise ValueError(msg)
+
+    def get_aggregate_expression(
+        self, column_type, column_definitions, column_names, aggregate_function
+    ):
+        """Return an expression that is used to find the maximum or minimum value across
+        a number of other given columns.
+
+        We cannot use Table Value Constructors as in the TPP backend (this gives a
+        cryptic error message: "Given correlated subquery is not supported").
+
+        Instead, we use GREATEST() or LEAST(), but we have to be careful to handle
+        correctly any arguments to GREATEST/LEAST that have replaced NULLs.  To do this,
+        we replace any occurences of the default value for the given column_type with
+        the most extreme value possible for the column_type.  (So when finding the
+        maximum, we replace the default value with a small value, and when finding the
+        minimum, with a large value.)
+
+        If all the arguments to GREATEST/LEAST have replaced NULLs, GREATEST/LEAST will
+        return the extreme value, so when that happens, we have to replace this with the
+        default value for the column type.
+        """
+
+        default_value = quote(self.get_default_value_for_type(column_type))
+        function = {"MAX": "GREATEST", "MIN": "LEAST"}[aggregate_function]
+
+        if column_type in ["int", "float"]:
+            extreme_value_lookup = {"MAX": -(2 ** 63), "MIN": 2 ** (63 - 1)}
+            extreme_value = [aggregate_function]
+        elif column_type == "date":
+            extreme_value_lookup = {"MAX": "'0001-01-01'", "MIN": "'9999-12-31'"}
+        else:
+            assert False, column_type
+        extreme_value = extreme_value_lookup[aggregate_function]
+
+        components = ", ".join(
+            f"""
+            CASE WHEN {column_definitions[name]} = {default_value}
+                THEN {extreme_value}
+            ELSE {column_definitions[name]} END"""
+            for name in column_names
+        )
+
+        return f"""
+        CASE WHEN {function}({components}) = {extreme_value}
+            THEN {default_value}
+        ELSE {function}({components}) END"""
 
 
 def codelist_to_sql(codelist):

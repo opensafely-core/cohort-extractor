@@ -1612,3 +1612,85 @@ def test_medications_returning_code_with_ignored_days():
     results = study.to_dicts()
     assert [i["most_recent_drug"] for i in results] == ["34343434"]
     assert [i["most_recent_drug_date"] for i in results] == ["2010-01-03"]
+
+
+def test_patients_aggregate_value_of():
+    session = make_session()
+    session.add_all(
+        [
+            Patient(
+                observations=[
+                    Observation(
+                        snomed_concept_id=111, value_pq_1=7, effective_date="2012-01-01"
+                    ),
+                    Observation(
+                        snomed_concept_id=222, value_pq_1=23, effective_date="2018-01-01"
+                    ),
+                ]
+            ),
+            Patient(
+                observations=[
+                    Observation(
+                        snomed_concept_id=111, value_pq_1=18, effective_date="2014-01-01"
+                    ),
+                    Observation(
+                        snomed_concept_id=222, value_pq_1=4, effective_date="2017-01-01"
+                    ),
+                ]
+            ),
+            Patient(
+                observations=[
+                    Observation(
+                        snomed_concept_id=111, value_pq_1=10, effective_date="2015-01-01"
+                    ),
+                ]
+            ),
+            Patient(
+                observations=[
+                    Observation(
+                        snomed_concept_id=222, value_pq_1=8, effective_date="2019-01-01"
+                    ),
+                ]
+            ),
+            Patient(),
+        ]
+    )
+    session.commit()
+    study = StudyDefinition(
+        population=patients.all(),
+        # Values
+        abc_value=patients.with_these_clinical_events(
+            codelist([111], system="snomedct"), returning="numeric_value"
+        ),
+        xyz_value=patients.with_these_clinical_events(
+            codelist([222], system="snomedct"), returning="numeric_value"
+        ),
+        # Dates
+        abc_date=patients.date_of("abc_value"),
+        xyz_date=patients.date_of("xyz_value"),
+        # Aggregates
+        max_value=patients.maximum_of("abc_value", "xyz_value"),
+        min_value=patients.minimum_of("abc_value", "xyz_value"),
+        max_date=patients.maximum_of("abc_date", "xyz_date"),
+        min_date=patients.minimum_of("abc_date", "xyz_date"),
+    )
+    results = study.to_dicts()
+    assert [x["max_value"] for x in results] == ["23.0", "18.0", "10.0", "8.0", "0.0"]
+    assert [x["min_value"] for x in results] == ["7.0", "4.0", "10.0", "8.0", "0.0"]
+    assert [x["max_date"] for x in results] == ["2018", "2017", "2015", "2019", ""]
+    assert [x["min_date"] for x in results] == ["2012", "2014", "2015", "2019", ""]
+    # Test with hidden columns
+    study_with_hidden_columns = StudyDefinition(
+        population=patients.all(),
+        max_value=patients.maximum_of(
+            abc_value=patients.with_these_clinical_events(
+                codelist([111], system="snomedct"), returning="numeric_value"
+            ),
+            xyz_value=patients.with_these_clinical_events(
+                codelist([222], system="snomedct"), returning="numeric_value"
+            ),
+        ),
+    )
+    results = study_with_hidden_columns.to_dicts()
+    assert [x["max_value"] for x in results] == ["23.0", "18.0", "10.0", "8.0", "0.0"]
+    assert "abc_value" not in results[0].keys()
