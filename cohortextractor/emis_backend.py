@@ -470,6 +470,14 @@ class EMISBackend:
             columns.append("date")
         return columns, sql
 
+    def patients_registered_as_of(self, reference_date):
+        """
+        All patients registed on the given date
+        """
+        return self.patients_registered_with_one_practice_between(
+            reference_date, reference_date
+        )
+
     def patients_registered_with_one_practice_between(self, start_date, end_date):
         """
         All patients registered with the same practice through the given period

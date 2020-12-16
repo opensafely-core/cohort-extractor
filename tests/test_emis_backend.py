@@ -420,6 +420,33 @@ def test_clinical_event_with_category():
     assert [x["code_category_date"] for x in results] == ["", "2020", "2019"]
 
 
+def test_patient_registered_as_of():
+    session = make_session()
+
+    patient_registered_in_2001 = Patient(
+        registered_date="2001-01-01", registration_end_date=None
+    )
+    patient_registered_in_2002 = Patient(
+        registered_date="2002-01-01", registration_end_date=None
+    )
+    patient_unregistered_in_2002 = Patient(
+        registered_date="2001-01-01", registration_end_date="2002-01-01"
+    )
+
+    session.add(patient_registered_in_2001)
+    session.add(patient_registered_in_2002)
+    session.add(patient_unregistered_in_2002)
+    session.commit()
+
+    # No date criteria
+    study = StudyDefinition(population=patients.registered_as_of("2002-03-02"))
+    results = study.to_dicts()
+    assert [x["patient_id"] for x in results] == [
+        str(patient_registered_in_2001.registration_id),
+        str(patient_registered_in_2002.registration_id),
+    ]
+
+
 def test_patients_registered_with_one_practice_between():
     session = make_session()
 
