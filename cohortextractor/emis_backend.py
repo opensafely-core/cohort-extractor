@@ -15,6 +15,14 @@ safe_punctation = r"_.-"
 SAFE_CHARS_RE = re.compile(f"^[a-zA-Z0-9{re.escape(safe_punctation)}]+$")
 
 
+PATIENT_TABLE = "patient_view"
+MEDICATION_TABLE = "medication_view"
+OBSERVATION_TABLE = "observation_view"
+ICNARC_TABLE = "icnarc_view"
+ONS_TABLE = "ons_view"
+CPNS_TABLE = "cpns_view"
+
+
 class EMISBackend:
     _db_connection = None
     _current_column_name = None
@@ -121,8 +129,8 @@ class EMISBackend:
             primary_table = self.make_temp_table_name("population")
             patient_id_expr = f"{primary_table}.patient_id"
         else:
-            primary_table = "patient_view"
-            patient_id_expr = "patient_view.registration_id"
+            primary_table = PATIENT_TABLE
+            patient_id_expr = f"{PATIENT_TABLE}.registration_id"
         # Insert `patient_id` as the first column
         output_columns = dict(patient_id=patient_id_expr, **output_columns)
         output_columns_str = ",\n          ".join(
@@ -281,14 +289,14 @@ class EMISBackend:
               ELSE
                  date_diff('year', date_of_birth, {quoted_date})
               END AS age
-            FROM patient_view
+            FROM {PATIENT_TABLE}
             """,
         )
 
     def patients_sex(self):
         return (
             ["patient_id", "sex"],
-            """
+            f"""
           SELECT
             registration_id AS patient_id,
             hashed_organisation,
@@ -298,7 +306,7 @@ class EMISBackend:
               WHEN 2 THEN 'F'
               ELSE ''
             END AS sex
-          FROM patient_view""",
+          FROM {PATIENT_TABLE}""",
         )
 
     def patients_all(self):
@@ -307,9 +315,9 @@ class EMISBackend:
         """
         return (
             ["patient_id", "is_included"],
-            """
+            f"""
             SELECT registration_id AS patient_id, hashed_organisation, 1 AS is_included
-            FROM patient_view
+            FROM {PATIENT_TABLE}
             """,
         )
 
@@ -364,15 +372,15 @@ class EMISBackend:
         FROM (
           SELECT registration_id, "value_pq_1" AS BMI, effective_date,
           ROW_NUMBER() OVER (PARTITION BY registration_id ORDER BY effective_date DESC) AS rownum
-          FROM observation_view
+          FROM {OBSERVATION_TABLE}
           WHERE snomed_concept_id = {quote(bmi_code)} AND {date_condition}
         ) t
         WHERE t.rownum = 1
         """
 
-        patients_cte = """
+        patients_cte = f"""
            SELECT registration_id, hashed_organisation, date_of_birth
-           FROM patient_view
+           FROM {PATIENT_TABLE}
         """
         weight_codes_sql = codelist_to_sql(weight_codes)
         weights_cte = f"""
@@ -380,7 +388,7 @@ class EMISBackend:
           FROM (
             SELECT registration_id, "value_pq_1" AS weight, effective_date,
             ROW_NUMBER() OVER (PARTITION BY registration_id ORDER BY effective_date DESC) AS rownum
-            FROM observation_view
+            FROM {OBSERVATION_TABLE}
             WHERE snomed_concept_id IN ({weight_codes_sql}) AND {date_condition}
           ) t
           WHERE t.rownum = 1
@@ -400,7 +408,7 @@ class EMISBackend:
           FROM (
             SELECT registration_id, "value_pq_1" AS height, effective_date,
             ROW_NUMBER() OVER (PARTITION BY registration_id ORDER BY effective_date DESC) AS rownum
-            FROM observation_view
+            FROM {OBSERVATION_TABLE}
             WHERE snomed_concept_id IN ({height_codes_sql}) AND {height_date_condition}
           ) t
           WHERE t.rownum = 1
@@ -457,22 +465,22 @@ class EMISBackend:
         SELECT
           days.registration_id AS patient_id,
           days.hashed_organisation,
-          AVG(observation_view."value_pq_1") AS mean_value,
+          AVG({OBSERVATION_TABLE}."value_pq_1") AS mean_value,
           days.date_measured AS date
         FROM (
             SELECT
                 registration_id,
                 hashed_organisation,
                 CAST(MAX(effective_date) AS date) AS date_measured
-            FROM observation_view
+            FROM {OBSERVATION_TABLE}
             WHERE snomed_concept_id IN ({codelist_sql}) AND {date_condition}
             GROUP BY registration_id, hashed_organisation
         ) AS days
-        LEFT JOIN observation_view
+        LEFT JOIN {OBSERVATION_TABLE}
         ON (
-          observation_view.registration_id = days.registration_id
-          AND observation_view.snomed_concept_id IN ({codelist_sql})
-          AND CAST(observation_view.effective_date AS date) = days.date_measured
+          {OBSERVATION_TABLE}.registration_id = days.registration_id
+          AND {OBSERVATION_TABLE}.snomed_concept_id IN ({codelist_sql})
+          AND CAST({OBSERVATION_TABLE}.effective_date AS date) = days.date_measured
         )
         GROUP BY days.registration_id, days.hashed_organisation, days.date_measured
         """
@@ -497,10 +505,10 @@ class EMISBackend:
             ["patient_id", "is_registered"],
             f"""
             SELECT
-                patient_view.registration_id AS patient_id,
+                {PATIENT_TABLE}.registration_id AS patient_id,
                 hashed_organisation,
                 1 AS is_registered
-            FROM patient_view
+            FROM {PATIENT_TABLE}
             WHERE registered_date <= {quote(start_date)}
               AND (registration_end_date > {quote(end_date)} OR registration_end_date IS NULL)
             """,
@@ -527,10 +535,7 @@ class EMISBackend:
             # Remove unhandled arguments and check they are unused
             assert not kwargs.pop("episode_defined_as", None)
             return self._patients_with_events(
-                "medication_view",
-                "",
-                "snomed_concept_id",
-                **kwargs,
+                MEDICATION_TABLE, "", "snomed_concept_id", **kwargs,
             )
 
     def patients_with_these_clinical_events(self, **kwargs):
@@ -551,10 +556,7 @@ class EMISBackend:
         else:
             assert not kwargs.pop("episode_defined_as", None)
             return self._patients_with_events(
-                "observation_view",
-                "",
-                "snomed_concept_id",
-                **kwargs,
+                OBSERVATION_TABLE, "", "snomed_concept_id", **kwargs,
             )
 
     def _patients_with_events(
@@ -678,7 +680,7 @@ class EMISBackend:
         codelist_table = self.create_codelist_table(codelist)
         date_condition = make_date_filter("effective_date", between)
         not_an_ignored_day_condition = self._none_of_these_codes_occur_on_same_day(
-            "medication_view", ignore_days_where_these_codes_occur
+            MEDICATION_TABLE, ignore_days_where_these_codes_occur
         )
         if episode_defined_as is not None:
             pattern = r"^series of events each <= (\d+) days apart$"
@@ -699,7 +701,7 @@ class EMISBackend:
         FROM (
             SELECT
               registration_id,
-              medication_view.hashed_organisation,
+              {MEDICATION_TABLE}.hashed_organisation,
               CASE
                 WHEN
                   date_diff(
@@ -710,7 +712,7 @@ class EMISBackend:
                 THEN 0
                 ELSE 1
               END AS is_new_episode
-            FROM medication_view
+            FROM {MEDICATION_TABLE}
             INNER JOIN {codelist_table}
             ON snomed_concept_id = {codelist_table}.code
             WHERE {date_condition} AND {not_an_ignored_day_condition}
@@ -730,7 +732,7 @@ class EMISBackend:
         codelist_table = self.create_codelist_table(codelist)
         date_condition = make_date_filter("effective_date", between)
         not_an_ignored_day_condition = self._none_of_these_codes_occur_on_same_day(
-            "observation_view", ignore_days_where_these_codes_occur
+            OBSERVATION_TABLE, ignore_days_where_these_codes_occur
         )
         if episode_defined_as is not None:
             pattern = r"^series of events each <= (\d+) days apart$"
@@ -751,7 +753,7 @@ class EMISBackend:
         FROM (
             SELECT
               registration_id,
-              observation_view.hashed_organisation,
+              {OBSERVATION_TABLE}.hashed_organisation,
               CASE
                 WHEN
                   date_diff(
@@ -762,7 +764,7 @@ class EMISBackend:
                 THEN 0
                 ELSE 1
               END AS is_new_episode
-            FROM observation_view
+            FROM {OBSERVATION_TABLE}
             INNER JOIN {codelist_table}
             ON snomed_concept_id = {codelist_table}.code
             WHERE {date_condition} AND {not_an_ignored_day_condition}
@@ -786,7 +788,7 @@ class EMISBackend:
         codelist_table = self.create_codelist_table(codelist)
         return f"""
         NOT EXISTS (
-          SELECT * FROM observation_view AS sameday
+          SELECT * FROM {OBSERVATION_TABLE} AS sameday
           INNER JOIN {codelist_table}
           ON sameday.snomed_concept_id = {codelist_table}.code
           WHERE
@@ -818,7 +820,7 @@ class EMISBackend:
               hashed_organisation,
               {column} AS {returning}
             FROM
-              patient_view
+              {PATIENT_TABLE}
             """,
         )
 
@@ -850,7 +852,7 @@ class EMISBackend:
           hashed_organisation,
           {column} AS {returning}
         FROM
-          patient_view
+          {PATIENT_TABLE}
         WHERE
           date_of_death BETWEEN {quote(min_date)} AND {quote(max_date)}
         """,
@@ -877,7 +879,7 @@ class EMISBackend:
               hashed_organisation,
               {column} AS {returning}
             FROM
-              patient_view
+              {PATIENT_TABLE}
             """,
         )
 
@@ -924,7 +926,7 @@ class EMISBackend:
               {column_definition} AS {column_name},
               MAX(Ventilator) AS ventilated -- apparently can be 0, 1 or NULL
             FROM
-              icnarc_view
+              {ICNARC_TABLE}
             GROUP BY registration_id, hashed_organisation
             HAVING
               {date_condition} AND SUM(basicdays_respiratorysupport) + SUM(advanceddays_respiratorysupport) >= 1
@@ -971,11 +973,11 @@ class EMISBackend:
                 registration_id as patient_id,
                 hashed_organisation,
                 {column_definition} AS {column_name}
-            FROM ons_view
+            FROM {ONS_TABLE}
             WHERE ({code_conditions})
                 AND {date_condition}
                 AND date_parse(upload_date, '%d/%m/%Y') = (
-                    SELECT MAX(date_parse(upload_date, '%d/%m/%Y')) FROM ons_view
+                    SELECT MAX(date_parse(upload_date, '%d/%m/%Y')) FROM {ONS_TABLE}
                 )
             """,
         )
@@ -1018,7 +1020,7 @@ class EMISBackend:
               {column_definition} AS {column_name},
               -- Crude error check so we blow up in the case of inconsistent dates
               1 / CASE WHEN MAX(dateofdeath) = MIN(dateofdeath) THEN 1 ELSE 0 END AS _e
-            FROM cpns_view
+            FROM {CPNS_TABLE}
             WHERE {date_condition}
             GROUP BY registration_id, hashed_organisation
             """,

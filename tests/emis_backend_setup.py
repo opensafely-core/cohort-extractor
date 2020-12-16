@@ -31,6 +31,14 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.orm import relationship
 from sqlalchemy.orm import mapper
 
+from cohortextractor.emis_backend import (
+    CPNS_TABLE,
+    ICNARC_TABLE,
+    MEDICATION_TABLE,
+    OBSERVATION_TABLE,
+    ONS_TABLE,
+    PATIENT_TABLE,
+)
 from cohortextractor.mssql_utils import mssql_sqlalchemy_engine_from_url
 from cohortextractor.presto_utils import wait_for_presto_to_be_ready
 
@@ -82,7 +90,7 @@ def make_database():
 
 
 class Patient(Base):
-    __tablename__ = "patient_view"
+    __tablename__ = PATIENT_TABLE
 
     registration_id = Column(Integer, primary_key=True)
     hashed_organisation = Column(String)
@@ -117,10 +125,10 @@ class Patient(Base):
 
 
 class Medication(Base):
-    __tablename__ = "medication_view"
+    __tablename__ = MEDICATION_TABLE
 
     id = Column(Integer, primary_key=True)
-    registration_id = Column(Integer, ForeignKey("patient_view.registration_id"))
+    registration_id = Column(Integer, ForeignKey(f"{PATIENT_TABLE}.registration_id"))
     hashed_organisation = Column(String)
     patient = relationship("Patient", back_populates="medications")
     snomed_concept_id = Column(BigInteger)
@@ -128,10 +136,10 @@ class Medication(Base):
 
 
 class Observation(Base):
-    __tablename__ = "observation_view"
+    __tablename__ = OBSERVATION_TABLE
 
     id = Column(Integer, primary_key=True)
-    registration_id = Column(Integer, ForeignKey("patient_view.registration_id"))
+    registration_id = Column(Integer, ForeignKey(f"{PATIENT_TABLE}.registration_id"))
     hashed_organisation = Column(String)
     patient = relationship("Patient", back_populates="observations")
     snomed_concept_id = Column(BigInteger)
@@ -140,10 +148,10 @@ class Observation(Base):
 
 
 class ICNARC(Base):
-    __tablename__ = "icnarc_view"
+    __tablename__ = ICNARC_TABLE
 
     icnarc_id = Column(Integer, primary_key=True)
-    registration_id = Column(Integer, ForeignKey("patient_view.registration_id"))
+    registration_id = Column(Integer, ForeignKey(f"{PATIENT_TABLE}.registration_id"))
     hashed_organisation = Column(String)
     patient = relationship("Patient", back_populates="ICNARC")
     icuadmissiondatetime = Column(DateTime)
@@ -154,12 +162,12 @@ class ICNARC(Base):
 
 
 class ONSDeaths(Base):
-    __tablename__ = "ons_view"
+    __tablename__ = ONS_TABLE
 
     # This column isn't in the actual database but SQLAlchemy gets a bit upset
     # if we don't give it a primary key
     id = Column(Integer, primary_key=True)
-    registration_id = Column(Integer, ForeignKey("patient_view.registration_id"))
+    registration_id = Column(Integer, ForeignKey(f"{PATIENT_TABLE}.registration_id"))
     hashed_organisation = Column(String)
     patient = relationship("Patient", back_populates="ONSDeath")
     sex = Column(String)
@@ -185,9 +193,9 @@ class ONSDeaths(Base):
 
 
 class CPNS(Base):
-    __tablename__ = "cpns_view"
+    __tablename__ = CPNS_TABLE
 
-    registration_id = Column(Integer, ForeignKey("patient_view.registration_id"))
+    registration_id = Column(Integer, ForeignKey(f"{PATIENT_TABLE}.registration_id"))
     hashed_organisation = Column(String)
     patient = relationship("Patient", back_populates="CPNS")
     id = Column(Integer, primary_key=True)
