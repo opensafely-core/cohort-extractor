@@ -86,10 +86,10 @@ class Patient(Base):
 
     registration_id = Column(Integer, primary_key=True)
     hashed_organisation = Column(String)
-    date_of_birth = Column(DateTime)
+    date_of_birth = Column(Date)
     gender = Column(Integer)
-    registered_date = Column(DateTime)
-    registration_end_date = Column(DateTime)
+    registered_date = Column(Date)
+    registration_end_date = Column(Date)
     rural_urban = Column(Integer)
     imd_rank = Column(Integer)
     msoa = Column(String)
