@@ -12,6 +12,7 @@ already need an instance running for the TPP tests).
 """
 import os
 import time
+import uuid
 
 import sqlalchemy
 from sqlalchemy.ext.declarative import declarative_base
@@ -123,6 +124,11 @@ class Patient(Base):
     CPNS = relationship(
         "CPNS", back_populates="patient", cascade="all, delete, delete-orphan"
     )
+
+    def __init__(self, *args, **kwargs):
+        if "nhs_no" not in kwargs:
+            kwargs["nhs_no"] = uuid.uuid4().hex
+        super().__init__(*args, **kwargs)
 
 
 class Medication(Base):
