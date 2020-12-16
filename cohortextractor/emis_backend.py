@@ -943,7 +943,9 @@ class EMISBackend:
         # Set return type
         returning="binary_flag",
     ):
-        date_condition = make_date_filter("dod", between)
+        date_condition = make_date_filter(
+            "date_parse(CAST(reg_stat_dod AS VARCHAR), '%Y%m%d')", between
+        )
         if codelist is not None:
             assert codelist.system == "icd10"
             codelist_sql = codelist_to_sql(codelist)
@@ -959,7 +961,8 @@ class EMISBackend:
             column_definition = "1"
             column_name = "died"
         elif returning == "date_of_death":
-            column_definition = "dod"
+            # Yes, we're converting an integer to a string to a timestamp to a date.
+            column_definition = "CAST(date_parse(CAST(reg_stat_dod AS VARCHAR), '%Y%m%d') AS date)"
             column_name = "date_of_death"
         elif returning == "underlying_cause_of_death":
             column_definition = "icd10u"

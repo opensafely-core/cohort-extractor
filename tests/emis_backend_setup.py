@@ -172,7 +172,7 @@ class ONSDeaths(Base):
     patient = relationship("Patient", back_populates="ONSDeath")
     sex = Column(String)
     ageinyrs = Column(Integer)
-    dod = Column(Date)
+    reg_stat_dod = Column(Integer)
     icd10u = Column(String)
     icd10001 = Column(String)
     icd10002 = Column(String)
