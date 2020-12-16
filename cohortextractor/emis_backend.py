@@ -822,6 +822,40 @@ class EMISBackend:
             """,
         )
 
+    def patients_with_death_recorded_in_primary_care(
+        self,
+        # Set date limits
+        between=None,
+        # Set return type
+        returning="binary_flag",
+    ):
+        if returning == "binary_flag":
+            column = "1"
+        elif returning == "date_of_death":
+            column = "date_of_death"
+        else:
+            raise ValueError(f"Unsupported `returning` value: {returning}")
+        if between is None:
+            between = (None, None)
+        min_date, max_date = between
+        if max_date is None:
+            max_date = "9999-12-31"  # Far enough in the future to catch everyone
+        if min_date is None:
+            min_date = "1900-01-01"  # Far enough in the path to catch everyone
+        return (
+            ["patient_id", returning],
+            f"""
+        SELECT
+          registration_id AS patient_id,
+          hashed_organisation,
+          {column} AS {returning}
+        FROM
+          patient_view
+        WHERE
+          date_of_death BETWEEN {quote(min_date)} AND {quote(max_date)}
+        """,
+        )
+
     def patients_address_as_of(self, date, returning=None, round_to_nearest=None):
         # At the moment we can only return current values for the fields in question.
         self.validate_recent_date(date)

@@ -14,6 +14,7 @@ from tests.emis_backend_setup import (
     ONSDeaths,
     CPNS,
 )
+from tests.helpers import assert_results
 
 from cohortextractor import (
     StudyDefinition,
@@ -1009,6 +1010,36 @@ def test_patients_address_as_of(freezer):
     results = study.to_dicts()
     assert [i["imd"] for i in results] == ["300", "0"]
     assert [i["rural_urban"] for i in results] == ["2", "0"]
+
+
+def test_patients_with_death_recorded_in_primary_care():
+    session = make_session()
+    session.add_all(
+        [
+            Patient(date_of_death=None),
+            Patient(date_of_death="2017-05-06"),
+            Patient(date_of_death="2019-06-07"),
+            Patient(date_of_death="2020-07-08"),
+        ]
+    )
+    session.commit()
+    study = StudyDefinition(
+        population=patients.all(),
+        has_died=patients.with_death_recorded_in_primary_care(),
+        date_of_death=patients.with_death_recorded_in_primary_care(
+            returning="date_of_death", date_format="YYYY-MM-DD"
+        ),
+        died_in_2019=patients.with_death_recorded_in_primary_care(
+            between=["2019-01-01", "2019-12-31"],
+            returning="date_of_death",
+        ),
+    )
+    assert_results(
+        study.to_dicts(),
+        has_died=["0", "1", "1", "1"],
+        date_of_death=["", "2017-05-06", "2019-06-07", "2020-07-08"],
+        died_in_2019=["", "", "2019", ""],
+    )
 
 
 def test_patients_admitted_to_icu():
