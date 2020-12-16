@@ -93,6 +93,7 @@ class Patient(Base):
     __tablename__ = PATIENT_TABLE
 
     registration_id = Column(Integer, primary_key=True)
+    nhs_no = Column(String(128), unique=True)
     hashed_organisation = Column(String)
     date_of_birth = Column(Date)
     date_of_death = Column(Date)
@@ -167,7 +168,7 @@ class ONSDeaths(Base):
     # This column isn't in the actual database but SQLAlchemy gets a bit upset
     # if we don't give it a primary key
     id = Column(Integer, primary_key=True)
-    registration_id = Column(Integer, ForeignKey(f"{PATIENT_TABLE}.registration_id"))
+    pseudonhsnumber = Column(String(128), ForeignKey(f"{PATIENT_TABLE}.nhs_no"))
     hashed_organisation = Column(String)
     patient = relationship("Patient", back_populates="ONSDeath")
     sex = Column(String)

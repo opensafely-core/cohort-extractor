@@ -944,7 +944,7 @@ class EMISBackend:
         returning="binary_flag",
     ):
         date_condition = make_date_filter(
-            "date_parse(CAST(reg_stat_dod AS VARCHAR), '%Y%m%d')", between
+            "date_parse(CAST(o.reg_stat_dod AS VARCHAR), '%Y%m%d')", between
         )
         if codelist is not None:
             assert codelist.system == "icd10"
@@ -962,10 +962,10 @@ class EMISBackend:
             column_name = "died"
         elif returning == "date_of_death":
             # Yes, we're converting an integer to a string to a timestamp to a date.
-            column_definition = "CAST(date_parse(CAST(reg_stat_dod AS VARCHAR), '%Y%m%d') AS date)"
+            column_definition = "CAST(date_parse(CAST(o.reg_stat_dod AS VARCHAR), '%Y%m%d') AS date)"
             column_name = "date_of_death"
         elif returning == "underlying_cause_of_death":
-            column_definition = "icd10u"
+            column_definition = "o.icd10u"
             column_name = "underlying_cause_of_death"
         else:
             raise ValueError(f"Unsupported `returning` value: {returning}")
@@ -973,13 +973,14 @@ class EMISBackend:
             ["patient_id", column_name],
             f"""
             SELECT
-                registration_id as patient_id,
-                hashed_organisation,
+                p.registration_id as patient_id,
+                p.hashed_organisation as hashed_organisation,
                 {column_definition} AS {column_name}
-            FROM {ONS_TABLE}
+            FROM {ONS_TABLE} o
+            JOIN {PATIENT_TABLE} p ON o.pseudonhsnumber = p.nhs_no
             WHERE ({code_conditions})
                 AND {date_condition}
-                AND date_parse(upload_date, '%d/%m/%Y') = (
+                AND date_parse(o.upload_date, '%d/%m/%Y') = (
                     SELECT MAX(date_parse(upload_date, '%d/%m/%Y')) FROM {ONS_TABLE}
                 )
             """,
