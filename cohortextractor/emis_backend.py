@@ -198,7 +198,7 @@ class EMISBackend:
         timestamp = datetime.datetime.now(datetime.timezone.utc).strftime(
             "%Y%m%d_%H%M%S"
         )
-        return f"_{timestamp}_{uuid.uuid4().hex}"
+        return f"_{timestamp}_{uuid.uuid4().hex[:4]}"
 
     def make_temp_table_name(self, name):
         return f"{self.temp_table_prefix}_{name}"
