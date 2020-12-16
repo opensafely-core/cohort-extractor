@@ -945,7 +945,12 @@ def test_patients_registered_practice_as_of(freezer):
     freezer.move_to("2020-03-01")
 
     session = make_session()
-    patient = Patient(stp_code="789", msoa="E0203", english_region_name="London")
+    patient = Patient(
+        stp_code="789",
+        msoa="E0203",
+        english_region_name="London",
+        hashed_organisation="abc",
+    )
 
     session.add_all([patient])
     session.commit()
@@ -956,11 +961,15 @@ def test_patients_registered_practice_as_of(freezer):
         region=patients.registered_practice_as_of(
             "2020-02-01", returning="nuts1_region_name"
         ),
+        pseudo_id=patients.registered_practice_as_of(
+            "2020-02-01", returning="pseudo_id"
+        ),
     )
     results = study.to_dicts()
     assert [i["stp"] for i in results] == ["789"]
     assert [i["msoa"] for i in results] == ["E0203"]
-    assert [i["region"] for i in results] == ["London" ""]
+    assert [i["region"] for i in results] == ["London"]
+    assert [i["pseudo_id"] for i in results] == ["abc"]
 
     # Now jump forwards in time and check that an error is raised
     freezer.move_to("2021-03-01")

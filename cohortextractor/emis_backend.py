@@ -22,10 +22,16 @@ class EMISBackend:
     def __init__(self, database_url, covariate_definitions, temporary_database=None):
         self.database_url = database_url
         self.covariate_definitions = covariate_definitions
+        self.postprocess_covariate_definitions()
         self.codelist_tables = []
         self.temp_table_prefix = self.get_temp_table_prefix()
         self.log(f"temp_table_prefix: {self.temp_table_prefix}")
         self.queries = self.get_queries(self.covariate_definitions)
+
+    def postprocess_covariate_definitions(self):
+        for name, (query_type, query_args) in self.covariate_definitions.items():
+            if query_args.get("returning") == "pseudo_id":
+                query_args["column_type"] = "str"
 
     def to_csv(self, filename):
         result = self.execute_query()
@@ -799,6 +805,8 @@ class EMISBackend:
             column = "msoa"
         elif returning == "nuts1_region_name":
             column = "english_region_name"
+        elif returning == "pseudo_id":
+            column = "hashed_organisation"
         else:
             raise ValueError(f"Unsupported `returning` value: {returning}")
 
