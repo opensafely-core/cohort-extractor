@@ -972,7 +972,11 @@ class EMISBackend:
                 hashed_organisation,
                 {column_definition} AS {column_name}
             FROM ons_view
-            WHERE ({code_conditions}) AND {date_condition}
+            WHERE ({code_conditions})
+                AND {date_condition}
+                AND date_parse(upload_date, '%d/%m/%Y') = (
+                    SELECT MAX(date_parse(upload_date, '%d/%m/%Y')) FROM ons_view
+                )
             """,
         )
 

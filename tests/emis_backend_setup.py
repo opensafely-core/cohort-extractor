@@ -181,6 +181,7 @@ class ONSDeaths(Base):
     icd10013 = Column(String)
     icd10014 = Column(String)
     icd10015 = Column(String)
+    upload_date = Column(String)  # dd/mm/yyyy
 
 
 class CPNS(Base):

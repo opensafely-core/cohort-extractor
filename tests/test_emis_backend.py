@@ -1165,13 +1165,39 @@ def test_patients_with_these_codes_on_death_certificate():
             # Not dead
             Patient(),
             # Died after date cutoff
-            Patient(ONSDeath=[ONSDeaths(dod="2021-01-01", icd10u=code)]),
+            Patient(
+                ONSDeath=[
+                    ONSDeaths(dod="2021-01-01", icd10u=code, upload_date="01/04/2020")
+                ]
+            ),
             # Died of something else
-            Patient(ONSDeath=[ONSDeaths(dod="2020-02-01", icd10u="MI")]),
+            Patient(
+                ONSDeath=[
+                    ONSDeaths(dod="2020-02-01", icd10u="MI", upload_date="01/04/2020")
+                ]
+            ),
             # Covid underlying cause
-            Patient(ONSDeath=[ONSDeaths(dod="2020-02-01", icd10u=code, icd10014="MI")]),
+            Patient(
+                ONSDeath=[
+                    ONSDeaths(
+                        dod="2020-02-01",
+                        icd10u=code,
+                        icd10014="MI",
+                        upload_date="01/04/2020",
+                    )
+                ]
+            ),
             # Covid not underlying cause
-            Patient(ONSDeath=[ONSDeaths(dod="2020-03-01", icd10u="MI", icd10014=code)]),
+            Patient(
+                ONSDeath=[
+                    ONSDeaths(
+                        dod="2020-03-01",
+                        icd10u="MI",
+                        icd10014=code,
+                        upload_date="01/04/2020",
+                    )
+                ]
+            ),
         ]
     )
     session.commit()
@@ -1212,9 +1238,14 @@ def test_patients_died_from_any_cause():
             # Not dead
             Patient(),
             # Died after date cutoff
-            Patient(ONSDeath=[ONSDeaths(dod="2021-01-01")]),
+            Patient(ONSDeath=[ONSDeaths(dod="2021-01-01", upload_date="02/02/2021")]),
             # Died
-            Patient(ONSDeath=[ONSDeaths(dod="2020-02-01", icd10u="A")]),
+            Patient(
+                ONSDeath=[
+                    ONSDeaths(dod="2020-02-01", icd10u="A", upload_date="02/02/2020"),
+                    ONSDeaths(dod="2020-02-01", icd10u="A", upload_date="02/02/2021"),
+                ]
+            ),
         ]
     )
     session.commit()
