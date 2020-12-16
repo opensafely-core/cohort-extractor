@@ -116,7 +116,7 @@ class EMISBackend:
                 date_format_args = pop_keys_from_dict(query_args, ["date_format"])
                 cols, sql = self.get_query(name, query_type, query_args)
                 table_name = self.make_temp_table_name(name)
-                table_queries[name] = f"CREATE TABLE {table_name} AS {sql}"
+                table_queries[name] = f"CREATE TABLE IF NOT EXISTS {table_name} AS {sql}"
                 # The first column should always be patient_id so we can join on it
                 assert cols[0] == "patient_id"
                 output_columns[name] = self.get_column_expression(
@@ -193,7 +193,7 @@ class EMISBackend:
         output_table = self.get_output_table_name(os.environ.get("TEMP_DATABASE_NAME"))
         if output_table:
             self.log(f"Running final query and writing output to '{output_table}'")
-            sql = f"CREATE TABLE {output_table} AS {final_query}"
+            sql = f"CREATE TABLE IF NOT EXISTS {output_table} AS {final_query}"
             cursor.execute(sql)
             self.log(f"Downloading data from '{output_table}'")
             cursor.execute(f"SELECT * FROM {output_table}")
@@ -256,7 +256,7 @@ class EMISBackend:
             )
             self.codelist_tables.append(
                 f"""
-                    CREATE TABLE {table_name} AS
+                    CREATE TABLE IF NOT EXISTS {table_name} AS
                     SELECT code, category, {organisation_hash} AS hashed_organisation FROM (
                       VALUES {values}
                     ) AS t (code, category)
@@ -266,7 +266,7 @@ class EMISBackend:
             values = ", ".join(f"({quote(cast(code))})" for code in codelist)
             self.codelist_tables.append(
                 f"""
-                    CREATE TABLE {table_name} AS
+                    CREATE TABLE IF NOT EXISTS {table_name} AS
                     SELECT code, {organisation_hash} AS hashed_organisation FROM (
                       VALUES {values}
                     ) AS t (code)
