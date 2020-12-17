@@ -292,6 +292,7 @@ class TPPBackend:
             type=column_type,
             default_value=default_value,
             source_tables=[f"#{source}"],
+            date_format=date_format,
         )
 
     def get_default_value_for_type(self, column_type):
@@ -394,6 +395,10 @@ class TPPBackend:
             type=column_type,
             default_value=default_value,
             source_tables=tables_used,
+            # It's already been checked that date_format is consistent across
+            # the source columns, so we just grab the first one and use the
+            # date_format from that
+            date_format=other_columns[column_names[0]].date_format,
         )
 
     def execute_queries(self, queries):
@@ -1895,12 +1900,16 @@ class ColumnExpression:
         source_tables=(),
         # Indicates whether the column is included in the output
         is_hidden=False,
+        # Only relevant for columns of type "date": records the format in which
+        # the date is represented
+        date_format=None,
     ):
         self.expression = expression
         self.type = type
         self.default_value = default_value
         self.source_tables = source_tables
         self.is_hidden = is_hidden
+        self.date_format = date_format
 
     def __str__(self):
         return self.expression
