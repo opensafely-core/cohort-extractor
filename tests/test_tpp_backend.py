@@ -2851,3 +2851,15 @@ def test_extracting_at_different_index_dates():
     study.set_index_date("2020-02-01")
     results = study.to_dicts()
     assert_results(results, value=["", "2020-02-10"])
+
+
+def test_aggregate_over_different_date_formats_raises_error():
+    with pytest.raises(ValueError, match="dates of different format"):
+        StudyDefinition(
+            population=patients.all(),
+            birth=patients.date_of_birth(date_format="YYYY-MM"),
+            death=patients.with_death_recorded_in_primary_care(
+                returning="date_of_death", date_format="YYYY-MM-DD"
+            ),
+            last_major_life_event=patients.maximum_of("birth", "death"),
+        )
