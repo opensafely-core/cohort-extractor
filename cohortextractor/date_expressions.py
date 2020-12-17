@@ -258,7 +258,12 @@ class MSSQLDateFormatter:
             raise InvalidExpressionError(f"Unknown date column: {name}")
         if date_column.type != "date":
             raise InvalidExpressionError(f"Column '{name}' is not a date")
-        date_expr = f"TRY_PARSE({date_column} AS date USING 'en-GB')"
+        if date_column.date_format == "YYYY":
+            raise InvalidExpressionError(
+                f"Column '{name}' has a year-only date format 'YYYY' and so can't be "
+                f"used in date expressions"
+            )
+        date_expr = self.get_date_expression(date_column)
         if function:
             date_function = self.get_method("function", function)
             date_expr = date_function(date_expr)
@@ -269,6 +274,34 @@ class MSSQLDateFormatter:
             add_units = self.get_method("unit", units)
             date_expr = add_units(date_expr, value)
         return date_expr, name
+
+    def get_date_expression(self, date_column):
+        """
+        In order to use a date column in a query we need to cast it to an
+        actual date, not the string representation of a date which it currently
+        is. In the general case we can do that using `TRY_PARSE` (which, unlike
+        `PARSE`, will give us NULL on an empty string as we want). However,
+        this often ends up producing some convoluted SQL in which we transform
+        a date into a string and do some null handling only to immediately
+        parse it back into a date and reverse the null handling. So we try to
+        pattern match the most obvious cases of this and rewrite them, but fall
+        back to using TRY_PARSE otherwise.
+        """
+        date_format = date_column.date_format
+        date_sql = re.sub(r"\s", "", str(date_column))
+        match = re.match(
+            r"ISNULL\(CONVERT\(VARCHAR\(\d+\),([#\w\.]+),23\),''\)", date_sql
+        )
+        if match:
+            column_ref = match.group(1)
+            if date_format == "YYYY-MM-DD":
+                return column_ref
+            elif date_format == "YYYY-MM":
+                return self.date_function_first_day_of_month(column_ref)
+            else:
+                raise RuntimeError("Should never get here")
+        else:
+            return f"TRY_PARSE({date_column} AS date USING 'en-GB')"
 
     def get_method(self, method_type, name):
         prefix = f"date_{method_type}_"
