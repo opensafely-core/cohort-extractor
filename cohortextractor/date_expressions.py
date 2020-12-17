@@ -266,7 +266,7 @@ class MSSQLDateFormatter:
                 value = -value
             add_units = self.get_method("unit", units)
             date_expr = add_units(date_expr, value)
-        return date_expr
+        return date_expr, name
 
     def get_method(self, method_type, name):
         prefix = f"date_{method_type}_"

@@ -542,13 +542,8 @@ class TPPBackend:
             return quote(date), []
         # More complicated date expressions which reference other tables
         formatter = MSSQLDateFormatter(self.output_columns)
-        date_expr = formatter(date)
-        # For now we just try to regex out table names. This will no doubt
-        # break in amusing ways.  I think the correct approach here is to
-        # enrich the values of `output_columns` to include metadata along with
-        # the SQL expression, in which we can include all the tables referenced
-        # in that expression.
-        tables = [m.group(1) for m in re.finditer(r"(#\w+)\.", date_expr)]
+        date_expr, column_name = formatter(date)
+        tables = self.output_columns[column_name].source_tables
         return date_expr, tables
 
     def patients_age_as_of(self, reference_date):
