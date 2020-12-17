@@ -332,7 +332,7 @@ class TPPBackend:
             # rewritten to ensure they refer to the correct CTE. The formatting
             # function also ensures that the expression matches the very
             # limited subset of SQL we support here.
-            formatted_expression = format_expression(
+            formatted_expression, names_used = format_expression(
                 expression, other_columns, empty_value_map=empty_value_map
             )
             clauses.append(f"WHEN ({formatted_expression}) THEN {quote(category)}")

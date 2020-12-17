@@ -22,7 +22,8 @@ def format_expression(expression, name_map, empty_value_map):
     """
     Take an SQL expression (in a very limited dialect) and a column name
     mapping and return a reformatted expression with column references
-    rewritten using the supplied mapping.
+    rewritten using the supplied mapping, along with a set of all the names
+    used within the expression.
 
     `empty_value_map` is a dict giving the "empty" or falsey value appropriate
     to the type of each column. Any column references that are not involved in
@@ -51,11 +52,13 @@ def format_expression(expression, name_map, empty_value_map):
         raise InvalidExpressionError(
             f"Invalid SQL expression: {expression}\nError: {e}"
         )
-    tokens = remap_names(tokens, name_map)
-    return " ".join(token.value for token in tokens)
+    names_referenced = set()
+    tokens = remap_names(tokens, name_map, names_referenced)
+    new_expression = " ".join(token.value for token in tokens)
+    return new_expression, names_referenced
 
 
-def remap_names(tokens, name_map):
+def remap_names(tokens, name_map, names_referenced):
     """
     Takes an iterable of tokens and remaps any names found within using the
     `name_map` dictionary. Names not found in the map are an error.
@@ -66,6 +69,7 @@ def remap_names(tokens, name_map):
                 name = name_map[token.value]
             except KeyError:
                 raise UnknownColumnError(f"Unknown column: {token.value}")
+            names_referenced.add(token.value)
             yield sqlparse.sql.Token(ttypes.Name, name)
         else:
             yield token

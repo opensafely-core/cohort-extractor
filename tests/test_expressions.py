@@ -4,12 +4,18 @@ from cohortextractor.expressions import format_expression, InvalidExpressionErro
 
 
 def test_basic_expression_rewritting():
-    output = format_expression(
+    output, names = format_expression(
         "foo AND (bar > 3 OR baz = 'hello')",
-        name_map={"foo": "table1.foo", "bar": "table2.bar", "baz": "other"},
-        empty_value_map={"foo": 0, "bar": 0, "baz": ""},
+        name_map={
+            "foo": "table1.foo",
+            "bar": "table2.bar",
+            "baz": "other",
+            "unused": "no",
+        },
+        empty_value_map={"foo": 0, "bar": 0, "baz": "", "unused": ""},
     )
     assert output == "( table1.foo != 0 ) AND ( table2.bar > 3 OR other = 'hello' )"
+    assert names == {"foo", "bar", "baz"}
 
 
 def test_validation():
@@ -30,5 +36,5 @@ def test_validate_string():
         format_expression('"no$special$chars"', **kwargs)
     with pytest.raises(ValueError):
         format_expression('"all_ok_characters_but_just_a_bit_too_long"', **kwargs)
-    assert format_expression('"quoted"', **kwargs) == "'quoted'"
-    assert format_expression('""', **kwargs) == "''"
+    assert format_expression('"quoted"', **kwargs)[0] == "'quoted'"
+    assert format_expression('""', **kwargs)[0] == "''"
