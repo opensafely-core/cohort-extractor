@@ -256,6 +256,8 @@ class MSSQLDateFormatter:
             date_column = self.column_definitions[name]
         except KeyError:
             raise InvalidExpressionError(f"Unknown date column: {name}")
+        if date_column.type != "date":
+            raise InvalidExpressionError(f"Column '{name}' is not a date")
         date_expr = f"TRY_PARSE({date_column} AS date USING 'en-GB')"
         if function:
             date_function = self.get_method("function", function)
