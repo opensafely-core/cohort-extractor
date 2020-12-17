@@ -291,6 +291,7 @@ class TPPBackend:
             f"ISNULL({column_expr}, {quote(default_value)})",
             type=column_type,
             default_value=default_value,
+            source_tables=[f"#{source}"],
         )
 
     def get_default_value_for_type(self, column_type):
@@ -327,6 +328,7 @@ class TPPBackend:
             name: column.default_value for name, column in other_columns.items()
         }
         clauses = []
+        tables_used = set()
         for category, expression in category_definitions.items():
             # The column references in the supplied expression need to be
             # rewritten to ensure they refer to the correct CTE. The formatting
@@ -336,10 +338,14 @@ class TPPBackend:
                 expression, other_columns, empty_value_map=empty_value_map
             )
             clauses.append(f"WHEN ({formatted_expression}) THEN {quote(category)}")
+            # Record all the source tables used in evaluating the expression
+            for name in names_used:
+                tables_used.update(other_columns[name].source_tables)
         return ColumnExpression(
             f"CASE {' '.join(clauses)} ELSE {quote(default_value)} END",
             type=column_type,
             default_value=default_value,
+            source_tables=tables_used,
         )
 
     def get_aggregate_expression(
@@ -379,10 +385,15 @@ class TPPBackend:
             # here.  (It's also unlikely to be a problem in practice.)
             f" WHERE value != {quote(default_value)}"
         )
+        # Keep track of all source tables used in evaluating this aggregate
+        tables_used = set()
+        for name in column_names:
+            tables_used.update(other_columns[name].source_tables)
         return ColumnExpression(
             f"ISNULL(({aggregate_expression}), {quote(default_value)})",
             type=column_type,
             default_value=default_value,
+            source_tables=tables_used,
         )
 
     def execute_queries(self, queries):
@@ -1877,10 +1888,23 @@ class TPPBackend:
 
 
 class ColumnExpression:
-    def __init__(self, expression, type=None, default_value=None, is_hidden=False):
+    def __init__(
+        self,
+        # SQL fragment
+        expression,
+        # The column type returned by the above expression
+        type=None,
+        # The default value of the expression for missing values
+        default_value=None,
+        # The names of all tables used in evaluating the expression
+        source_tables=(),
+        # Indicates whether the column is included in the output
+        is_hidden=False,
+    ):
         self.expression = expression
         self.type = type
         self.default_value = default_value
+        self.source_tables = source_tables
         self.is_hidden = is_hidden
 
     def __str__(self):
