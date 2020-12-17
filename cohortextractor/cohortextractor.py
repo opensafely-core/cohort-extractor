@@ -442,9 +442,9 @@ def update_codelists():
             rsp.raise_for_status()
 
             with open(
-                os.path.join(base_path, f"{project_id}-{codelist_id}.csv"), "w"
+                os.path.join(base_path, f"{project_id}-{codelist_id}.csv"), "wb"
             ) as f:
-                f.write(rsp.text)
+                f.write(rsp.content)
 
 
 def dump_cohort_sql(study_definition):
