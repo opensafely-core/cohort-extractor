@@ -12,6 +12,7 @@ already need an instance running for the TPP tests).
 """
 import os
 import time
+import uuid
 
 import sqlalchemy
 from sqlalchemy.ext.declarative import declarative_base
@@ -31,6 +32,14 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.orm import relationship
 from sqlalchemy.orm import mapper
 
+from cohortextractor.emis_backend import (
+    CPNS_TABLE,
+    ICNARC_TABLE,
+    MEDICATION_TABLE,
+    OBSERVATION_TABLE,
+    ONS_TABLE,
+    PATIENT_TABLE,
+)
 from cohortextractor.mssql_utils import mssql_sqlalchemy_engine_from_url
 from cohortextractor.presto_utils import wait_for_presto_to_be_ready
 
@@ -82,14 +91,16 @@ def make_database():
 
 
 class Patient(Base):
-    __tablename__ = "patient_view"
+    __tablename__ = PATIENT_TABLE
 
     registration_id = Column(Integer, primary_key=True)
+    nhs_no = Column(String(128), unique=True)
     hashed_organisation = Column(String)
-    date_of_birth = Column(DateTime)
+    date_of_birth = Column(Date)
+    date_of_death = Column(Date)
     gender = Column(Integer)
-    registered_date = Column(DateTime)
-    registration_end_date = Column(DateTime)
+    registered_date = Column(Date)
+    registration_end_date = Column(Date)
     rural_urban = Column(Integer)
     imd_rank = Column(Integer)
     msoa = Column(String)
@@ -114,12 +125,17 @@ class Patient(Base):
         "CPNS", back_populates="patient", cascade="all, delete, delete-orphan"
     )
 
+    def __init__(self, *args, **kwargs):
+        if "nhs_no" not in kwargs:
+            kwargs["nhs_no"] = uuid.uuid4().hex
+        super().__init__(*args, **kwargs)
+
 
 class Medication(Base):
-    __tablename__ = "medication_view"
+    __tablename__ = MEDICATION_TABLE
 
     id = Column(Integer, primary_key=True)
-    registration_id = Column(Integer, ForeignKey("patient_view.registration_id"))
+    registration_id = Column(Integer, ForeignKey(f"{PATIENT_TABLE}.registration_id"))
     hashed_organisation = Column(String)
     patient = relationship("Patient", back_populates="medications")
     snomed_concept_id = Column(BigInteger)
@@ -127,10 +143,10 @@ class Medication(Base):
 
 
 class Observation(Base):
-    __tablename__ = "observation_view"
+    __tablename__ = OBSERVATION_TABLE
 
     id = Column(Integer, primary_key=True)
-    registration_id = Column(Integer, ForeignKey("patient_view.registration_id"))
+    registration_id = Column(Integer, ForeignKey(f"{PATIENT_TABLE}.registration_id"))
     hashed_organisation = Column(String)
     patient = relationship("Patient", back_populates="observations")
     snomed_concept_id = Column(BigInteger)
@@ -139,10 +155,10 @@ class Observation(Base):
 
 
 class ICNARC(Base):
-    __tablename__ = "icnarc_view"
+    __tablename__ = ICNARC_TABLE
 
     icnarc_id = Column(Integer, primary_key=True)
-    registration_id = Column(Integer, ForeignKey("patient_view.registration_id"))
+    registration_id = Column(Integer, ForeignKey(f"{PATIENT_TABLE}.registration_id"))
     hashed_organisation = Column(String)
     patient = relationship("Patient", back_populates="ICNARC")
     icuadmissiondatetime = Column(DateTime)
@@ -153,17 +169,17 @@ class ICNARC(Base):
 
 
 class ONSDeaths(Base):
-    __tablename__ = "ons_view"
+    __tablename__ = ONS_TABLE
 
     # This column isn't in the actual database but SQLAlchemy gets a bit upset
     # if we don't give it a primary key
     id = Column(Integer, primary_key=True)
-    registration_id = Column(Integer, ForeignKey("patient_view.registration_id"))
+    pseudonhsnumber = Column(String(128), ForeignKey(f"{PATIENT_TABLE}.nhs_no"))
     hashed_organisation = Column(String)
     patient = relationship("Patient", back_populates="ONSDeath")
     sex = Column(String)
     ageinyrs = Column(Integer)
-    dod = Column(Date)
+    reg_stat_dod = Column(Integer)
     icd10u = Column(String)
     icd10001 = Column(String)
     icd10002 = Column(String)
@@ -180,12 +196,13 @@ class ONSDeaths(Base):
     icd10013 = Column(String)
     icd10014 = Column(String)
     icd10015 = Column(String)
+    upload_date = Column(String)  # dd/mm/yyyy
 
 
 class CPNS(Base):
-    __tablename__ = "cpns_view"
+    __tablename__ = CPNS_TABLE
 
-    registration_id = Column(Integer, ForeignKey("patient_view.registration_id"))
+    registration_id = Column(Integer, ForeignKey(f"{PATIENT_TABLE}.registration_id"))
     hashed_organisation = Column(String)
     patient = relationship("Patient", back_populates="CPNS")
     id = Column(Integer, primary_key=True)

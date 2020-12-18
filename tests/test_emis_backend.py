@@ -14,6 +14,7 @@ from tests.emis_backend_setup import (
     ONSDeaths,
     CPNS,
 )
+from tests.helpers import assert_results
 
 from cohortextractor import (
     StudyDefinition,
@@ -418,6 +419,33 @@ def test_clinical_event_with_category():
     results = study.to_dicts()
     assert [x["code_category"] for x in results] == ["", "B", "C"]
     assert [x["code_category_date"] for x in results] == ["", "2020", "2019"]
+
+
+def test_patient_registered_as_of():
+    session = make_session()
+
+    patient_registered_in_2001 = Patient(
+        registered_date="2001-01-01", registration_end_date=None
+    )
+    patient_registered_in_2002 = Patient(
+        registered_date="2002-01-01", registration_end_date=None
+    )
+    patient_unregistered_in_2002 = Patient(
+        registered_date="2001-01-01", registration_end_date="2002-01-01"
+    )
+
+    session.add(patient_registered_in_2001)
+    session.add(patient_registered_in_2002)
+    session.add(patient_unregistered_in_2002)
+    session.commit()
+
+    # No date criteria
+    study = StudyDefinition(population=patients.registered_as_of("2002-03-02"))
+    results = study.to_dicts()
+    assert [x["patient_id"] for x in results] == [
+        str(patient_registered_in_2001.registration_id),
+        str(patient_registered_in_2002.registration_id),
+    ]
 
 
 def test_patients_registered_with_one_practice_between():
@@ -918,7 +946,12 @@ def test_patients_registered_practice_as_of(freezer):
     freezer.move_to("2020-03-01")
 
     session = make_session()
-    patient = Patient(stp_code="789", msoa="E0203", english_region_name="London")
+    patient = Patient(
+        stp_code="789",
+        msoa="E0203",
+        english_region_name="London",
+        hashed_organisation="abc",
+    )
 
     session.add_all([patient])
     session.commit()
@@ -929,11 +962,15 @@ def test_patients_registered_practice_as_of(freezer):
         region=patients.registered_practice_as_of(
             "2020-02-01", returning="nuts1_region_name"
         ),
+        pseudo_id=patients.registered_practice_as_of(
+            "2020-02-01", returning="pseudo_id"
+        ),
     )
     results = study.to_dicts()
     assert [i["stp"] for i in results] == ["789"]
     assert [i["msoa"] for i in results] == ["E0203"]
-    assert [i["region"] for i in results] == ["London" ""]
+    assert [i["region"] for i in results] == ["London"]
+    assert [i["pseudo_id"] for i in results] == ["abc"]
 
     # Now jump forwards in time and check that an error is raised
     freezer.move_to("2021-03-01")
@@ -973,6 +1010,36 @@ def test_patients_address_as_of(freezer):
     results = study.to_dicts()
     assert [i["imd"] for i in results] == ["300", "0"]
     assert [i["rural_urban"] for i in results] == ["2", "0"]
+
+
+def test_patients_with_death_recorded_in_primary_care():
+    session = make_session()
+    session.add_all(
+        [
+            Patient(date_of_death=None),
+            Patient(date_of_death="2017-05-06"),
+            Patient(date_of_death="2019-06-07"),
+            Patient(date_of_death="2020-07-08"),
+        ]
+    )
+    session.commit()
+    study = StudyDefinition(
+        population=patients.all(),
+        has_died=patients.with_death_recorded_in_primary_care(),
+        date_of_death=patients.with_death_recorded_in_primary_care(
+            returning="date_of_death", date_format="YYYY-MM-DD"
+        ),
+        died_in_2019=patients.with_death_recorded_in_primary_care(
+            between=["2019-01-01", "2019-12-31"],
+            returning="date_of_death",
+        ),
+    )
+    assert_results(
+        study.to_dicts(),
+        has_died=["0", "1", "1", "1"],
+        date_of_death=["", "2017-05-06", "2019-06-07", "2020-07-08"],
+        died_in_2019=["", "", "2019", ""],
+    )
 
 
 def test_patients_admitted_to_icu():
@@ -1096,15 +1163,45 @@ def test_patients_with_these_codes_on_death_certificate():
     session.add_all(
         [
             # Not dead
-            Patient(),
+            Patient(nhs_no="aaa"),
             # Died after date cutoff
-            Patient(ONSDeath=[ONSDeaths(dod="2021-01-01", icd10u=code)]),
+            Patient(
+                nhs_no="bbb",
+                ONSDeath=[
+                    ONSDeaths(reg_stat_dod=20210101, icd10u=code, upload_date="01/04/2020")
+                ]
+            ),
             # Died of something else
-            Patient(ONSDeath=[ONSDeaths(dod="2020-02-01", icd10u="MI")]),
+            Patient(
+                nhs_no="ccc",
+                ONSDeath=[
+                    ONSDeaths(reg_stat_dod=20200201, icd10u="MI", upload_date="01/04/2020")
+                ]
+            ),
             # Covid underlying cause
-            Patient(ONSDeath=[ONSDeaths(dod="2020-02-01", icd10u=code, icd10014="MI")]),
+            Patient(
+                nhs_no="ddd",
+                ONSDeath=[
+                    ONSDeaths(
+                        reg_stat_dod=20200201,
+                        icd10u=code,
+                        icd10014="MI",
+                        upload_date="01/04/2020",
+                    )
+                ]
+            ),
             # Covid not underlying cause
-            Patient(ONSDeath=[ONSDeaths(dod="2020-03-01", icd10u="MI", icd10014=code)]),
+            Patient(
+                nhs_no="eee",
+                ONSDeath=[
+                    ONSDeaths(
+                        reg_stat_dod=20200301,
+                        icd10u="MI",
+                        icd10014=code,
+                        upload_date="01/04/2020",
+                    )
+                ]
+            ),
         ]
     )
     session.commit()
@@ -1143,11 +1240,20 @@ def test_patients_died_from_any_cause():
     session.add_all(
         [
             # Not dead
-            Patient(),
+            Patient(nhs_no="aaa"),
             # Died after date cutoff
-            Patient(ONSDeath=[ONSDeaths(dod="2021-01-01")]),
+            Patient(
+                nhs_no="bbb",
+                ONSDeath=[ONSDeaths(reg_stat_dod=20210101, upload_date="02/02/2021")]
+            ),
             # Died
-            Patient(ONSDeath=[ONSDeaths(dod="2020-02-01", icd10u="A")]),
+            Patient(
+                nhs_no="ccc",
+                ONSDeath=[
+                    ONSDeaths(reg_stat_dod=20200201, icd10u="A", upload_date="02/02/2020"),
+                    ONSDeaths(reg_stat_dod=20200201, icd10u="A", upload_date="02/02/2021"),
+                ]
+            ),
         ]
     )
     session.commit()
@@ -1585,3 +1691,85 @@ def test_medications_returning_code_with_ignored_days():
     results = study.to_dicts()
     assert [i["most_recent_drug"] for i in results] == ["34343434"]
     assert [i["most_recent_drug_date"] for i in results] == ["2010-01-03"]
+
+
+def test_patients_aggregate_value_of():
+    session = make_session()
+    session.add_all(
+        [
+            Patient(
+                observations=[
+                    Observation(
+                        snomed_concept_id=111, value_pq_1=7, effective_date="2012-01-01"
+                    ),
+                    Observation(
+                        snomed_concept_id=222, value_pq_1=23, effective_date="2018-01-01"
+                    ),
+                ]
+            ),
+            Patient(
+                observations=[
+                    Observation(
+                        snomed_concept_id=111, value_pq_1=18, effective_date="2014-01-01"
+                    ),
+                    Observation(
+                        snomed_concept_id=222, value_pq_1=4, effective_date="2017-01-01"
+                    ),
+                ]
+            ),
+            Patient(
+                observations=[
+                    Observation(
+                        snomed_concept_id=111, value_pq_1=10, effective_date="2015-01-01"
+                    ),
+                ]
+            ),
+            Patient(
+                observations=[
+                    Observation(
+                        snomed_concept_id=222, value_pq_1=8, effective_date="2019-01-01"
+                    ),
+                ]
+            ),
+            Patient(),
+        ]
+    )
+    session.commit()
+    study = StudyDefinition(
+        population=patients.all(),
+        # Values
+        abc_value=patients.with_these_clinical_events(
+            codelist([111], system="snomedct"), returning="numeric_value"
+        ),
+        xyz_value=patients.with_these_clinical_events(
+            codelist([222], system="snomedct"), returning="numeric_value"
+        ),
+        # Dates
+        abc_date=patients.date_of("abc_value"),
+        xyz_date=patients.date_of("xyz_value"),
+        # Aggregates
+        max_value=patients.maximum_of("abc_value", "xyz_value"),
+        min_value=patients.minimum_of("abc_value", "xyz_value"),
+        max_date=patients.maximum_of("abc_date", "xyz_date"),
+        min_date=patients.minimum_of("abc_date", "xyz_date"),
+    )
+    results = study.to_dicts()
+    assert [x["max_value"] for x in results] == ["23.0", "18.0", "10.0", "8.0", "0.0"]
+    assert [x["min_value"] for x in results] == ["7.0", "4.0", "10.0", "8.0", "0.0"]
+    assert [x["max_date"] for x in results] == ["2018", "2017", "2015", "2019", ""]
+    assert [x["min_date"] for x in results] == ["2012", "2014", "2015", "2019", ""]
+    # Test with hidden columns
+    study_with_hidden_columns = StudyDefinition(
+        population=patients.all(),
+        max_value=patients.maximum_of(
+            abc_value=patients.with_these_clinical_events(
+                codelist([111], system="snomedct"), returning="numeric_value"
+            ),
+            xyz_value=patients.with_these_clinical_events(
+                codelist([222], system="snomedct"), returning="numeric_value"
+            ),
+        ),
+    )
+    results = study_with_hidden_columns.to_dicts()
+    assert [x["max_value"] for x in results] == ["23.0", "18.0", "10.0", "8.0", "0.0"]
+    assert "abc_value" not in results[0].keys()

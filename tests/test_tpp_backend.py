@@ -31,6 +31,7 @@ from tests.tpp_backend_setup import (
     APCS,
     APCS_Der,
 )
+from tests.helpers import assert_results
 
 from cohortextractor import (
     StudyDefinition,
@@ -2602,12 +2603,6 @@ def test_patients_admitted_to_hospital():
         first_primary_diagnosis=["", "", "CCCC", "DDDD"],
         last_primary_diagnosis=["", "", "CCCC", "FFFF"],
     )
-
-
-def assert_results(results, **expected_values):
-    for col_name, expected_col_values in expected_values.items():
-        col_values = [row[col_name] for row in results]
-        assert col_values == expected_col_values, f"Unexpected results for {col_name}"
 
 
 def test_temporary_database_happy_path(tmp_path, monkeypatch):

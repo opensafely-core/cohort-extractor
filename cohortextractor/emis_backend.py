@@ -15,6 +15,14 @@ safe_punctation = r"_.-"
 SAFE_CHARS_RE = re.compile(f"^[a-zA-Z0-9{re.escape(safe_punctation)}]+$")
 
 
+PATIENT_TABLE = "patient_all_orgs_v2"
+MEDICATION_TABLE = "medication_all_orgs_v2"
+OBSERVATION_TABLE = "observation_all_orgs_v2"
+ICNARC_TABLE = "icnarc_view"
+ONS_TABLE = "ons_view"
+CPNS_TABLE = "cpns_view"
+
+
 class EMISBackend:
     _db_connection = None
     _current_column_name = None
@@ -22,10 +30,20 @@ class EMISBackend:
     def __init__(self, database_url, covariate_definitions, temporary_database=None):
         self.database_url = database_url
         self.covariate_definitions = covariate_definitions
+        self.postprocess_covariate_definitions()
         self.codelist_tables = []
         self.temp_table_prefix = self.get_temp_table_prefix()
         self.log(f"temp_table_prefix: {self.temp_table_prefix}")
         self.queries = self.get_queries(self.covariate_definitions)
+
+    def postprocess_covariate_definitions(self):
+        """The pseudo_id field is an integer in TPP and a string in EMIS.  It is defined
+        as being an integer in process_covariate_definitions, so we override that here.
+        """
+
+        for name, (query_type, query_args) in self.covariate_definitions.items():
+            if query_args.get("returning") == "pseudo_id":
+                query_args["column_type"] = "str"
 
     def to_csv(self, filename):
         result = self.execute_query()
@@ -93,11 +111,16 @@ class EMISBackend:
                 output_columns[name] = self.get_column_expression(
                     column_type, **query_args
                 )
+            # As do `aggregate_of` columns
+            elif query_type == "aggregate_of":
+                output_columns[name] = self.get_aggregate_expression(
+                    column_type, output_columns, **query_args
+                )
             else:
                 date_format_args = pop_keys_from_dict(query_args, ["date_format"])
                 cols, sql = self.get_query(name, query_type, query_args)
                 table_name = self.make_temp_table_name(name)
-                table_queries[name] = f"CREATE TABLE {table_name} AS {sql}"
+                table_queries[name] = f"CREATE TABLE IF NOT EXISTS {table_name} AS {sql}"
                 # The first column should always be patient_id so we can join on it
                 assert cols[0] == "patient_id"
                 output_columns[name] = self.get_column_expression(
@@ -110,8 +133,8 @@ class EMISBackend:
             primary_table = self.make_temp_table_name("population")
             patient_id_expr = f"{primary_table}.patient_id"
         else:
-            primary_table = "patient_view"
-            patient_id_expr = "patient_view.registration_id"
+            primary_table = PATIENT_TABLE
+            patient_id_expr = f"{PATIENT_TABLE}.registration_id"
         # Insert `patient_id` as the first column
         output_columns = dict(patient_id=patient_id_expr, **output_columns)
         output_columns_str = ",\n          ".join(
@@ -174,7 +197,7 @@ class EMISBackend:
         output_table = self.get_output_table_name(os.environ.get("TEMP_DATABASE_NAME"))
         if output_table:
             self.log(f"Running final query and writing output to '{output_table}'")
-            sql = f"CREATE TABLE {output_table} AS {final_query}"
+            sql = f"CREATE TABLE IF NOT EXISTS {output_table} AS {final_query}"
             cursor.execute(sql)
             self.log(f"Downloading data from '{output_table}'")
             cursor.execute(f"SELECT * FROM {output_table}")
@@ -195,10 +218,12 @@ class EMISBackend:
         return f"{temporary_database}..Output_{timestamp}"
 
     def get_temp_table_prefix(self):
+        if "TEMP_TABLE_PREFIX" in os.environ:
+            return os.environ["TEMP_TABLE_PREFIX"]
         timestamp = datetime.datetime.now(datetime.timezone.utc).strftime(
             "%Y%m%d_%H%M%S"
         )
-        return f"_{timestamp}_{uuid.uuid4().hex}"
+        return f"_{timestamp}_{uuid.uuid4().hex[:4]}"
 
     def make_temp_table_name(self, name):
         return f"{self.temp_table_prefix}_{name}"
@@ -237,7 +262,7 @@ class EMISBackend:
             )
             self.codelist_tables.append(
                 f"""
-                    CREATE TABLE {table_name} AS
+                    CREATE TABLE IF NOT EXISTS {table_name} AS
                     SELECT code, category, {organisation_hash} AS hashed_organisation FROM (
                       VALUES {values}
                     ) AS t (code, category)
@@ -247,7 +272,7 @@ class EMISBackend:
             values = ", ".join(f"({quote(cast(code))})" for code in codelist)
             self.codelist_tables.append(
                 f"""
-                    CREATE TABLE {table_name} AS
+                    CREATE TABLE IF NOT EXISTS {table_name} AS
                     SELECT code, {organisation_hash} AS hashed_organisation FROM (
                       VALUES {values}
                     ) AS t (code)
@@ -270,14 +295,14 @@ class EMISBackend:
               ELSE
                  date_diff('year', date_of_birth, {quoted_date})
               END AS age
-            FROM patient_view
+            FROM {PATIENT_TABLE}
             """,
         )
 
     def patients_sex(self):
         return (
             ["patient_id", "sex"],
-            """
+            f"""
           SELECT
             registration_id AS patient_id,
             hashed_organisation,
@@ -287,7 +312,7 @@ class EMISBackend:
               WHEN 2 THEN 'F'
               ELSE ''
             END AS sex
-          FROM patient_view""",
+          FROM {PATIENT_TABLE}""",
         )
 
     def patients_all(self):
@@ -296,9 +321,9 @@ class EMISBackend:
         """
         return (
             ["patient_id", "is_included"],
-            """
+            f"""
             SELECT registration_id AS patient_id, hashed_organisation, 1 AS is_included
-            FROM patient_view
+            FROM {PATIENT_TABLE}
             """,
         )
 
@@ -353,15 +378,15 @@ class EMISBackend:
         FROM (
           SELECT registration_id, "value_pq_1" AS BMI, effective_date,
           ROW_NUMBER() OVER (PARTITION BY registration_id ORDER BY effective_date DESC) AS rownum
-          FROM observation_view
+          FROM {OBSERVATION_TABLE}
           WHERE snomed_concept_id = {quote(bmi_code)} AND {date_condition}
         ) t
         WHERE t.rownum = 1
         """
 
-        patients_cte = """
+        patients_cte = f"""
            SELECT registration_id, hashed_organisation, date_of_birth
-           FROM patient_view
+           FROM {PATIENT_TABLE}
         """
         weight_codes_sql = codelist_to_sql(weight_codes)
         weights_cte = f"""
@@ -369,7 +394,7 @@ class EMISBackend:
           FROM (
             SELECT registration_id, "value_pq_1" AS weight, effective_date,
             ROW_NUMBER() OVER (PARTITION BY registration_id ORDER BY effective_date DESC) AS rownum
-            FROM observation_view
+            FROM {OBSERVATION_TABLE}
             WHERE snomed_concept_id IN ({weight_codes_sql}) AND {date_condition}
           ) t
           WHERE t.rownum = 1
@@ -389,7 +414,7 @@ class EMISBackend:
           FROM (
             SELECT registration_id, "value_pq_1" AS height, effective_date,
             ROW_NUMBER() OVER (PARTITION BY registration_id ORDER BY effective_date DESC) AS rownum
-            FROM observation_view
+            FROM {OBSERVATION_TABLE}
             WHERE snomed_concept_id IN ({height_codes_sql}) AND {height_date_condition}
           ) t
           WHERE t.rownum = 1
@@ -446,22 +471,22 @@ class EMISBackend:
         SELECT
           days.registration_id AS patient_id,
           days.hashed_organisation,
-          AVG(observation_view."value_pq_1") AS mean_value,
+          AVG({OBSERVATION_TABLE}."value_pq_1") AS mean_value,
           days.date_measured AS date
         FROM (
             SELECT
                 registration_id,
                 hashed_organisation,
                 CAST(MAX(effective_date) AS date) AS date_measured
-            FROM observation_view
+            FROM {OBSERVATION_TABLE}
             WHERE snomed_concept_id IN ({codelist_sql}) AND {date_condition}
             GROUP BY registration_id, hashed_organisation
         ) AS days
-        LEFT JOIN observation_view
+        LEFT JOIN {OBSERVATION_TABLE}
         ON (
-          observation_view.registration_id = days.registration_id
-          AND observation_view.snomed_concept_id IN ({codelist_sql})
-          AND CAST(observation_view.effective_date AS date) = days.date_measured
+          {OBSERVATION_TABLE}.registration_id = days.registration_id
+          AND {OBSERVATION_TABLE}.snomed_concept_id IN ({codelist_sql})
+          AND CAST({OBSERVATION_TABLE}.effective_date AS date) = days.date_measured
         )
         GROUP BY days.registration_id, days.hashed_organisation, days.date_measured
         """
@@ -469,6 +494,14 @@ class EMISBackend:
         if include_date_of_match:
             columns.append("date")
         return columns, sql
+
+    def patients_registered_as_of(self, reference_date):
+        """
+        All patients registed on the given date
+        """
+        return self.patients_registered_with_one_practice_between(
+            reference_date, reference_date
+        )
 
     def patients_registered_with_one_practice_between(self, start_date, end_date):
         """
@@ -478,10 +511,10 @@ class EMISBackend:
             ["patient_id", "is_registered"],
             f"""
             SELECT
-                patient_view.registration_id AS patient_id,
+                {PATIENT_TABLE}.registration_id AS patient_id,
                 hashed_organisation,
                 1 AS is_registered
-            FROM patient_view
+            FROM {PATIENT_TABLE}
             WHERE registered_date <= {quote(start_date)}
               AND (registration_end_date > {quote(end_date)} OR registration_end_date IS NULL)
             """,
@@ -508,10 +541,7 @@ class EMISBackend:
             # Remove unhandled arguments and check they are unused
             assert not kwargs.pop("episode_defined_as", None)
             return self._patients_with_events(
-                "medication_view",
-                "",
-                "snomed_concept_id",
-                **kwargs,
+                MEDICATION_TABLE, "", "snomed_concept_id", **kwargs,
             )
 
     def patients_with_these_clinical_events(self, **kwargs):
@@ -532,10 +562,7 @@ class EMISBackend:
         else:
             assert not kwargs.pop("episode_defined_as", None)
             return self._patients_with_events(
-                "observation_view",
-                "",
-                "snomed_concept_id",
-                **kwargs,
+                OBSERVATION_TABLE, "", "snomed_concept_id", **kwargs,
             )
 
     def _patients_with_events(
@@ -659,7 +686,7 @@ class EMISBackend:
         codelist_table = self.create_codelist_table(codelist)
         date_condition = make_date_filter("effective_date", between)
         not_an_ignored_day_condition = self._none_of_these_codes_occur_on_same_day(
-            "medication_view", ignore_days_where_these_codes_occur
+            MEDICATION_TABLE, ignore_days_where_these_codes_occur
         )
         if episode_defined_as is not None:
             pattern = r"^series of events each <= (\d+) days apart$"
@@ -680,7 +707,7 @@ class EMISBackend:
         FROM (
             SELECT
               registration_id,
-              medication_view.hashed_organisation,
+              {MEDICATION_TABLE}.hashed_organisation,
               CASE
                 WHEN
                   date_diff(
@@ -691,7 +718,7 @@ class EMISBackend:
                 THEN 0
                 ELSE 1
               END AS is_new_episode
-            FROM medication_view
+            FROM {MEDICATION_TABLE}
             INNER JOIN {codelist_table}
             ON snomed_concept_id = {codelist_table}.code
             WHERE {date_condition} AND {not_an_ignored_day_condition}
@@ -711,7 +738,7 @@ class EMISBackend:
         codelist_table = self.create_codelist_table(codelist)
         date_condition = make_date_filter("effective_date", between)
         not_an_ignored_day_condition = self._none_of_these_codes_occur_on_same_day(
-            "observation_view", ignore_days_where_these_codes_occur
+            OBSERVATION_TABLE, ignore_days_where_these_codes_occur
         )
         if episode_defined_as is not None:
             pattern = r"^series of events each <= (\d+) days apart$"
@@ -732,7 +759,7 @@ class EMISBackend:
         FROM (
             SELECT
               registration_id,
-              observation_view.hashed_organisation,
+              {OBSERVATION_TABLE}.hashed_organisation,
               CASE
                 WHEN
                   date_diff(
@@ -743,7 +770,7 @@ class EMISBackend:
                 THEN 0
                 ELSE 1
               END AS is_new_episode
-            FROM observation_view
+            FROM {OBSERVATION_TABLE}
             INNER JOIN {codelist_table}
             ON snomed_concept_id = {codelist_table}.code
             WHERE {date_condition} AND {not_an_ignored_day_condition}
@@ -767,7 +794,7 @@ class EMISBackend:
         codelist_table = self.create_codelist_table(codelist)
         return f"""
         NOT EXISTS (
-          SELECT * FROM observation_view AS sameday
+          SELECT * FROM {OBSERVATION_TABLE} AS sameday
           INNER JOIN {codelist_table}
           ON sameday.snomed_concept_id = {codelist_table}.code
           WHERE
@@ -786,6 +813,8 @@ class EMISBackend:
             column = "msoa"
         elif returning == "nuts1_region_name":
             column = "english_region_name"
+        elif returning == "pseudo_id":
+            column = "hashed_organisation"
         else:
             raise ValueError(f"Unsupported `returning` value: {returning}")
 
@@ -797,8 +826,42 @@ class EMISBackend:
               hashed_organisation,
               {column} AS {returning}
             FROM
-              patient_view
+              {PATIENT_TABLE}
             """,
+        )
+
+    def patients_with_death_recorded_in_primary_care(
+        self,
+        # Set date limits
+        between=None,
+        # Set return type
+        returning="binary_flag",
+    ):
+        if returning == "binary_flag":
+            column = "1"
+        elif returning == "date_of_death":
+            column = "date_of_death"
+        else:
+            raise ValueError(f"Unsupported `returning` value: {returning}")
+        if between is None:
+            between = (None, None)
+        min_date, max_date = between
+        if max_date is None:
+            max_date = "9999-12-31"  # Far enough in the future to catch everyone
+        if min_date is None:
+            min_date = "1900-01-01"  # Far enough in the path to catch everyone
+        return (
+            ["patient_id", returning],
+            f"""
+        SELECT
+          registration_id AS patient_id,
+          hashed_organisation,
+          {column} AS {returning}
+        FROM
+          {PATIENT_TABLE}
+        WHERE
+          date_of_death BETWEEN {quote(min_date)} AND {quote(max_date)}
+        """,
         )
 
     def patients_address_as_of(self, date, returning=None, round_to_nearest=None):
@@ -822,7 +885,7 @@ class EMISBackend:
               hashed_organisation,
               {column} AS {returning}
             FROM
-              patient_view
+              {PATIENT_TABLE}
             """,
         )
 
@@ -869,7 +932,7 @@ class EMISBackend:
               {column_definition} AS {column_name},
               MAX(Ventilator) AS ventilated -- apparently can be 0, 1 or NULL
             FROM
-              icnarc_view
+              {ICNARC_TABLE}
             GROUP BY registration_id, hashed_organisation
             HAVING
               {date_condition} AND SUM(basicdays_respiratorysupport) + SUM(advanceddays_respiratorysupport) >= 1
@@ -886,7 +949,9 @@ class EMISBackend:
         # Set return type
         returning="binary_flag",
     ):
-        date_condition = make_date_filter("dod", between)
+        date_condition = make_date_filter(
+            "date_parse(CAST(o.reg_stat_dod AS VARCHAR), '%Y%m%d')", between
+        )
         if codelist is not None:
             assert codelist.system == "icd10"
             codelist_sql = codelist_to_sql(codelist)
@@ -902,22 +967,30 @@ class EMISBackend:
             column_definition = "1"
             column_name = "died"
         elif returning == "date_of_death":
-            column_definition = "dod"
+            # Yes, we're converting an integer to a string to a timestamp to a date.
+            column_definition = "CAST(date_parse(CAST(o.reg_stat_dod AS VARCHAR), '%Y%m%d') AS date)"
             column_name = "date_of_death"
         elif returning == "underlying_cause_of_death":
-            column_definition = "icd10u"
+            column_definition = "o.icd10u"
             column_name = "underlying_cause_of_death"
         else:
             raise ValueError(f"Unsupported `returning` value: {returning}")
         return (
             ["patient_id", column_name],
+            # ONS_TABLE is updated with each release of data from ONS, so we need to
+            # filter for just the records which match the most recent upload_date
             f"""
             SELECT
-                registration_id as patient_id,
-                hashed_organisation,
+                p.registration_id as patient_id,
+                p.hashed_organisation as hashed_organisation,
                 {column_definition} AS {column_name}
-            FROM ons_view
-            WHERE ({code_conditions}) AND {date_condition}
+            FROM {ONS_TABLE} o
+            JOIN {PATIENT_TABLE} p ON o.pseudonhsnumber = p.nhs_no
+            WHERE ({code_conditions})
+                AND {date_condition}
+                AND date_parse(o.upload_date, '%d/%m/%Y') = (
+                    SELECT MAX(date_parse(upload_date, '%d/%m/%Y')) FROM {ONS_TABLE}
+                )
             """,
         )
 
@@ -959,7 +1032,7 @@ class EMISBackend:
               {column_definition} AS {column_name},
               -- Crude error check so we blow up in the case of inconsistent dates
               1 / CASE WHEN MAX(dateofdeath) = MIN(dateofdeath) THEN 1 ELSE 0 END AS _e
-            FROM cpns_view
+            FROM {CPNS_TABLE}
             WHERE {date_condition}
             GROUP BY registration_id, hashed_organisation
             """,
@@ -1016,6 +1089,57 @@ class EMISBackend:
         if delta.days > max_delta_days:
             msg = f"{self._current_column_name} must be passed a date more recent than {max_delta_days} days in the past"
             raise ValueError(msg)
+
+    def get_aggregate_expression(
+        self, column_type, column_definitions, column_names, aggregate_function
+    ):
+        """Return an expression that is used to find the maximum or minimum value across
+        a number of other given columns.
+
+        We cannot use Table Value Constructors as in the TPP backend (this gives a
+        cryptic error message: "Given correlated subquery is not supported").
+
+        Instead, we use GREATEST() or LEAST(), but we have to be careful to handle
+        correctly any arguments to GREATEST/LEAST that have replaced NULLs.  To do this,
+        we replace any occurences of the default value for the given column_type with
+        the most extreme value possible for the column_type.  (So when finding the
+        maximum, we replace the default value with a small value, and when finding the
+        minimum, with a large value.)
+
+        If all the arguments to GREATEST/LEAST have replaced NULLs, GREATEST/LEAST will
+        return the extreme value, so when that happens, we have to replace this with the
+        default value for the column type.
+
+        This gives us the result we want but it does mean we can't distinguish e.g. a
+        recorded value of 0.0 from a missing value.  This, however, is a general problem
+        with the way we handle NULLs in our system, and so we're not introducing any new
+        difficulty here.  (It's also unlikely to be a problem in practice.)
+        """
+
+        default_value = quote(self.get_default_value_for_type(column_type))
+        function = {"MAX": "GREATEST", "MIN": "LEAST"}[aggregate_function]
+
+        if column_type in ["int", "float"]:
+            extreme_value_lookup = {"MAX": -(2 ** 63), "MIN": 2 ** (63 - 1)}
+            extreme_value = [aggregate_function]
+        elif column_type == "date":
+            extreme_value_lookup = {"MAX": "'0001-01-01'", "MIN": "'9999-12-31'"}
+        else:
+            assert False, column_type
+        extreme_value = extreme_value_lookup[aggregate_function]
+
+        components = ", ".join(
+            f"""
+            CASE WHEN {column_definitions[name]} = {default_value}
+                THEN {extreme_value}
+            ELSE {column_definitions[name]} END"""
+            for name in column_names
+        )
+
+        return f"""
+        CASE WHEN {function}({components}) = {extreme_value}
+            THEN {default_value}
+        ELSE {function}({components}) END"""
 
 
 def codelist_to_sql(codelist):
