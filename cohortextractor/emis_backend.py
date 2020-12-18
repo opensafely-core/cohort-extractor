@@ -37,6 +37,10 @@ class EMISBackend:
         self.queries = self.get_queries(self.covariate_definitions)
 
     def postprocess_covariate_definitions(self):
+        """The pseudo_id field is an integer in TPP and a string in EMIS.  It is defined
+        as being an integer in process_covariate_definitions, so we override that here.
+        """
+
         for name, (query_type, query_args) in self.covariate_definitions.items():
             if query_args.get("returning") == "pseudo_id":
                 query_args["column_type"] = "str"
@@ -973,6 +977,8 @@ class EMISBackend:
             raise ValueError(f"Unsupported `returning` value: {returning}")
         return (
             ["patient_id", column_name],
+            # ONS_TABLE is updated with each release of data from ONS, so we need to
+            # filter for just the records which match the most recent upload_date
             f"""
             SELECT
                 p.registration_id as patient_id,
@@ -1103,6 +1109,11 @@ class EMISBackend:
         If all the arguments to GREATEST/LEAST have replaced NULLs, GREATEST/LEAST will
         return the extreme value, so when that happens, we have to replace this with the
         default value for the column type.
+
+        This gives us the result we want but it does mean we can't distinguish e.g. a
+        recorded value of 0.0 from a missing value.  This, however, is a general problem
+        with the way we handle NULLs in our system, and so we're not introducing any new
+        difficulty here.  (It's also unlikely to be a problem in practice.)
         """
 
         default_value = quote(self.get_default_value_for_type(column_type))
