@@ -16,6 +16,7 @@ def process_covariate_definitions(covariate_definitions):
     )
     covariate_definitions = add_include_date_flags_to_columns(covariate_definitions)
     covariate_definitions = add_column_types(covariate_definitions)
+    check_for_consistent_aggregate_date_formats(covariate_definitions)
     return covariate_definitions
 
 
@@ -387,6 +388,24 @@ class GetColumnType:
                     f"different types (found '{column_type}' and '{other_type}')"
                 )
         return column_type
+
+
+def check_for_consistent_aggregate_date_formats(covariate_definitions):
+    for name, (query_type, query_args) in covariate_definitions.items():
+        if query_type == "aggregate_of" and query_args["column_type"] == "date":
+            date_formats = [
+                (column_name, covariate_definitions[column_name][1]["date_format"])
+                for column_name in query_args["column_names"]
+            ]
+            column_name, target_format = date_formats.pop()
+            for other_column, other_format in date_formats:
+                if other_format != target_format:
+                    raise ValueError(
+                        f"Cannot calculate {query_args['aggregate_function']} over "
+                        f"dates of different format:\n"
+                        f"'{column_name}' has format '{target_format}' and "
+                        f"'{other_column}' has '{other_format}'"
+                    )
 
 
 def pop_keys_from_dict(dictionary, keys):

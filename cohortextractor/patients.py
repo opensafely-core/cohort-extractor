@@ -10,6 +10,7 @@ make it a bit more discoverable.
 # Yes this clashes with the builtin, but we don't need the builtin in this
 # context
 
+
 def all():
     return "all", locals()
 
@@ -116,7 +117,7 @@ def date_of_birth(
 
             dob=patients.date_of_birth(
                 "YYYY-MM",
-                return_expectations={ 
+                return_expectations={
                     "date": {"earliest": "1950-01-01", "latest": "today"},
                     "rate": "uniform",
                 }
@@ -548,7 +549,7 @@ def with_these_clinical_events(
         between: two dates of interest as a list with each date as a string with the format `YYYY-MM-DD`.
             Filters results to between the two dates provided. The default value is `None`.
         returning: a str defining the type of data to be returned. Options include `binary_flag`, `date`,
-            `number_of_matches_in_period`, `number_of_episodes`, `code`, `category`, or `numeric_value`. 
+            `number_of_matches_in_period`, `number_of_episodes`, `code`, `category`, or `numeric_value`.
             The default value is `binary_flag`.
         find_first_match_in_period: a boolean indicating if any returned date, code, category, or numeric value
             should be based on the first match in the period.
@@ -812,7 +813,7 @@ def care_home_status_as_of(
             care_home_type=patients.care_home_status_as_of(
                 "2020-02-01",
                 categorised_as={
-                    "PC": 
+                    "PC":
                     \"\"\"
                       IsPotentialCareHome
                       AND LocationDoesNotRequireNursing='Y'
@@ -1529,7 +1530,7 @@ def household_as_of(reference_date, returning=None, return_expectations=None):
             household_size=patients.household_as_of(
                 "2020-02-01", returning="household_size"
             ),
-        """
+    """
     return "household_as_of", locals()
 
 
@@ -1659,7 +1660,7 @@ def admitted_to_hospital(
     with_these_procedures=None,
     return_expectations=None,
 ):
-    """"
+    """
     Return information about admission to hospital.
 
     See https://github.com/opensafely/cohort-extractor/issues/186 for in-depth discussion and background.

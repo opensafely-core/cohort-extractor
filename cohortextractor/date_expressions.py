@@ -13,16 +13,19 @@ def evaluate_date_expressions_in_covariate_definitions(
     them all with ISO date strings and returning the modified definition
     """
     output = {}
+    evaluate_date_expression = DateExpressionEvaluator(
+        index_date, column_names=covariate_definitions.keys()
+    )
     for name, (query_type, query_args) in covariate_definitions.items():
         query_args = query_args.copy()
         for key in ("date", "reference_date", "start_date", "end_date"):
             if key in query_args:
-                query_args[key] = evaluate_date_expression(query_args[key], index_date)
+                query_args[key] = evaluate_date_expression(query_args[key])
         if "between" in query_args:
             start, end = query_args["between"]
             query_args["between"] = (
-                evaluate_date_expression(start, index_date),
-                evaluate_date_expression(end, index_date),
+                evaluate_date_expression(start),
+                evaluate_date_expression(end),
             )
         if "return_expectations" in query_args:
             return_expectations = evaluate_date_expressions_in_expectations_definition(
@@ -44,36 +47,14 @@ def evaluate_date_expressions_in_expectations_definition(
     if not expectations_definition:
         return expectations_definition
     expectations_definition = copy.deepcopy(expectations_definition)
+    evaluate_date_expression = DateExpressionEvaluator(index_date)
     for key in ("earliest", "latest"):
         try:
             value = expectations_definition["date"][key]
         except (KeyError, TypeError):
             continue
-        expectations_definition["date"][key] = evaluate_date_expression(
-            value, index_date
-        )
+        expectations_definition["date"][key] = evaluate_date_expression(value)
     return expectations_definition
-
-
-def evaluate_date_expression(date_str, index_date):
-    """
-    Return an ISO date string from a date expression (e.g "index_date + 1
-    month") and index date
-
-    `date_str` can also just be an ISO date string to start with, in which case
-    it is validated but not further modified.
-    """
-    if date_str is None:
-        return None
-    parse_expression = DateExpressionEvaluator(index_date)
-    try:
-        return parse_expression(date_str)
-    except UnparseableExpressionError:
-        # If we can't parse it as an expression that we just attempt to
-        # validate it as an ISO date
-        pass
-    validate_date(date_str)
-    return date_str
 
 
 def validate_date(date_str):
@@ -112,15 +93,43 @@ class DateExpressionEvaluator:
 
     regex = create_regex()
 
-    def __init__(self, index_date):
+    def __init__(self, index_date, column_names=()):
         self.index_date = index_date
+        self.column_names = set(column_names)
 
-    def __call__(self, expression_str):
+    def __call__(self, date_str):
+        """
+        Return an ISO date string from a date expression (e.g "index_date + 1
+        month") and index date
+
+        `date_str` can also just be an ISO date string to start with, in which case
+        it is validated but not further modified.
+        """
+        if date_str is None:
+            return None
+        try:
+            return self.parse(date_str)
+        except UnparseableExpressionError:
+            # If we can't parse it as an expression that we just attempt to
+            # validate it as an ISO date
+            pass
+        validate_date(date_str)
+        return date_str
+
+    def parse(self, expression_str):
         match = self.regex.match(expression_str.replace(" ", ""))
         if not match:
             raise UnparseableExpressionError(expression_str)
+        args = match.groupdict()
+        # Date expressions that involve other column names (e.g
+        # "hospital_admission + 6 months") can't be evaluated here as they need
+        # to get transformed into the appropriate SQL queries. So we pass them
+        # through unmodified.
+        if args["name"] in self.column_names:
+            self.validate_expression_arguments(**args)
+            return expression_str
         try:
-            return self.evaluate(**match.groupdict())
+            return self.evaluate(**args)
         except (InvalidExpressionError, InvalidDateError) as e:
             # Add the expression to the error message for easier debugging
             message = f"{e} in: {expression_str}"
@@ -139,6 +148,20 @@ class DateExpressionEvaluator:
             add_units = self.get_method("unit", units)
             date = add_units(date, value)
         return date.isoformat()
+
+    def validate_expression_arguments(
+        self, function, operator, quantity, units, name=None
+    ):
+        """
+        Where a date expression contains a reference to another column we can't
+        evaluate it here, but we can check that the rest of the expression is
+        valid
+        """
+        if function:
+            self.get_method("function", function)
+        if operator:
+            int(quantity)
+            self.get_method("unit", units)
 
     def get_method(self, method_type, name):
         prefix = f"date_{method_type}_"
@@ -207,3 +230,112 @@ def date_replace(date, **kwargs):
     target_day = kwargs.get("day", date.day)
     target_date = f"{target_day} {first_of_month.strftime('%B %Y')}"
     raise InvalidDateError(f"No such date {target_date}")
+
+
+class MSSQLDateFormatter:
+
+    regex = create_regex()
+
+    def __init__(self, column_definitions):
+        self.column_definitions = column_definitions
+
+    def __call__(self, expression_str):
+        match = self.regex.match(expression_str.replace(" ", ""))
+        if not match:
+            raise UnparseableExpressionError(expression_str)
+        try:
+            return self.evaluate(**match.groupdict())
+        except (InvalidExpressionError, InvalidDateError) as e:
+            # Add the expression to the error message for easier debugging
+            message = f"{e} in: {expression_str}"
+            e.args = (message, *e.args[1:])
+            raise e
+
+    def evaluate(self, name, function, operator, quantity, units):
+        try:
+            date_column = self.column_definitions[name]
+        except KeyError:
+            raise InvalidExpressionError(f"Unknown date column: {name}")
+        if date_column.type != "date":
+            raise InvalidExpressionError(f"Column '{name}' is not a date")
+        if date_column.date_format == "YYYY":
+            raise InvalidExpressionError(
+                f"Column '{name}' has a year-only date format 'YYYY' and so can't be "
+                f"used in date expressions"
+            )
+        date_expr = self.get_date_expression(date_column)
+        if function:
+            date_function = self.get_method("function", function)
+            date_expr = date_function(date_expr)
+        if operator:
+            value = int(quantity)
+            if operator == "-":
+                value = -value
+            add_units = self.get_method("unit", units)
+            date_expr = add_units(date_expr, value)
+        return date_expr, name
+
+    def get_date_expression(self, date_column):
+        """
+        In order to use a date column in a query we need to cast it to an
+        actual date, not the string representation of a date which it currently
+        is. In the general case we can do that using `TRY_PARSE` (which, unlike
+        `PARSE`, will give us NULL on an empty string as we want). However,
+        this often ends up producing some convoluted SQL in which we transform
+        a date into a string and do some null handling only to immediately
+        parse it back into a date and reverse the null handling. So we try to
+        pattern match the most obvious cases of this and rewrite them, but fall
+        back to using TRY_PARSE otherwise.
+        """
+        date_format = date_column.date_format
+        date_sql = re.sub(r"\s", "", str(date_column))
+        match = re.match(
+            r"ISNULL\(CONVERT\(VARCHAR\(\d+\),([#\w\.]+),23\),''\)", date_sql
+        )
+        if match:
+            column_ref = match.group(1)
+            if date_format == "YYYY-MM-DD":
+                return column_ref
+            elif date_format == "YYYY-MM":
+                return self.date_function_first_day_of_month(column_ref)
+            else:
+                raise RuntimeError("Should never get here")
+        else:
+            return f"TRY_PARSE({date_column} AS date USING 'en-GB')"
+
+    def get_method(self, method_type, name):
+        prefix = f"date_{method_type}_"
+        try:
+            return getattr(self, f"{prefix}{name}")
+        except AttributeError:
+            methods = [n[len(prefix) :] for n in dir(self) if n.startswith(prefix)]
+            raise InvalidExpressionError(
+                f"Unknown date {method_type} '{name}' "
+                f"(allowed are {', '.join(methods)})"
+            )
+
+    def date_function_first_day_of_month(self, date):
+        return f"DATEADD(DAY, 1, EOMONTH({date}, -1))"
+
+    def date_function_last_day_of_month(self, date):
+        return f"EOMONTH({date})"
+
+    def date_function_first_day_of_year(self, date):
+        return f"DATEFROMPARTS(YEAR({date}), 1, 1)"
+
+    def date_function_last_day_of_year(self, date):
+        return f"DATEFROMPARTS(YEAR({date}), 12, 31)"
+
+    def date_unit_years(self, date, value):
+        return f"DATEADD(YEAR, {value}, {date})"
+
+    def date_unit_months(self, date, value):
+        return f"DATEADD(MONTH, {value}, {date})"
+
+    def date_unit_days(self, date, value):
+        return f"DATEADD(DAY, {value}, {date})"
+
+    # Define the singular units as aliases to the plural
+    date_unit_year = date_unit_years
+    date_unit_month = date_unit_months
+    date_unit_day = date_unit_days
