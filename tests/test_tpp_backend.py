@@ -40,6 +40,7 @@ from cohortextractor import (
 )
 from cohortextractor.mssql_utils import mssql_connection_params_from_url
 from cohortextractor.tpp_backend import quote, AppointmentStatus
+from cohortextractor.date_expressions import InvalidExpressionError
 
 
 @pytest.fixture(autouse=True)
@@ -2911,3 +2912,19 @@ def test_dynamic_index_dates():
         latest_foo_before_bar=["2020-02-01"],
         latest_foo_in_month_after_bar=["2020-04-20"],
     )
+
+
+def test_dynamic_index_dates_with_invalid_expression():
+    with pytest.raises(InvalidExpressionError):
+        StudyDefinition(
+            population=patients.all(),
+            earliest_bar=patients.with_these_clinical_events(
+                codelist(["bar"], system="ctv3"),
+                returning="date",
+                date_format="YYYY-MM-DD",
+            ),
+            latest_foo_in_month_after_bar=patients.with_these_clinical_events(
+                codelist(["foo"], system="ctv3"),
+                on_or_before="last_day_of_month(earliest_bar) + 1 mnth",
+            ),
+        )
