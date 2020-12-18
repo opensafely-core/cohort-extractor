@@ -13,6 +13,7 @@ def presto_connection_from_url(url):
 
 def presto_connection_params_from_url(url):
     parsed = urlparse(url)
+    http_scheme = "https" if parsed.port == 443 else "http"
     parts = parsed.path.strip("/").split("/")
     if len(parts) != 2 or not all(parts) or parsed.scheme != "presto":
         raise ValueError(
@@ -20,6 +21,7 @@ def presto_connection_params_from_url(url):
         )
     catalog, schema = parts
     connection_params = {
+        "http_scheme": http_scheme,
         "host": parsed.hostname,
         "port": parsed.port or 8080,
         "catalog": catalog,
