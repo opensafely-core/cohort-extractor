@@ -36,7 +36,7 @@ def test_date_expression_evaluator_errors():
     with pytest.raises(InvalidDateError, match="No such date 31 February 2020"):
         DateExpressionEvaluator("2020-01-31")("index_date + 1 month")
     expr = DateExpressionEvaluator(
-        index_date="2017-08-19", column_names=["hospital_admission"]
+        index_date="2017-08-19", column_names=["hospital_admission_0"]
     )
     # Unknown columns still raise errors
     with pytest.raises(
@@ -45,4 +45,4 @@ def test_date_expression_evaluator_errors():
         expr("no_such_column + 1 month")
     # Invalid expressions with known columns still raise errors
     with pytest.raises(InvalidExpressionError, match="Unknown date unit"):
-        expr("hospital_admission + 1 mnth")
+        expr("hospital_admission_0 + 1 mnth")
