@@ -77,7 +77,7 @@ class InvalidDateError(ValueError):
 
 
 def create_regex():
-    token = r"[A-Za-z_\-\.]+"
+    token = r"[A-Za-z][A-Za-z0-9_\.]*"
     name = f"(?P<name>{token})"
     function = f"(?P<function>{token})"
     operator = r"(?P<operator> \+ | \-)"
