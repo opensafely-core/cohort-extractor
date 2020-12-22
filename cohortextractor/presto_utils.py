@@ -1,8 +1,10 @@
+import readline  # noqa -- importing this adds readline behaviour to input()
 import time
 from urllib.parse import urlparse, unquote
 
 import prestodb
 import requests
+from tabulate import tabulate
 
 
 def presto_connection_from_url(url):
@@ -138,3 +140,51 @@ class CursorProxy:
 
     def fetchall(self):
         raise RuntimeError("Iterate over cursor to get results")
+
+
+def repl(url):
+    """Run a simple REPL against a Presto database at given URL."""
+
+    conn = presto_connection_from_url(url)
+    cursor = conn.cursor()
+    while read_eval_print(cursor):
+        pass
+
+
+def read_eval_print(cursor):
+    """Read a semicolon-terminated SQL statement, execute it, and print the results.
+    """
+
+    lines = []
+    while True:
+        prompt = "  " if lines else "> "
+        try:
+            line = input(prompt).strip()
+        except (EOFError, KeyboardInterrupt):
+            print()
+            return bool(lines)
+
+        lines.append(line)
+        if line and line[-1] == ";":
+            break
+
+    sql = "\n".join(lines)[:-1]
+    try:
+        cursor.execute(sql)
+    except prestodb.exceptions.PrestoUserError as e:
+        print(e.message)
+        return True
+    headers = [col[0] for col in cursor.description]
+    rows = list(cursor)
+    print()
+    print(tabulate(rows, headers=headers))
+    return True
+
+
+if __name__ == "__main__":
+    import sys
+    if len(sys.argv) != 2:
+        print("Usage: python -m cohortextractor.presto_utils DATABASE_URL")
+        sys.exit(1)
+
+    repl(sys.argv[1])
