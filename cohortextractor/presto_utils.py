@@ -1,19 +1,47 @@
+import os
 import readline  # noqa -- importing this adds readline behaviour to input()
 import time
 from urllib.parse import urlparse, unquote
 
 import prestodb
 import requests
+from requests_pkcs12 import Pkcs12Adapter
 from tabulate import tabulate
 
 
 def presto_connection_from_url(url):
-    return ConnectionProxy(
-        prestodb.dbapi.connect(**presto_connection_params_from_url(url))
+    """Return a connection to Presto instance at given URL."""
+
+    conn_params = presto_connection_params_from_url(url)
+    conn = prestodb.dbapi.connect(**conn_params)
+    if "PFX_PATH" in os.environ:
+        adapt_connection(conn, conn_params)
+
+    return ConnectionProxy(conn)
+
+
+def adapt_connection(conn, conn_params):
+    """Adapt connection to use passphrase-protected PKCS#12 certificate.
+
+    See instructions in opensafely/accessing-emis-data/ for getting a certificate.
+    """
+
+    with open(os.environ["PFX_PASSWORD_PATH"], "rb") as f:
+        pkcs12_password = f.read().strip()
+
+    session = requests.Session()
+    mount_prefix = "{http_scheme}://{host}:{port}".format(**conn_params)
+    mount_adaptor = Pkcs12Adapter(
+        pkcs12_filename=os.environ["PFX_PATH"], pkcs12_password=pkcs12_password,
     )
+    session.mount(mount_prefix, mount_adaptor)
+    session.verify = False
+    conn._http_session = session
 
 
 def presto_connection_params_from_url(url):
+    """Return connection params for given URL."""
+
     parsed = urlparse(url)
     http_scheme = "https" if parsed.port == 443 else "http"
     parts = parsed.path.strip("/").split("/")
@@ -29,14 +57,18 @@ def presto_connection_params_from_url(url):
         "catalog": catalog,
         "schema": schema,
     }
+
     if parsed.username:
         user = unquote(parsed.username)
-        password = unquote(parsed.password)
-        connection_params.update(
-            user=user, auth=prestodb.auth.BasicAuthentication(user, password)
-        )
+        connection_params["user"] = user
+        if parsed.password:
+            password = unquote(parsed.password)
+            connection_params["auth"] = prestodb.auth.BasicAuthentication(
+                user, password
+            )
     else:
         connection_params["user"] = "ignored"
+
     return connection_params
 
 
@@ -183,6 +215,7 @@ def read_eval_print(cursor):
 
 if __name__ == "__main__":
     import sys
+
     if len(sys.argv) != 2:
         print("Usage: python -m cohortextractor.presto_utils DATABASE_URL")
         sys.exit(1)
