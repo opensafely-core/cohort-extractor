@@ -1,6 +1,7 @@
 import os
 import readline  # noqa -- importing this adds readline behaviour to input()
 import time
+from pathlib import Path
 from urllib.parse import urlparse, unquote
 
 import prestodb
@@ -16,6 +17,14 @@ def presto_connection_from_url(url):
     conn = prestodb.dbapi.connect(**conn_params)
     if "PFX_PATH" in os.environ:
         adapt_connection(conn, conn_params)
+
+    if "providerplus.emishealthinsights.co.uk" in url:
+        certs_dir = (
+            Path(__file__).resolve().parent.parent
+            / "certs"
+            / "providerplus.emishealthinsights.co.uk"
+        )
+        session.verify = certs_dir / "2.crt"
 
     return ConnectionProxy(conn)
 
@@ -35,7 +44,6 @@ def adapt_connection(conn, conn_params):
         pkcs12_filename=os.environ["PFX_PATH"], pkcs12_password=pkcs12_password,
     )
     session.mount(mount_prefix, mount_adaptor)
-    session.verify = False
     conn._http_session = session
 
 
