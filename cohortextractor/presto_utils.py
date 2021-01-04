@@ -32,7 +32,8 @@ def presto_connection_from_url(url):
 def adapt_connection(conn, conn_params):
     """Adapt connection to use passphrase-protected PKCS#12 certificate.
 
-    See instructions in opensafely/accessing-emis-data/ for getting a certificate.
+    For instructions for getting a certificate, see
+    https://ebmdatalab.github.io/datalab-team-manual/opensafely/accessing-emis-data/
     """
 
     with open(os.environ["PFX_PASSWORD_PATH"], "rb") as f:
