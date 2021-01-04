@@ -1,6 +1,7 @@
 import collections
 import copy
 import os
+import re
 
 import pandas as pd
 from numpy.random import default_rng
@@ -316,13 +317,30 @@ class StudyDefinition:
             )
 
     def apply_date_filters_from_definition(self, series, between=None, **kwargs):
-        if between and between[0] and between[1]:
-            series = series[(series >= between[0]) & (series <= between[1])]
-        elif between and between[0]:
-            series = series[series >= between[0]]
-        elif between and between[1]:
-            series = series[series <= between[1]]
+        min_date, max_date = self.filter_date_range(between)
+        if min_date and max_date:
+            series = series[(series >= min_date) & (series <= max_date)]
+        elif min_date:
+            series = series[series >= min_date]
+        elif max_date:
+            series = series[series <= max_date]
         return series
+
+    @staticmethod
+    def filter_date_range(between):
+        if not between:
+            return None, None
+        # Filter out "dynamic" date expressions (i.e. date expressions which
+        # refer to the values of other columns). Date expressions which can be
+        # evaluated statically will already have been converted to ISO dates at
+        # this point.  Eventually we want to support evaluating dynamic date
+        # expressions here, but for now we just ignore them.
+        return [
+            value
+            if not isinstance(value, str) or re.match(r"\d\d\d\d-\d\d-\d\d", value)
+            else None
+            for value in between
+        ]
 
     def apply_date_precision_from_definition(self, series, date_format=None, **kwargs):
         if date_format == "YYYY-MM-DD":
