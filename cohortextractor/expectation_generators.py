@@ -105,6 +105,8 @@ def generate(population, **kwargs):
         category_labels = dict(zip(category_ids, ratios.keys()))
         df = df.replace({"category": category_labels})
         df["category"] = df["category"].astype("category")
+        # Add empty string as a category to support missing values
+        df["category"].cat.add_categories(new_categories=[""], inplace=True)
 
     int_ = kwargs.pop("int", None)
     if int_:
@@ -138,10 +140,27 @@ def generate(population, **kwargs):
 
     if match_incidence is not None:
         # Remove rows to match the incidence of the passed-in series
-        df.loc[pd.isnull(match_incidence), :] = None
+        set_empty_values(df, pd.isnull(match_incidence))
     elif not universal:
         # Randomly remove rows to match incidence
-        df.loc[df.sample(n=int((1 - incidence) * population)).index, :] = None
+        set_empty_values(df, df.sample(n=int((1 - incidence) * population)).index)
     if date is None:
         df = df.drop("date", axis=1)
     return df
+
+
+def set_empty_values(df, row_selection):
+    empty_values = {
+        "bool": False,
+        "int": 0,
+        "float": 0.0,
+        # Note this is intentionally `None` rather than `""` because at this
+        # point in the dummy data generation process these are DateTime objects
+        # not ISO strings and we can't mix types in the dataframe. When these
+        # get converted to strings during the CSV generation, the nulls become
+        # empty strings as expected.
+        "date": None,
+        "category": ""
+    }
+    for column in df.columns:
+        df.loc[row_selection, column] = empty_values.get(column, "")
