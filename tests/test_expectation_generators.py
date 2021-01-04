@@ -503,6 +503,42 @@ def test_make_df_from_expectations_returning_date_using_defaults():
     assert result[~pd.isnull(result["asthma_condition"])].min()[0] < "1960-01-01"
 
 
+def test_column_refs_in_date_expressions_do_not_trigger_errors():
+    # Further down the road we want to actually interpret these expressions and
+    # generate appopriate dates, but for now we just need to not blow up when
+    # we encounter them
+    study = StudyDefinition(
+        population=patients.all(),
+        copd_exacerbation=patients.with_these_clinical_events(
+            codelist(["X"], system="ctv3"),
+            between=["2001-12-01", "2002-06-01"],
+            returning="date",
+            return_expectations={
+                "rate": "exponential_increase",
+                "incidence": 0.2,
+                "date": {"earliest": "1990-01-01", "latest": "today"},
+            },
+            find_last_match_in_period=True,
+            date_format="YYYY-MM-DD",
+        ),
+        drug_after_exacerbation=patients.with_these_medications(
+            codelist(["Y"], system="snomed"),
+            between=["copd_exacerbation", "copd_exacerbation + 3 months"],
+            returning="date",
+            return_expectations={
+                "rate": "exponential_increase",
+                "incidence": 0.2,
+                "date": {"earliest": "1990-01-01", "latest": "today"},
+            },
+            find_first_match_in_period=True,
+            date_format="YYYY-MM-DD",
+        ),
+    )
+    population_size = 10000
+    # Just ensure no exception is raised
+    study.make_df_from_expectations(population_size)
+
+
 def test_make_df_from_expectations_with_distribution_and_date():
     study = StudyDefinition(
         population=patients.all(),
