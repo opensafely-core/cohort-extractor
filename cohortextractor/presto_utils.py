@@ -24,7 +24,7 @@ def presto_connection_from_url(url):
             / "certs"
             / "providerplus.emishealthinsights.co.uk"
         )
-        session.verify = certs_dir / "2.crt"
+        conn._http_session.verify = certs_dir / "2.crt"
 
     return ConnectionProxy(conn)
 
