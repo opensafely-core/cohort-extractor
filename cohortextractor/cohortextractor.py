@@ -321,7 +321,9 @@ def _load_csv_for_measures(file, measures):
     dtype = {col: "category" for col in group_by_columns}
     for col in numeric_columns:
         dtype[col] = "float64"
-    df = pandas.read_csv(file, dtype=dtype, usecols=list(dtype.keys()))
+    df = pandas.read_csv(
+        file, dtype=dtype, usecols=list(dtype.keys()), keep_default_na=False
+    )
     df["population"] = 1
     return df
 
