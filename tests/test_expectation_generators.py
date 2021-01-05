@@ -291,7 +291,8 @@ def test_data_generator_float():
         "float": {"distribution": "normal", "mean": 35, "stddev": 10},
     }
     result = generate(population_size, **return_expectations)
-    assert abs(35 - int(result["float"].mean())) < 5
+    nonzero_results = result[result["float"] != 0.0]
+    assert abs(35 - int(nonzero_results["float"].mean())) < 5
 
 
 def test_data_generator_int():
@@ -562,10 +563,7 @@ def test_make_df_from_expectations_with_distribution_and_date():
     assert list(sorted(result.columns)) == ["bmi", "bmi_date_measured"]
 
     # Check that the null-valued rows are aligned with each other
-    assert (
-        result["bmi"][pd.isnull(result["bmi"])].fillna(0)
-        == result["bmi_date_measured"][pd.isnull(result["bmi_date_measured"])].fillna(0)
-    ).all()
+    assert ((result["bmi"] == 0.0) == pd.isnull(result["bmi_date_measured"])).all()
 
 
 def test_make_df_from_expectations_with_mean_recorded_value():
@@ -584,7 +582,8 @@ def test_make_df_from_expectations_with_mean_recorded_value():
     )
     population_size = 10000
     result = study.make_df_from_expectations(population_size)
-    assert abs(35 - int(result["drug_x"].mean())) < 5
+    nonzero_results = result[result["drug_x"] != 0.0]
+    assert abs(35 - int(nonzero_results["drug_x"].mean())) < 5
 
 
 def test_make_df_from_binary_default_outcome():
@@ -599,7 +598,7 @@ def test_make_df_from_binary_default_outcome():
     )
     population_size = 10000
     result = study.make_df_from_expectations(population_size)
-    assert len(result[~pd.isnull(result.died)]) == 0.1 * population_size
+    assert len(result[result.died == True]) == 0.1 * population_size
 
 
 def test_make_df_from_expectations_with_number_of_episodes():
