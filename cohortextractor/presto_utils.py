@@ -18,16 +18,10 @@ def presto_connection_from_url(url):
     if "PFX_PATH" in os.environ:
         adapt_connection(conn, conn_params)
 
-    if (
-        "providerplus.emishealthinsights.co.uk" in url
-        or "directoraccess-cert.emishealthinsights.co.uk" in url
-    ):
-        certs_dir = (
-            Path(__file__).resolve().parent.parent
-            / "certs"
-            / "providerplus.emishealthinsights.co.uk"
-        )
-        conn._http_session.verify = certs_dir / "2.crt"
+    for path in Path(__file__).resolve().parent.parent.glob("certs/*"):
+        if path.parts[-1] in url:
+            conn._http_session.verify = path / "2.crt"
+            break
 
     return ConnectionProxy(conn)
 
