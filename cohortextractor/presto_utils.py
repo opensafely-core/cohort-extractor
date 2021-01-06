@@ -18,7 +18,10 @@ def presto_connection_from_url(url):
     if "PFX_PATH" in os.environ:
         adapt_connection(conn, conn_params)
 
-    if "providerplus.emishealthinsights.co.uk" in url:
+    if (
+        "providerplus.emishealthinsights.co.uk" in url
+        or "directoraccess-cert.emishealthinsights.co.uk" in url
+    ):
         certs_dir = (
             Path(__file__).resolve().parent.parent
             / "certs"
