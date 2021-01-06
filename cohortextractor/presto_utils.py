@@ -1,7 +1,6 @@
 import os
 import readline  # noqa -- importing this adds readline behaviour to input()
 import time
-from pathlib import Path
 from urllib.parse import urlparse, unquote
 
 import prestodb
@@ -18,10 +17,14 @@ def presto_connection_from_url(url):
     if "PFX_PATH" in os.environ:
         adapt_connection(conn, conn_params)
 
-    for path in Path(__file__).resolve().parent.parent.glob("certs/*"):
-        if path.parts[-1] in url:
-            conn._http_session.verify = path / "2.crt"
-            break
+    conn._http_session.verify = False
+
+    # TODO reinstate this
+    # For now, there is no valid certificate for directoraccess-cert.emishealthinsights.co.uk.
+    # for path in Path(__file__).resolve().parent.parent.glob("certs/*"):
+    #     if path.parts[-1] in url:
+    #         conn._http_session.verify = path / "2.crt"
+    #         break
 
     return ConnectionProxy(conn)
 
