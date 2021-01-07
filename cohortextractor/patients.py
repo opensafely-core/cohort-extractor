@@ -1687,7 +1687,7 @@ def admitted_to_hospital(
             only year is less disclosive than a date with day, month and year.
         with_these_diagnoses: icd10 codes to match against any diagnosis
         with_these_primary_diagnoses: icd10 codes to match against the primary diagnosis
-        with_these_procedures: OPCS-4 codes to match against the procedure
+        with_these_procedures: opcs4 codes to match against the procedure
         return_expectations: a dictionary defining the incidence and distribution of expected value
             within the population in question.
 

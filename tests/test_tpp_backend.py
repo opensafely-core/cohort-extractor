@@ -2573,7 +2573,7 @@ def test_patients_admitted_to_hospital():
         with_particular_procedures=patients.admitted_to_hospital(
             on_or_after="2020-02-01",
             returning="number_of_matches_in_period",
-            with_these_procedures=codelist(["YYYC", "YYYD", "YYYE"], "icd10"),
+            with_these_procedures=codelist(["YYYC", "YYYD", "YYYE"], "opcs4"),
         ),
         first_primary_diagnosis=patients.admitted_to_hospital(
             on_or_after="2020-02-01",

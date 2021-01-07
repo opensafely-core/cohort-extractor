@@ -1834,7 +1834,7 @@ class TPPBackend:
             conditions.append("(" + " OR ".join(fragments) + ")")
 
         if with_these_procedures:
-            assert with_these_procedures.system == "icd10"
+            assert with_these_procedures.system == "opcs4"
             fragments = [
                 f"Der_Procedure_All LIKE {pattern}"
                 for pattern in codelist_to_like_patterns(
