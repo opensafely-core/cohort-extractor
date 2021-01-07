@@ -6,6 +6,7 @@ from urllib.parse import urlparse, unquote
 import prestodb
 import requests
 from requests_pkcs12 import Pkcs12Adapter
+from retry import retry
 from tabulate import tabulate
 
 # TODO remove this when certificate verification reinstated
@@ -161,6 +162,7 @@ class CursorProxy:
 
         return getattr(self.cursor, attr)
 
+    @retry(tries=3)
     def execute(self, sql, *args, **kwargs):
         """Execute a query/statement and fetch first batch of results.
 
