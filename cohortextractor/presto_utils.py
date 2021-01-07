@@ -16,6 +16,10 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 LOG_SQL = bool(os.getenv("LOG_SQL"))
 
+# this is for @retry()
+import logging
+logging.basicConfig()
+
 
 def presto_connection_from_url(url):
     """Return a connection to Presto instance at given URL."""
