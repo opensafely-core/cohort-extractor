@@ -693,12 +693,12 @@ def registered_practice_as_of(
 
     Args:
         date: date of interest as a string with the format `YYYY-MM-DD`. Filters results to the given date.
-        returning: a str defining the type of data to be returned. options include `msoa_code`, nuts1_region_name,
+        returning: a str defining the type of data to be returned. options include `msoa`, nuts1_region_name,
              and `stp_code`. The default value is `None`.
         return_expectations: a dict defining the `rate` and the `categories` returned with ratios
 
     Returns:
-        list: of integers representing a scale of `stp_code`, `msoa_code` or `nuts1_region_name`
+        list: of strings
 
     Raises:
         ValueError: if unsupported `returning` argument is provided
@@ -743,13 +743,13 @@ def address_as_of(
     Args:
         date: date of interest as a string with the format `YYYY-MM-DD`. Filters results to the given date.
         returning: a str defining the type of data to be returned. options include `index_of_multiple_deprivation`
-             and `rural_urban_classification`. The default value is `None`.
+            `rural_urban_classification`, and `msoa`. The default value is `None`.
         round_to_nearest: an integer that represents how `index_of_multiple_deprivation` value are rounded.
             Only use when returning is `index_of_multiple_deprivation`
         return_expectations: a dict defining the `rate` and the `categories` returned with ratios
 
     Returns:
-        list: of integers representing a scale of either imd or rural-urban classificaiton
+        list: of integers for `rural_urban_classification` and `index_of_multiple_deprivation`, strings for `msoa`
 
     Raises:
         ValueError: if unsupported `returning` argument is provided
