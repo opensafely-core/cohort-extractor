@@ -13,6 +13,9 @@ import urllib3
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 
+LOG_SQL = bool(os.getenv("LOG_SQL"))
+
+
 def presto_connection_from_url(url):
     """Return a connection to Presto instance at given URL."""
 
@@ -158,7 +161,7 @@ class CursorProxy:
 
         return getattr(self.cursor, attr)
 
-    def execute(self, *args, **kwargs):
+    def execute(self, sql, *args, **kwargs):
         """Execute a query/statement and fetch first batch of results.
 
         This:
@@ -167,7 +170,11 @@ class CursorProxy:
         * populates the .description attribute of the cursor
         """
 
-        self.cursor.execute(*args, **kwargs)
+        if LOG_SQL:
+            print("-" * 80)
+            print(sql)
+
+        self.cursor.execute(sql, *args, **kwargs)
         self._rows = self.cursor.fetchmany()
 
     def __iter__(self):
