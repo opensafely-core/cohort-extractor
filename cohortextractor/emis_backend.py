@@ -188,16 +188,19 @@ class EMISBackend:
         cursor = self.get_db_connection().cursor()
         self.log("Uploading codelists into temporary tables")
         for sql in self.codelist_tables:
+            self.log(sql)
             cursor.execute(sql)
         queries = list(self.queries)
         final_query = queries.pop()[1]
         for name, sql in queries:
             self.log(f"Running query: {name}")
+            self.log(sql)
             cursor.execute(sql)
         output_table = self.get_output_table_name(os.environ.get("TEMP_DATABASE_NAME"))
         if output_table:
             self.log(f"Running final query and writing output to '{output_table}'")
             sql = f"CREATE TABLE IF NOT EXISTS {output_table} AS {final_query}"
+            self.log(sql)
             cursor.execute(sql)
             self.log(f"Downloading data from '{output_table}'")
             cursor.execute(f"SELECT * FROM {output_table}")
@@ -206,6 +209,7 @@ class EMISBackend:
                 "No TEMP_DATABASE_NAME defined in environment, downloading results "
                 "directly without writing to output table"
             )
+            self.log(final_query)
             cursor.execute(final_query)
         return cursor
 
