@@ -6,11 +6,19 @@ from urllib.parse import urlparse, unquote
 import prestodb
 import requests
 from requests_pkcs12 import Pkcs12Adapter
+from retry import retry
 from tabulate import tabulate
 
 # TODO remove this when certificate verification reinstated
 import urllib3
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
+
+LOG_SQL = bool(os.getenv("LOG_SQL"))
+
+# this is for @retry()
+import logging
+logging.basicConfig()
 
 
 def presto_connection_from_url(url):
@@ -158,7 +166,8 @@ class CursorProxy:
 
         return getattr(self.cursor, attr)
 
-    def execute(self, *args, **kwargs):
+    @retry(tries=3)
+    def execute(self, sql, *args, **kwargs):
         """Execute a query/statement and fetch first batch of results.
 
         This:
@@ -167,7 +176,11 @@ class CursorProxy:
         * populates the .description attribute of the cursor
         """
 
-        self.cursor.execute(*args, **kwargs)
+        if LOG_SQL:
+            print("-" * 80)
+            print(sql)
+
+        self.cursor.execute(sql, *args, **kwargs)
         self._rows = self.cursor.fetchmany()
 
     def __iter__(self):
