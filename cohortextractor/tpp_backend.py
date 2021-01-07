@@ -1139,7 +1139,9 @@ class TPPBackend:
     def patients_registered_practice_as_of(self, date, returning=None):
         if returning == "stp_code":
             column = "STPCode"
-        elif returning == "msoa_code":
+        # "msoa" is the correct option here, "msoa_code" is supported for
+        # backwards compatibility
+        elif returning in ("msoa", "msoa_code"):
             column = "MSOACode"
         elif returning == "nuts1_region_name":
             column = "Region"
@@ -1208,6 +1210,8 @@ class TPPBackend:
         elif returning == "rural_urban_classification":
             assert round_to_nearest is None
             column = "RuralUrbanClassificationCode"
+        elif returning == "msoa":
+            column = "MSOACode"
         else:
             raise ValueError(f"Unsupported `returning` value: {returning}")
         date_sql, date_joins = self.get_date_sql("PatientAddress", date)

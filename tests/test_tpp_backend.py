@@ -1007,7 +1007,10 @@ def test_patients_registered_practice_as_of():
     study = StudyDefinition(
         population=patients.all(),
         stp=patients.registered_practice_as_of("2020-01-01", returning="stp_code"),
-        msoa=patients.registered_practice_as_of("2020-01-01", returning="msoa_code"),
+        msoa=patients.registered_practice_as_of("2020-01-01", returning="msoa"),
+        deprecated_msoa=patients.registered_practice_as_of(
+            "2020-01-01", returning="msoa_code"
+        ),
         region=patients.registered_practice_as_of(
             "2020-01-01", returning="nuts1_region_name"
         ),
@@ -1015,11 +1018,14 @@ def test_patients_registered_practice_as_of():
             "2020-01-01", returning="pseudo_id"
         ),
     )
-    results = study.to_dicts()
-    assert [i["stp"] for i in results] == ["789", "123", ""]
-    assert [i["msoa"] for i in results] == ["E0203", "E0201", ""]
-    assert [i["region"] for i in results] == ["London", "East of England", ""]
-    assert [i["pseudo_id"] for i in results] == ["3", "1", "0"]
+    assert_results(
+        study.to_dicts(),
+        stp=["789", "123", ""],
+        msoa=["E0203", "E0201", ""],
+        deprecated_msoa=["E0203", "E0201", ""],
+        region=["London", "East of England", ""],
+        pseudo_id=["3", "1", "0"],
+    )
 
 
 def test_patients_address_as_of():
@@ -1035,24 +1041,28 @@ def test_patients_address_as_of():
                         EndDate="2018-01-01",
                         ImdRankRounded=100,
                         RuralUrbanClassificationCode=1,
+                        MSOACode="S02001286",
                     ),
                     PatientAddress(
                         StartDate="2018-01-01",
                         EndDate="2020-02-01",
                         ImdRankRounded=200,
                         RuralUrbanClassificationCode=1,
+                        MSOACode="S02001286",
                     ),
                     PatientAddress(
                         StartDate="2019-01-01",
                         EndDate="2022-01-01",
                         ImdRankRounded=300,
                         RuralUrbanClassificationCode=2,
+                        MSOACode="E02001286",
                     ),
                     PatientAddress(
                         StartDate="2022-01-01",
                         EndDate="9999-12-31",
                         ImdRankRounded=500,
                         RuralUrbanClassificationCode=3,
+                        MSOACode="S02001286",
                     ),
                 ]
             ),
@@ -1070,7 +1080,7 @@ def test_patients_address_as_of():
                         EndDate="9999-12-31",
                         ImdRankRounded=600,
                         RuralUrbanClassificationCode=4,
-                        MSOACode="E02002346",
+                        MSOACode="S02001286",
                     ),
                 ]
             ),
@@ -1100,9 +1110,13 @@ def test_patients_address_as_of():
         rural_urban=patients.address_as_of(
             "2020-01-01", returning="rural_urban_classification"
         ),
+        msoa=patients.address_as_of("2020-01-01", returning="msoa"),
     )
     assert_results(
-        study.to_dicts(), imd=["300", "600", "0", "0"], rural_urban=["2", "4", "0", "0"]
+        study.to_dicts(),
+        imd=["300", "600", "0", "0"],
+        rural_urban=["2", "4", "0", "0"],
+        msoa=["E02001286", "S02001286", "", ""],
     )
 
 
