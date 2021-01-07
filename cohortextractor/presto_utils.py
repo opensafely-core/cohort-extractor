@@ -8,6 +8,10 @@ import requests
 from requests_pkcs12 import Pkcs12Adapter
 from tabulate import tabulate
 
+# TODO remove this when certificate verification reinstated
+import urllib3
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
 
 def presto_connection_from_url(url):
     """Return a connection to Presto instance at given URL."""
