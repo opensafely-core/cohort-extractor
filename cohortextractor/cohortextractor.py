@@ -700,10 +700,7 @@ def main():
             for action in result:
                 for location in action["output_locations"]:
                     output.add_row(
-                        [
-                            action["status_message"],
-                            location["relative_path"],
-                        ]
+                        [action["status_message"], location["relative_path"]]
                     )
             print(output)
         else:

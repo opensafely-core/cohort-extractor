@@ -160,7 +160,7 @@ def set_empty_values(df, row_selection):
         # get converted to strings during the CSV generation, the nulls become
         # empty strings as expected.
         "date": None,
-        "category": ""
+        "category": "",
     }
     for column in df.columns:
         df.loc[row_selection, column] = empty_values.get(column, "")

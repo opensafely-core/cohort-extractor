@@ -18,9 +18,10 @@ def test_presto_connection_params_from_url_with_auth():
         "schema": "schema",
     }
 
+
 def test_presto_connection_params_from_url_with_port_443():
     url = "presto://host:443/catalog/schema"
-    assert presto_connection_params_from_url(url)== {
+    assert presto_connection_params_from_url(url) == {
         "http_scheme": "https",
         "user": "ignored",
         "host": "host",
@@ -29,9 +30,10 @@ def test_presto_connection_params_from_url_with_port_443():
         "schema": "schema",
     }
 
+
 def test_presto_connection_params_from_url_with_no_port():
     url = "presto://host/catalog/schema"
-    assert presto_connection_params_from_url(url)== {
+    assert presto_connection_params_from_url(url) == {
         "http_scheme": "http",
         "user": "ignored",
         "host": "host",
