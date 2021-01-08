@@ -8,11 +8,10 @@ import uuid
 from .date_expressions import MSSQLDateFormatter
 from .expressions import format_expression
 from .mssql_utils import (
-    mssql_dbapi_connection_from_url,
     mssql_connection_params_from_url,
+    mssql_dbapi_connection_from_url,
     mssql_table_to_csv,
 )
-
 
 # Characters that are safe to interpolate into SQL (see
 # `placeholders_and_params` below)

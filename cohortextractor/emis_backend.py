@@ -8,7 +8,6 @@ from .codelistlib import codelist
 from .expressions import format_expression
 from .presto_utils import presto_connection_from_url
 
-
 # Characters that are safe to interpolate into SQL (see
 # `placeholders_and_params` below)
 safe_punctation = r"_.-"

@@ -1,24 +1,22 @@
 import os
 
-from tests.test_tpp_backend import set_database_url, setup_module, setup_function
-from tests.tpp_backend_setup import (
-    make_session,
-    Patient,
-    RegistrationHistory,
-    Organisation,
-    Vaccination,
-    MedicationIssue,
-    MedicationDictionary,
-    CodedEvent,
-)
-
 from cohortextractor import codelist
-from cohortextractor.mssql_utils import mssql_dbapi_connection_from_url
 from cohortextractor.dashboards.vaccinations_extract import (
     patients_with_ages_and_practices_sql,
     vaccination_events_sql,
 )
-
+from cohortextractor.mssql_utils import mssql_dbapi_connection_from_url
+from tests.test_tpp_backend import set_database_url, setup_function, setup_module
+from tests.tpp_backend_setup import (
+    CodedEvent,
+    MedicationDictionary,
+    MedicationIssue,
+    Organisation,
+    Patient,
+    RegistrationHistory,
+    Vaccination,
+    make_session,
+)
 
 # Reference these imported functions to keep pyflakes happy and to make it
 # clear these are functional pytest fixtures, not stray imports

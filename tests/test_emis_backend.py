@@ -4,23 +4,19 @@ import tempfile
 
 import pytest
 
-from tests.emis_backend_setup import make_database, make_session
+from cohortextractor import StudyDefinition, codelist, patients
+from cohortextractor.emis_backend import quote
 from tests.emis_backend_setup import (
-    Observation,
-    Medication,
-    Patient,
-    ICNARC,
-    ONSDeaths,
     CPNS,
+    ICNARC,
+    Medication,
+    Observation,
+    ONSDeaths,
+    Patient,
+    make_database,
+    make_session,
 )
 from tests.helpers import assert_results
-
-from cohortextractor import (
-    StudyDefinition,
-    patients,
-    codelist,
-)
-from cohortextractor.emis_backend import quote
 
 
 @pytest.fixture(autouse=True)

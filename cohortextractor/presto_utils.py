@@ -1,17 +1,17 @@
-import os
 import logging
+import os
 import readline  # noqa -- importing this adds readline behaviour to input()
 import time
-from urllib.parse import urlparse, unquote
+from urllib.parse import unquote, urlparse
 
 import prestodb
 import requests
-from requests_pkcs12 import Pkcs12Adapter
-from retry import retry
-from tabulate import tabulate
 
 # TODO remove this when certificate verification reinstated
 import urllib3
+from requests_pkcs12 import Pkcs12Adapter
+from retry import retry
+from tabulate import tabulate
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 

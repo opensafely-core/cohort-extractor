@@ -1,46 +1,42 @@
 import csv
 import glob
-from unittest.mock import patch
 import os
 import subprocess
+from unittest.mock import patch
 
 import pytest
 
-from tests.tpp_backend_setup import make_database, make_session
+from cohortextractor import StudyDefinition, codelist, patients
+from cohortextractor.date_expressions import InvalidExpressionError
+from cohortextractor.mssql_utils import mssql_connection_params_from_url
+from cohortextractor.tpp_backend import AppointmentStatus, quote
+from tests.helpers import assert_results
 from tests.tpp_backend_setup import (
+    APCS,
+    CPNS,
+    EC,
+    ICNARC,
+    APCS_Der,
     Appointment,
     CodedEvent,
-    MedicationIssue,
-    MedicationDictionary,
-    Patient,
-    RegistrationHistory,
-    Organisation,
-    PatientAddress,
-    ICNARC,
-    ONSDeaths,
-    CPNS,
-    Vaccination,
-    VaccinationReference,
-    SGSS_Positive,
-    SGSS_Negative,
-    PotentialCareHomeAddress,
+    EC_Diagnosis,
     Household,
     HouseholdMember,
-    EC,
-    EC_Diagnosis,
-    APCS,
-    APCS_Der,
+    MedicationDictionary,
+    MedicationIssue,
+    ONSDeaths,
+    Organisation,
+    Patient,
+    PatientAddress,
+    PotentialCareHomeAddress,
+    RegistrationHistory,
+    SGSS_Negative,
+    SGSS_Positive,
+    Vaccination,
+    VaccinationReference,
+    make_database,
+    make_session,
 )
-from tests.helpers import assert_results
-
-from cohortextractor import (
-    StudyDefinition,
-    patients,
-    codelist,
-)
-from cohortextractor.mssql_utils import mssql_connection_params_from_url
-from cohortextractor.tpp_backend import quote, AppointmentStatus
-from cohortextractor.date_expressions import InvalidExpressionError
 
 
 @pytest.fixture(autouse=True)

@@ -1,20 +1,18 @@
 import csv
 
-from tests.test_tpp_backend import set_database_url, setup_module, setup_function
-from tests.tpp_backend_setup import (
-    make_session,
-    Patient,
-    RegistrationHistory,
-    Organisation,
-    Vaccination,
-    MedicationIssue,
-    MedicationDictionary,
-    CodedEvent,
-)
-
 from cohortextractor import codelist
 from cohortextractor.dashboards.vaccinations import VaccinationsStudyDefinition
-
+from tests.test_tpp_backend import set_database_url, setup_function, setup_module
+from tests.tpp_backend_setup import (
+    CodedEvent,
+    MedicationDictionary,
+    MedicationIssue,
+    Organisation,
+    Patient,
+    RegistrationHistory,
+    Vaccination,
+    make_session,
+)
 
 # Reference these imported functions to keep pyflakes happy and to make it
 # clear these are functional pytest fixtures, not stray imports

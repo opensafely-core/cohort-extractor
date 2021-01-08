@@ -1,16 +1,17 @@
 import csv
 import datetime
-from datetime import timedelta
 import os
 import random
 import tempfile
+from datetime import timedelta
 
 from cohortextractor.mssql_utils import mssql_dbapi_connection_from_url
+
+from .vaccinations_combine import add_patient_vaccination_dates
 from .vaccinations_extract import (
     patients_with_ages_and_practices_sql,
     vaccination_events_sql,
 )
-from .vaccinations_combine import add_patient_vaccination_dates
 
 
 class VaccinationsStudyDefinition:

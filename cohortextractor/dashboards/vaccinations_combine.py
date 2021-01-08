@@ -1,6 +1,6 @@
-from collections import defaultdict
 import datetime
 import itertools
+from collections import defaultdict
 
 
 def add_patient_vaccination_dates(patients, vaccination_events, washout_period=0):

@@ -1,11 +1,9 @@
-from datetime import datetime
-from scipy.stats import expon
-from scipy.stats import rv_discrete
-from scipy.stats import norm
-from scipy.stats import uniform
-import pandas as pd
-import numpy as np
 import os
+from datetime import datetime
+
+import numpy as np
+import pandas as pd
+from scipy.stats import expon, norm, rv_discrete, uniform
 
 
 def generate_ages(population, max_age=110):

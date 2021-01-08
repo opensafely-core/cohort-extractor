@@ -1,12 +1,10 @@
-import pytest
-
-import pandas as pd
-import numpy as np
 from math import isclose
 
-from cohortextractor import StudyDefinition
-from cohortextractor import patients
-from cohortextractor import codelist
+import numpy as np
+import pandas as pd
+import pytest
+
+from cohortextractor import StudyDefinition, codelist, patients
 from cohortextractor.expectation_generators import generate
 
 

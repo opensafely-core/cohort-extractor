@@ -1,12 +1,11 @@
 import csv
 import re
 import time
-from urllib.parse import urlparse, unquote
 import warnings
+from urllib.parse import unquote, urlparse
 
 import sqlalchemy
 from sqlalchemy.engine.url import URL
-
 
 # Some drivers warn about the use of features marked "optional" in the DB-ABI
 # spec, using a standardised set of warnings. See:

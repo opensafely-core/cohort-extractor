@@ -15,19 +15,18 @@ import time
 import uuid
 
 import sqlalchemy
-from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy import (
+    BigInteger,
     Column,
-    Integer,
-    String,
+    Date,
     DateTime,
     Float,
-    Date,
-    BigInteger,
+    ForeignKey,
+    Integer,
+    String,
 )
-from sqlalchemy import ForeignKey
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.orm import relationship
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import relationship, sessionmaker
 
 from cohortextractor.emis_backend import (
     CPNS_TABLE,

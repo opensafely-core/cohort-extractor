@@ -1,8 +1,9 @@
-from tinynetrc import Netrc
 import getpass
 import os
-import requests
 import subprocess
+
+import requests
+from tinynetrc import Netrc
 
 JOB_SERVER = "jobs.opensafely.org"
 ENDPOINT = f"https://{JOB_SERVER}/jobs/"

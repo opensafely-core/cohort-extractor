@@ -2,8 +2,8 @@ import pytest
 
 from cohortextractor.codelistlib import (
     codelist,
-    filter_codes_by_category,
     combine_codelists,
+    filter_codes_by_category,
 )
 
 

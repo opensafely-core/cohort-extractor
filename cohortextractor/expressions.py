@@ -4,7 +4,6 @@ import sqlite3
 import sqlparse
 from sqlparse import tokens as ttypes
 
-
 IGNORE = object()
 
 SAFE_CHARS_RE = re.compile(r"^[a-zA-Z0-9_]+$")

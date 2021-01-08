@@ -1,6 +1,6 @@
 import pytest
 
-from cohortextractor.expressions import format_expression, InvalidExpressionError
+from cohortextractor.expressions import InvalidExpressionError, format_expression
 
 
 def test_basic_expression_rewritting():
