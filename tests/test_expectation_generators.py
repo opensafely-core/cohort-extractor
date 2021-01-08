@@ -596,7 +596,7 @@ def test_make_df_from_binary_default_outcome():
     )
     population_size = 10000
     result = study.make_df_from_expectations(population_size)
-    assert len(result[result.died]) == 0.1 * population_size
+    assert len(result[result.died == 1]) == 0.1 * population_size
 
 
 def test_make_df_from_expectations_with_number_of_episodes():

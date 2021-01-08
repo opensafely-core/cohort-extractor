@@ -132,7 +132,7 @@ def generate(population, **kwargs):
 
     bool_ = kwargs.pop("bool", None)
     if bool_:
-        df["bool"] = True
+        df["bool"] = 1
 
     assert not kwargs, f"Encountered unexpected arguments: {kwargs}"
 
@@ -149,7 +149,7 @@ def generate(population, **kwargs):
 
 def set_empty_values(df, row_selection):
     empty_values = {
-        "bool": False,
+        "bool": 0,
         "int": 0,
         "float": 0.0,
         # Note this is intentionally `None` rather than `""` because at this
