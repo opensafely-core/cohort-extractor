@@ -22,15 +22,12 @@ from sqlalchemy import (
     String,
     DateTime,
     Float,
-    NVARCHAR,
     Date,
     BigInteger,
 )
 from sqlalchemy import ForeignKey
-from sqlalchemy import Table, MetaData
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.orm import relationship
-from sqlalchemy.orm import mapper
 
 from cohortextractor.emis_backend import (
     CPNS_TABLE,

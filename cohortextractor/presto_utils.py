@@ -1,4 +1,5 @@
 import os
+import logging
 import readline  # noqa -- importing this adds readline behaviour to input()
 import time
 from urllib.parse import urlparse, unquote
@@ -18,8 +19,6 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 LOG_SQL = bool(os.getenv("LOG_SQL"))
 
 # this is for @retry()
-import logging
-
 logging.basicConfig()
 
 

@@ -1,6 +1,5 @@
 import csv
 import os
-import subprocess
 import tempfile
 
 import pytest
@@ -22,7 +21,6 @@ from cohortextractor import (
     codelist,
 )
 from cohortextractor.emis_backend import quote
-from cohortextractor.presto_utils import presto_connection_params_from_url
 
 
 @pytest.fixture(autouse=True)

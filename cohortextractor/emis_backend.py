@@ -359,7 +359,7 @@ class EMISBackend:
         date_condition = make_date_filter("effective_date", between)
 
         # TODO these codes need validating
-        bmi_code = 301331008  #  Finding of body mass index (finding)
+        bmi_code = 301331008  # Finding of body mass index (finding)
         weight_codes = codelist(
             [
                 "27113001",  # Body weight (observable entity)
