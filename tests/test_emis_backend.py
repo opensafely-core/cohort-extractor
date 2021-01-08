@@ -1,28 +1,22 @@
 import csv
 import os
-import subprocess
 import tempfile
 
 import pytest
 
-from tests.emis_backend_setup import make_database, make_session
+from cohortextractor import StudyDefinition, codelist, patients
+from cohortextractor.emis_backend import quote
 from tests.emis_backend_setup import (
-    Observation,
-    Medication,
-    Patient,
-    ICNARC,
-    ONSDeaths,
     CPNS,
+    ICNARC,
+    Medication,
+    Observation,
+    ONSDeaths,
+    Patient,
+    make_database,
+    make_session,
 )
 from tests.helpers import assert_results
-
-from cohortextractor import (
-    StudyDefinition,
-    patients,
-    codelist,
-)
-from cohortextractor.emis_backend import quote
-from cohortextractor.presto_utils import presto_connection_params_from_url
 
 
 @pytest.fixture(autouse=True)
@@ -1168,15 +1162,19 @@ def test_patients_with_these_codes_on_death_certificate():
             Patient(
                 nhs_no="bbb",
                 ONSDeath=[
-                    ONSDeaths(reg_stat_dod=20210101, icd10u=code, upload_date="01/04/2020")
-                ]
+                    ONSDeaths(
+                        reg_stat_dod=20210101, icd10u=code, upload_date="01/04/2020"
+                    )
+                ],
             ),
             # Died of something else
             Patient(
                 nhs_no="ccc",
                 ONSDeath=[
-                    ONSDeaths(reg_stat_dod=20200201, icd10u="MI", upload_date="01/04/2020")
-                ]
+                    ONSDeaths(
+                        reg_stat_dod=20200201, icd10u="MI", upload_date="01/04/2020"
+                    )
+                ],
             ),
             # Covid underlying cause
             Patient(
@@ -1188,7 +1186,7 @@ def test_patients_with_these_codes_on_death_certificate():
                         icd10014="MI",
                         upload_date="01/04/2020",
                     )
-                ]
+                ],
             ),
             # Covid not underlying cause
             Patient(
@@ -1200,7 +1198,7 @@ def test_patients_with_these_codes_on_death_certificate():
                         icd10014=code,
                         upload_date="01/04/2020",
                     )
-                ]
+                ],
             ),
         ]
     )
@@ -1244,15 +1242,19 @@ def test_patients_died_from_any_cause():
             # Died after date cutoff
             Patient(
                 nhs_no="bbb",
-                ONSDeath=[ONSDeaths(reg_stat_dod=20210101, upload_date="02/02/2021")]
+                ONSDeath=[ONSDeaths(reg_stat_dod=20210101, upload_date="02/02/2021")],
             ),
             # Died
             Patient(
                 nhs_no="ccc",
                 ONSDeath=[
-                    ONSDeaths(reg_stat_dod=20200201, icd10u="A", upload_date="02/02/2020"),
-                    ONSDeaths(reg_stat_dod=20200201, icd10u="A", upload_date="02/02/2021"),
-                ]
+                    ONSDeaths(
+                        reg_stat_dod=20200201, icd10u="A", upload_date="02/02/2020"
+                    ),
+                    ONSDeaths(
+                        reg_stat_dod=20200201, icd10u="A", upload_date="02/02/2021"
+                    ),
+                ],
             ),
         ]
     )
@@ -1704,14 +1706,18 @@ def test_patients_aggregate_value_of():
                         snomed_concept_id=111, value_pq_1=7, effective_date="2012-01-01"
                     ),
                     Observation(
-                        snomed_concept_id=222, value_pq_1=23, effective_date="2018-01-01"
+                        snomed_concept_id=222,
+                        value_pq_1=23,
+                        effective_date="2018-01-01",
                     ),
                 ]
             ),
             Patient(
                 observations=[
                     Observation(
-                        snomed_concept_id=111, value_pq_1=18, effective_date="2014-01-01"
+                        snomed_concept_id=111,
+                        value_pq_1=18,
+                        effective_date="2014-01-01",
                     ),
                     Observation(
                         snomed_concept_id=222, value_pq_1=4, effective_date="2017-01-01"
@@ -1721,7 +1727,9 @@ def test_patients_aggregate_value_of():
             Patient(
                 observations=[
                     Observation(
-                        snomed_concept_id=111, value_pq_1=10, effective_date="2015-01-01"
+                        snomed_concept_id=111,
+                        value_pq_1=10,
+                        effective_date="2015-01-01",
                     ),
                 ]
             ),

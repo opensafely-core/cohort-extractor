@@ -1,40 +1,82 @@
 name: Tests
 
 on: [push]
+
 env:
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
 jobs:
-  test_job:
+  install:
+    name: Install and cache dependencies
     runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-python@v2
+        with:
+          python-version: "3.7"
+      - name: Install
+        run: |
+          set -xe
+          python -m pip install --upgrade pip
+          python -m venv venv
+          venv/bin/pip install --progress-bar=off --requirement requirements.txt
+      - name: Cache
+        uses: actions/cache@v2
+        with:
+          path: ${{ github.workspace }}/venv
+          key: venv-${{ github.ref }}-${{ hashFiles('requirements.txt') }}
+
+  check:
+    name: Check formatting
+    needs: install
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-python@v2
+        with:
+          python-version: "3.7"
+      - uses: actions/cache@v2
+        with:
+          path: ${{ github.workspace }}/venv
+          key: venv-${{ github.ref }}-${{ hashFiles('requirements.txt') }}
+      - name: Run all pre-commit checks
+        run: |
+          source ${{ github.workspace }}/venv/bin/activate
+          pre-commit run --all-files
+
+  test:
     name: Run test suite
-    steps:
-    - name: Checkout
-      uses: actions/checkout@v1
-    - name: Set up Python 3.7
-      uses: actions/setup-python@v1
-      with:
-        python-version: 3.7
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install -r requirements.txt
-    - name: Start SQL Server and Presto instances for the tests
-      run: docker-compose up -d mssql presto
-    - name: Run actual tests
-      run: PYTHONPATH=. pytest tests/
-  test-package-build:
+    needs: install
     runs-on: ubuntu-latest
-    name: Test we can build PyPI package
+
     steps:
-    - name: Checkout
-      uses: actions/checkout@v1
-    - name: Set up Python 3.7
-      uses: actions/setup-python@v1
+      - uses: actions/checkout@v2
+      - uses: actions/setup-python@v2
+        with:
+          python-version: "3.7"
+      - uses: actions/cache@v2
+        with:
+          path: ${{ github.workspace }}/venv
+          key: venv-${{ github.ref }}-${{ hashFiles('requirements.txt') }}
+      - name: Start SQL Server and Presto instances for the tests
+        run: docker-compose up -d mssql presto
+      - name: Run tests
+        run: |
+          source ${{ github.workspace }}/venv/bin/activate
+          PYTHONPATH=. pytest tests/
+
+  build:
+    name: Test we can build PyPI package
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+    - uses: actions/setup-python@v2
       with:
-        python-version: 3.7
+        python-version: "3.7"
     - name: Install wheel package
-      run: |
-        pip install wheel
+      run: pip install wheel
     - name: Build package
-      run: |
-        python setup.py sdist bdist_wheel
+      run: python setup.py sdist bdist_wheel

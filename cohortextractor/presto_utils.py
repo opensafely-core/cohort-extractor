@@ -1,23 +1,24 @@
+import logging
 import os
 import readline  # noqa -- importing this adds readline behaviour to input()
 import time
-from urllib.parse import urlparse, unquote
+from urllib.parse import unquote, urlparse
 
 import prestodb
 import requests
+
+# TODO remove this when certificate verification reinstated
+import urllib3
 from requests_pkcs12 import Pkcs12Adapter
 from retry import retry
 from tabulate import tabulate
 
-# TODO remove this when certificate verification reinstated
-import urllib3
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 
 LOG_SQL = bool(os.getenv("LOG_SQL"))
 
 # this is for @retry()
-import logging
 logging.basicConfig()
 
 
@@ -54,7 +55,8 @@ def adapt_connection(conn, conn_params):
     session = requests.Session()
     mount_prefix = "{http_scheme}://{host}:{port}".format(**conn_params)
     mount_adaptor = Pkcs12Adapter(
-        pkcs12_filename=os.environ["PFX_PATH"], pkcs12_password=pkcs12_password,
+        pkcs12_filename=os.environ["PFX_PATH"],
+        pkcs12_password=pkcs12_password,
     )
     session.mount(mount_prefix, mount_adaptor)
     conn._http_session = session
@@ -210,8 +212,7 @@ def repl(url):
 
 
 def read_eval_print(cursor):
-    """Read a semicolon-terminated SQL statement, execute it, and print the results.
-    """
+    """Read a semicolon-terminated SQL statement, execute it, and print the results."""
 
     lines = []
     while True:

@@ -8,7 +8,6 @@ from .codelistlib import codelist
 from .expressions import format_expression
 from .presto_utils import presto_connection_from_url
 
-
 # Characters that are safe to interpolate into SQL (see
 # `placeholders_and_params` below)
 safe_punctation = r"_.-"
@@ -120,7 +119,9 @@ class EMISBackend:
                 date_format_args = pop_keys_from_dict(query_args, ["date_format"])
                 cols, sql = self.get_query(name, query_type, query_args)
                 table_name = self.make_temp_table_name(name)
-                table_queries[name] = f"CREATE TABLE IF NOT EXISTS {table_name} AS {sql}"
+                table_queries[
+                    name
+                ] = f"CREATE TABLE IF NOT EXISTS {table_name} AS {sql}"
                 # The first column should always be patient_id so we can join on it
                 assert cols[0] == "patient_id"
                 output_columns[name] = self.get_column_expression(
@@ -357,7 +358,7 @@ class EMISBackend:
         date_condition = make_date_filter("effective_date", between)
 
         # TODO these codes need validating
-        bmi_code = 301331008  #  Finding of body mass index (finding)
+        bmi_code = 301331008  # Finding of body mass index (finding)
         weight_codes = codelist(
             [
                 "27113001",  # Body weight (observable entity)
@@ -541,7 +542,10 @@ class EMISBackend:
             # Remove unhandled arguments and check they are unused
             assert not kwargs.pop("episode_defined_as", None)
             return self._patients_with_events(
-                MEDICATION_TABLE, "", "snomed_concept_id", **kwargs,
+                MEDICATION_TABLE,
+                "",
+                "snomed_concept_id",
+                **kwargs,
             )
 
     def patients_with_these_clinical_events(self, **kwargs):
@@ -562,7 +566,10 @@ class EMISBackend:
         else:
             assert not kwargs.pop("episode_defined_as", None)
             return self._patients_with_events(
-                OBSERVATION_TABLE, "", "snomed_concept_id", **kwargs,
+                OBSERVATION_TABLE,
+                "",
+                "snomed_concept_id",
+                **kwargs,
             )
 
     def _patients_with_events(
@@ -968,7 +975,9 @@ class EMISBackend:
             column_name = "died"
         elif returning == "date_of_death":
             # Yes, we're converting an integer to a string to a timestamp to a date.
-            column_definition = "CAST(date_parse(CAST(o.reg_stat_dod AS VARCHAR), '%Y%m%d') AS date)"
+            column_definition = (
+                "CAST(date_parse(CAST(o.reg_stat_dod AS VARCHAR), '%Y%m%d') AS date)"
+            )
             column_name = "date_of_death"
         elif returning == "underlying_cause_of_death":
             column_definition = "o.icd10u"

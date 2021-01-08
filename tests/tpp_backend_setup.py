@@ -2,14 +2,21 @@ import os
 import time
 
 import sqlalchemy
+from sqlalchemy import (
+    NVARCHAR,
+    Boolean,
+    Column,
+    Date,
+    DateTime,
+    Float,
+    ForeignKey,
+    Integer,
+    String,
+)
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy import Column, Integer, String, DateTime, Float, NVARCHAR, Date, Boolean
-from sqlalchemy import ForeignKey
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import relationship, sessionmaker
 
 from cohortextractor.mssql_utils import mssql_sqlalchemy_engine_from_url
-
 
 Base = declarative_base()
 

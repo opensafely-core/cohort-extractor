@@ -1,6 +1,6 @@
-from collections import defaultdict
 import datetime
 import itertools
+from collections import defaultdict
 
 
 def add_patient_vaccination_dates(patients, vaccination_events, washout_period=0):
@@ -75,7 +75,7 @@ def group_vaccination_events_by_patient(vaccination_events):
             ],
         ]
     """
-    get_patient_id = lambda row: row["patient_id"]
+    get_patient_id = lambda row: row["patient_id"]  # noqa
     for patient_id, group in itertools.groupby(vaccination_events, key=get_patient_id):
         vaccine_dates = defaultdict(list)
         for row in group:

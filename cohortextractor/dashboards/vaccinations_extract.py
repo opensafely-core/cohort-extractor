@@ -1,4 +1,4 @@
-from cohortextractor.tpp_backend import quote, codelist_to_sql
+from cohortextractor.tpp_backend import codelist_to_sql, quote
 
 
 def patients_with_ages_and_practices_sql(date_of_birth_range, age_thresholds):

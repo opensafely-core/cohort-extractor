@@ -1,9 +1,9 @@
 from cohortextractor import (
-    StudyDefinition,
     Measure,
-    patients,
+    StudyDefinition,
     codelist,
     codelist_from_csv,
+    patients,
 )
 
 chronic_cardiac_disease_codes = codelist_from_csv(

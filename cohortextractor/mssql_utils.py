@@ -1,12 +1,11 @@
 import csv
 import re
 import time
-from urllib.parse import urlparse, unquote
 import warnings
+from urllib.parse import unquote, urlparse
 
 import sqlalchemy
 from sqlalchemy.engine.url import URL
-
 
 # Some drivers warn about the use of features marked "optional" in the DB-ABI
 # spec, using a standardised set of warnings. See:
@@ -113,7 +112,7 @@ def mssql_table_to_csv(
     assuming `retries` is greater than zero.
     """
     if row_callback is None:
-        row_callback = lambda x: None
+        row_callback = lambda x: None  # noqa
 
     def fetch_batch(min_key=None):
         return _fetch_batch_with_retries(

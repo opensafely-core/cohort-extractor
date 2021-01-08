@@ -4,33 +4,34 @@
 start a notebook, open a web browser on the correct port, and handle
 shutdowns gracefully
 """
-import cohortextractor
-from collections import defaultdict
+import base64
 import csv
+import datetime
 import glob
-import logging
 import importlib
+import logging
 import os
 import re
-import requests
 import sys
-
-import base64
-from io import BytesIO
 from argparse import ArgumentParser
-from matplotlib import pyplot as plt
+from collections import defaultdict
+from io import BytesIO
+
 import numpy as np
 import pandas
-from pandas.api.types import is_categorical_dtype
-from pandas.api.types import is_bool_dtype
-from pandas.api.types import is_datetime64_dtype
-from pandas.api.types import is_numeric_dtype
-import yaml
-
-import datetime
+import requests
 import seaborn as sns
+import yaml
+from matplotlib import pyplot as plt
+from pandas.api.types import (
+    is_bool_dtype,
+    is_categorical_dtype,
+    is_datetime64_dtype,
+    is_numeric_dtype,
+)
 from prettytable import PrettyTable
 
+import cohortextractor
 from cohortextractor.localrun import localrun
 
 notebook_tag = "opencorona-research"
@@ -700,10 +701,7 @@ def main():
             for action in result:
                 for location in action["output_locations"]:
                     output.add_row(
-                        [
-                            action["status_message"],
-                            location["relative_path"],
-                        ]
+                        [action["status_message"], location["relative_path"]]
                     )
             print(output)
         else:

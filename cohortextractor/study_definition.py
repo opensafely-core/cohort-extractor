@@ -6,13 +6,13 @@ import re
 import pandas as pd
 from numpy.random import default_rng
 
-from .expectation_generators import generate
-from .process_covariate_definitions import process_covariate_definitions
 from .date_expressions import (
     evaluate_date_expressions_in_covariate_definitions,
     evaluate_date_expressions_in_expectations_definition,
     validate_date,
 )
+from .expectation_generators import generate
+from .process_covariate_definitions import process_covariate_definitions
 
 
 class StudyDefinition:

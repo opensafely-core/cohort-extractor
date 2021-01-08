@@ -81,6 +81,7 @@ def test_drivers_not_accidentally_imported(tmp_path):
     # what gets imported
     def test_script():
         import sys
+
         from cohortextractor import StudyDefinition, patients
 
         study = StudyDefinition(
