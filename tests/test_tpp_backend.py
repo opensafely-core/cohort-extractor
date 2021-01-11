@@ -2889,6 +2889,10 @@ def test_dynamic_index_dates():
                     CodedEvent(ConsultationDate="2020-05-01", CTV3Code="foo"),
                     CodedEvent(ConsultationDate="2020-06-01", CTV3Code="bar"),
                 ],
+                SGSS_Positives=[
+                    SGSS_Positive(Earliest_Specimen_Date="2020-01-01"),
+                    SGSS_Positive(Earliest_Specimen_Date="2020-05-01"),
+                ],
             ),
         ]
     )
@@ -2915,12 +2919,21 @@ def test_dynamic_index_dates():
             find_last_match_in_period=True,
             on_or_before="last_day_of_month(earliest_bar) + 1 month",
         ),
+        positive_test_after_bar=patients.with_test_result_in_sgss(
+            pathogen="SARS-CoV-2",
+            test_result="positive",
+            on_or_after="earliest_bar",
+            find_first_match_in_period=True,
+            returning="date",
+            date_format="YYYY-MM-DD",
+        ),
     )
     assert_results(
         study.to_dicts(),
         earliest_bar=["2020-03-01"],
         latest_foo_before_bar=["2020-02-01"],
         latest_foo_in_month_after_bar=["2020-04-20"],
+        positive_test_after_bar=["2020-05-01"],
     )
 
 

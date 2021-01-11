@@ -1635,7 +1635,7 @@ class TPPBackend:
         SELECT
           t.patient_id,
           1 AS binary_flag,
-          {date_aggregate}(date) AS date,
+          {date_aggregate}(t.date) AS date,
           -- We have to calculate something over the error check field
           -- otherwise it never gets computed
           MAX(_e) AS _e
