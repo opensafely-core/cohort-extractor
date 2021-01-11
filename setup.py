@@ -22,6 +22,7 @@ setup(
         "seaborn",
         "sqlalchemy",
         "sqlparse",
+        "structlog",
         "tinynetrc",
     ],
     entry_points={
