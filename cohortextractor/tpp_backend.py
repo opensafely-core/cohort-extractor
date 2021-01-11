@@ -1152,18 +1152,20 @@ class TPPBackend:
         # 9999-12-31. Where registration periods overlap we use the one with
         # the most recent start date. If there are several with the same start
         # date we use the longest one (i.e. with the latest end date).
+        date_sql, date_joins = self.get_date_sql("RegistrationHistory", date)
         return f"""
         SELECT
-          Patient_ID AS patient_id,
+          t.Patient_ID AS patient_id,
           Organisation.{column} AS {returning}
         FROM (
-          SELECT Patient_ID, Organisation_ID,
+          SELECT RegistrationHistory.Patient_ID, Organisation_ID,
           ROW_NUMBER() OVER (
-            PARTITION BY Patient_ID
+            PARTITION BY RegistrationHistory.Patient_ID
             ORDER BY StartDate DESC, EndDate DESC, Registration_ID
           ) AS rownum
           FROM RegistrationHistory
-          WHERE StartDate <= {quote(date)} AND EndDate > {quote(date)}
+          {date_joins}
+          WHERE StartDate <= {date_sql} AND EndDate > {date_sql}
         ) t
         LEFT JOIN Organisation
         ON Organisation.Organisation_ID = t.Organisation_ID
@@ -1182,19 +1184,22 @@ class TPPBackend:
             max_date = "3000-01-01"
         if min_date is None:
             min_date = "1900-01-01"
+        date_condition, date_joins = self.get_date_condition("t", "t.end_date", between)
         return f"""
         SELECT
-          Patient_ID AS patient_id,
-          CASE
-            WHEN
-              MAX(EndDate) BETWEEN {quote(min_date)} AND {quote(max_date)}
-            THEN
-              MAX(EndDate)
-          END AS value
-        FROM
-          RegistrationHistory
-        GROUP BY
-          Patient_ID
+          t.Patient_id,
+          end_date AS value
+        FROM (
+          SELECT
+            Patient_ID AS patient_id,
+            MAX(EndDate) AS end_date
+          FROM
+            RegistrationHistory
+          GROUP BY
+            Patient_ID
+        ) t
+        {date_joins}
+        WHERE {date_condition}
         """
 
     def patients_address_as_of(self, date, returning=None, round_to_nearest=None):
