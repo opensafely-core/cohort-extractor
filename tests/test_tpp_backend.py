@@ -2942,6 +2942,10 @@ def test_dynamic_index_dates():
         practice_id_at_bar=patients.registered_practice_as_of(
             "earliest_bar", returning="pseudo_id"
         ),
+        deregistration_date=patients.date_deregistered_from_all_supported_practices(
+            on_or_after="latest_foo_before_bar",
+            date_format="YYYY-MM-DD",
+        ),
     )
     assert_results(
         study.to_dicts(),
@@ -2950,6 +2954,7 @@ def test_dynamic_index_dates():
         latest_foo_in_month_after_bar=["2020-04-20"],
         positive_test_after_bar=["2020-05-01"],
         practice_id_at_bar=["2"],
+        deregistration_date=["2020-12-10"],
     )
 
 

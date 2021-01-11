@@ -1184,19 +1184,22 @@ class TPPBackend:
             max_date = "3000-01-01"
         if min_date is None:
             min_date = "1900-01-01"
+        date_condition, date_joins = self.get_date_condition("t", "t.end_date", between)
         return f"""
         SELECT
-          Patient_ID AS patient_id,
-          CASE
-            WHEN
-              MAX(EndDate) BETWEEN {quote(min_date)} AND {quote(max_date)}
-            THEN
-              MAX(EndDate)
-          END AS value
-        FROM
-          RegistrationHistory
-        GROUP BY
-          Patient_ID
+          t.Patient_id,
+          end_date AS value
+        FROM (
+          SELECT
+            Patient_ID AS patient_id,
+            MAX(EndDate) AS end_date
+          FROM
+            RegistrationHistory
+          GROUP BY
+            Patient_ID
+        ) t
+        {date_joins}
+        WHERE {date_condition}
         """
 
     def patients_address_as_of(self, date, returning=None, round_to_nearest=None):
