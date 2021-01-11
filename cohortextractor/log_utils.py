@@ -51,5 +51,12 @@ def init_logging():
                 "handlers": ["console"],
                 "level": os.getenv("LOG_LEVEL", "INFO"),
             },
+            "loggers": {
+                "cohortextractor.sql": {
+                    "handlers": ["console"],
+                    "level": "DEBUG" if os.getenv("LOG_SQL") else "INFO",
+                    "propagate": False,
+                },
+            },
         }
     )
