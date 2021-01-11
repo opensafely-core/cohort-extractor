@@ -4,9 +4,13 @@ import os
 import re
 import uuid
 
+import structlog
+
 from .codelistlib import codelist
 from .expressions import format_expression
 from .presto_utils import presto_connection_from_url
+
+logger = structlog.get_logger()
 
 # Characters that are safe to interpolate into SQL (see
 # `placeholders_and_params` below)
@@ -32,8 +36,10 @@ class EMISBackend:
         self.postprocess_covariate_definitions()
         self.codelist_tables = []
         self.temp_table_prefix = self.get_temp_table_prefix()
-        self.log(f"temp_table_prefix: {self.temp_table_prefix}")
         self.queries = self.get_queries(self.covariate_definitions)
+        logger.info(
+            "Initialising EMISBackend", temp_table_prefix=self.temp_table_prefix
+        )
 
     def postprocess_covariate_definitions(self):
         """The pseudo_id field is an integer in TPP and a string in EMIS.  It is defined
@@ -187,23 +193,23 @@ class EMISBackend:
 
     def execute_query(self):
         cursor = self.get_db_connection().cursor()
-        self.log("Uploading codelists into temporary tables")
+        logger.info("Uploading codelists into temporary tables")
         for sql in self.codelist_tables:
             cursor.execute(sql)
         queries = list(self.queries)
         final_query = queries.pop()[1]
         for name, sql in queries:
-            self.log(f"Running query: {name}")
+            logger.info(f"Running query: {name}")
             cursor.execute(sql)
         output_table = self.get_output_table_name(os.environ.get("TEMP_DATABASE_NAME"))
         if output_table:
-            self.log(f"Running final query and writing output to '{output_table}'")
+            logger.info(f"Running final query and writing output to '{output_table}'")
             sql = f"CREATE TABLE IF NOT EXISTS {output_table} AS {final_query}"
             cursor.execute(sql)
-            self.log(f"Downloading data from '{output_table}'")
+            logger.info(f"Downloading data from '{output_table}'")
             cursor.execute(f"SELECT * FROM {output_table}")
         else:
-            self.log(
+            logger.info(
                 "No TEMP_DATABASE_NAME defined in environment, downloading results "
                 "directly without writing to output table"
             )
@@ -228,12 +234,6 @@ class EMISBackend:
 
     def make_temp_table_name(self, name):
         return f"{self.temp_table_prefix}_{name}"
-
-    def log(self, message):
-        timestamp = datetime.datetime.now(datetime.timezone.utc).strftime(
-            "%Y-%m-%d %H:%M:%S UTC"
-        )
-        print(f"[{timestamp}] {message}")
 
     def get_query(self, column_name, query_type, query_args):
         method_name = f"patients_{query_type}"

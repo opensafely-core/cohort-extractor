@@ -1,4 +1,3 @@
-import logging
 import os
 import readline  # noqa -- importing this adds readline behaviour to input()
 import time
@@ -6,6 +5,7 @@ from urllib.parse import unquote, urlparse
 
 import prestodb
 import requests
+import structlog
 
 # TODO remove this when certificate verification reinstated
 import urllib3
@@ -15,11 +15,7 @@ from tabulate import tabulate
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
-
-LOG_SQL = bool(os.getenv("LOG_SQL"))
-
-# this is for @retry()
-logging.basicConfig()
+sql_logger = structlog.get_logger("cohortextractor.sql")
 
 
 def presto_connection_from_url(url):
@@ -178,10 +174,7 @@ class CursorProxy:
         * populates the .description attribute of the cursor
         """
 
-        if LOG_SQL:
-            print("-" * 80)
-            print(sql)
-
+        sql_logger.debug(sql)
         self.cursor.execute(sql, *args, **kwargs)
         self._rows = self.cursor.fetchmany()
 
