@@ -21,6 +21,7 @@ import numpy as np
 import pandas
 import requests
 import seaborn as sns
+import structlog
 import yaml
 from matplotlib import pyplot as plt
 from pandas.api.types import (
@@ -33,6 +34,8 @@ from prettytable import PrettyTable
 
 import cohortextractor
 from cohortextractor.localrun import localrun
+
+logger = structlog.get_logger()
 
 notebook_tag = "opencorona-research"
 target_dir = "/home/app/notebook"
@@ -139,7 +142,6 @@ def generate_cohort(
                 study_definitions = [(study_name, suffix)]
                 break
     for study_name, suffix in study_definitions:
-        print(f"Generating cohort for {study_name}...")
         _generate_cohort(
             output_dir,
             study_name,
@@ -158,7 +160,17 @@ def _generate_cohort(
     index_date_range=None,
     skip_existing=False,
 ):
-    print("Running. Please wait...")
+    logger.info(
+        f"Generating cohort for {study_name} in {output_dir}",
+    )
+    logger.debug(
+        "args:",
+        suffix=suffix,
+        expectations_population=expectations_population,
+        index_date_range=index_date_range,
+        skip_existing=skip_existing,
+    )
+
     study = load_study_definition(study_name)
 
     os.makedirs(output_dir, exist_ok=True)
@@ -172,13 +184,13 @@ def _generate_cohort(
         # must be updated
         output_file = f"{output_dir}/input{suffix}{date_suffix}.csv"
         if skip_existing and os.path.exists(output_file):
-            print(f"Not regenerating pre-existing file at {output_file}")
+            logger.info(f"Not regenerating pre-existing file at {output_file}")
         else:
             study.to_csv(
                 output_file,
                 expectations_population=expectations_population,
             )
-            print(f"Successfully created cohort and covariates at {output_file}")
+            logger.info(f"Successfully created cohort and covariates at {output_file}")
 
 
 def _generate_date_range(date_range_str):
@@ -248,12 +260,14 @@ def generate_measures(output_dir, selected_study_name=None, skip_existing=False)
                 study_definitions = [(study_name, suffix)]
                 break
     for study_name, suffix in study_definitions:
-        print(f"Generating measure for {study_name}...")
         _generate_measures(output_dir, study_name, suffix, skip_existing=skip_existing)
 
 
 def _generate_measures(output_dir, study_name, suffix, skip_existing=False):
-    print("Running. Please wait...")
+    logger.info(
+        "Generating measure for {study_name} in {output_dir}",
+    )
+    logger.debug("args", suffix=suffix, skip_existing=skip_existing)
     measures = load_study_definition(study_name, value="measures")
     measure_outputs = defaultdict(list)
     for file in glob.glob(f"{output_dir}/input{suffix}*.csv"):
@@ -265,7 +279,7 @@ def _generate_measures(output_dir, study_name, suffix, skip_existing=False):
             output_file = f"{output_dir}/measure_{measure.id}_{date}.csv"
             measure_outputs[measure.id].append(output_file)
             if skip_existing and os.path.exists(output_file):
-                print(f"Not generating pre-existing file {output_file}")
+                logger.info(f"Not generating pre-existing file {output_file}")
                 continue
             # We do this lazily so that if all corresponding output files
             # already exist we can avoid loading the patient data entirely
@@ -273,9 +287,9 @@ def _generate_measures(output_dir, study_name, suffix, skip_existing=False):
                 patient_df = _load_csv_for_measures(file, measures)
             measure_df = _calculate_measure_df(patient_df, measure)
             measure_df.to_csv(output_file, index=False)
-            print(f"Created measure output at {output_file}")
+            logger.info(f"Created measure output at {output_file}")
     if not measure_outputs:
-        print(
+        logger.warn(
             "No matching output files found. You may need to first run:\n"
             "  cohortextractor generate_cohort --index-date-range ..."
         )
@@ -283,7 +297,7 @@ def _generate_measures(output_dir, study_name, suffix, skip_existing=False):
     for measure in measures:
         output_file = f"{output_dir}/measure_{measure.id}.csv"
         _combine_csv_files_with_dates(output_file, measure_outputs[measure.id])
-        print(f"Combined measure output for all dates in {output_file}")
+        logger.info(f"Combined measure output for all dates in {output_file}")
 
 
 def _calculate_measure_df(patient_df, measure):
@@ -421,7 +435,7 @@ def _make_cohort_report(input_dir, output_dir, study_name, suffix):
 
         f.write(descriptives.to_html(escape=False, na_rep="", justify="left", border=0))
         f.write("</body></html>")
-    print(f"Created cohort report at {output_dir}/descriptives{suffix}.html")
+    logger.info(f"Created cohort report at {output_dir}/descriptives{suffix}.html")
 
 
 def update_codelists():

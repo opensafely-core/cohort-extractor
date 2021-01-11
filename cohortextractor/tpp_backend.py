@@ -5,6 +5,8 @@ import os
 import re
 import uuid
 
+import structlog
+
 from .date_expressions import MSSQLDateFormatter
 from .expressions import format_expression
 from .mssql_utils import (
@@ -12,6 +14,8 @@ from .mssql_utils import (
     mssql_dbapi_connection_from_url,
     mssql_table_to_csv,
 )
+
+logger = structlog.get_logger()
 
 # Characters that are safe to interpolate into SQL (see
 # `placeholders_and_params` below)
@@ -52,7 +56,7 @@ class TPPBackend:
         def record_patient_id_and_log(row):
             unique_check.add(row[0])
             if unique_check.count % 1000000 == 0:
-                self.log(f"Downloaded {unique_check.count} results")
+                logger.info(f"Downloaded {unique_check.count} results")
 
         # `batch_size` here was chosen through a bit of unscientific
         # trial-and-error and some guesswork. It may well need changing in
@@ -67,7 +71,7 @@ class TPPBackend:
             retries=2,
             sleep=0.5,
         )
-        self.log(f"Downloaded {unique_check.count} results")
+        logger.info(f"Downloaded {unique_check.count} results")
 
         self.execute_queries(
             [f"-- Deleting '{output_table}'\nDROP TABLE {output_table}"]
@@ -125,9 +129,9 @@ class TPPBackend:
         ]
         query_hash = hashlib.sha1("\n".join(hash_elements).encode("utf8")).hexdigest()
         output_table = f"{self.temporary_database}..DataExtract_{query_hash}"
-        self.log(f"Checking for existing results in '{output_table}'")
+        logger.info(f"Checking for existing results in '{output_table}'")
         if not self.table_exists(output_table):
-            self.log(
+            logger.info(
                 "No existing results found, running queries to generate new results"
             )
             # We want to raise an error now, rather than waiting until we've
@@ -140,7 +144,7 @@ class TPPBackend:
             # with an empty output table in the event that the query fails. See:
             # https://docs.microsoft.com/en-us/sql/t-sql/queries/select-into-clause-transact-sql?view=sql-server-ver15#remarks
             conn = self.get_db_connection()
-            self.log(f"Writing results into temporary table '{output_table}'")
+            logger.info(f"Writing results into temporary table '{output_table}'")
             previous_autocommit = conn.autocommit
             conn.autocommit = False
             cursor = conn.cursor()
@@ -149,9 +153,9 @@ class TPPBackend:
             cursor.execute(f"CREATE INDEX ix_patient_id ON {output_table} (patient_id)")
             cursor.execute("COMMIT")
             conn.autocommit = previous_autocommit
-            self.log(f"Downloading results from '{output_table}'")
+            logger.info(f"Downloading results from '{output_table}'")
         else:
-            self.log(f"Downloading results from previous run in '{output_table}'")
+            logger.info(f"Downloading results from previous run in '{output_table}'")
         return output_table
 
     def table_exists(self, table_name):
@@ -405,15 +409,9 @@ class TPPBackend:
         for query in queries:
             comment_match = re.match(r"^\s*\-\-\s*(.+)\n", query)
             if comment_match:
-                self.log(f"Running: {comment_match.group(1)}")
+                logger.info(f"Running: {comment_match.group(1)}")
             cursor.execute(query)
         return cursor
-
-    def log(self, message):
-        timestamp = datetime.datetime.now(datetime.timezone.utc).strftime(
-            "%Y-%m-%d %H:%M:%S UTC"
-        )
-        print(f"[{timestamp}] {message}", flush=True)
 
     def get_queries_for_column(
         self, column_name, query_type, query_args, output_columns
