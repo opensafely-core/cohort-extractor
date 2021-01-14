@@ -104,7 +104,8 @@ def generate(population, **kwargs):
         df = df.replace({"category": category_labels})
         df["category"] = df["category"].astype("category")
         # Add empty string as a category to support missing values
-        df["category"].cat.add_categories(new_categories=[""], inplace=True)
+        if "" not in df["category"].cat.categories:
+            df["category"].cat.add_categories(new_categories=[""], inplace=True)
 
     int_ = kwargs.pop("int", None)
     if int_:
