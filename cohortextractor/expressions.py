@@ -169,7 +169,7 @@ def token_for_value(value):
     elif value == "":
         return sqlparse.sql.Token(ttypes.Literal.String.Single, "''")
     else:
-        raise ValueError(f"Invalid empty value: f{value}")
+        raise ValueError(f"Invalid empty value: {value}")
 
 
 def validate_expression(tokens, empty_value_map):
