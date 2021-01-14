@@ -1338,6 +1338,17 @@ def test_patients_with_these_codes_on_death_certificate():
             ONSDeaths(
                 Patient=patient_with_dupe, dod="2020-02-02", icd10u=code, ICD10014="MI"
             ),
+            # A duplicate with a different date of death (which now we have to handle)
+            ONSDeaths(
+                Patient=patient_with_dupe, dod="2020-02-02", icd10u=code, ICD10014="MI"
+            ),
+            # A duplicate with a different underlying CoD (which now we have to handle)
+            ONSDeaths(
+                Patient=patient_with_dupe,
+                dod="2020-02-02",
+                icd10u="MI",
+                ICD10014="COVID",
+            ),
             # Covid not underlying cause
             ONSDeaths(Patient=Patient(), dod="2020-03-01", icd10u="MI", ICD10014=code),
         ]

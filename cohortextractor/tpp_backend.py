@@ -1379,35 +1379,27 @@ class TPPBackend:
             )
         else:
             code_conditions = "1 = 1"
+        # The ONS deaths data contains some duplicate patient IDs. In most
+        # cases these are exact duplicate rows, but in same cases the same
+        # patient appears twice with different dates and death or a different
+        # underlying cause of death. We handle this by (arbitrarily) taking the
+        # earliest date of death or the lexically smallest ICD-10 code.
         if returning == "binary_flag":
             column_definition = "1"
         elif returning == "date_of_death":
-            column_definition = "dod"
-            # Quick fix: a patient appears twice in the ONS data with different
-            # dates of death (offset by one day). This results in an error when
-            # running the extract.  As we need to extract this cohort urgently
-            # we're going to use the minimum date for now, pending a full
-            # discussion of how best to handle this kind of inconsistency.
-            return f"""
-            SELECT ONS_Deaths.Patient_ID as patient_id, MIN(dod) AS {returning}
-            FROM ONS_Deaths
-            {date_joins}
-            WHERE ({code_conditions}) AND {date_condition}
-            GROUP BY ONS_Deaths.Patient_ID
-            """
+            column_definition = "MIN(dod)"
         elif returning == "underlying_cause_of_death":
-            column_definition = "icd10u"
+            column_definition = "MIN(icd10u)"
         else:
             raise ValueError(f"Unsupported `returning` value: {returning}")
-        # The SELECT DISTINCT is because completely duplicate rows have previously appeared
-        # in the underlying dataset.
         return f"""
-        SELECT DISTINCT
+        SELECT
           ONS_Deaths.Patient_ID as patient_id,
           {column_definition} AS {returning}
         FROM ONS_Deaths
         {date_joins}
         WHERE ({code_conditions}) AND {date_condition}
+        GROUP BY ONS_Deaths.Patient_ID
         """
 
     def patients_died_from_any_cause(
