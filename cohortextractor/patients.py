@@ -1711,3 +1711,59 @@ def admitted_to_hospital(
     """
 
     return "admitted_to_hospital", locals()
+
+
+def with_high_cost_drugs(
+    drug_name_matches=None,
+    # Set date limits
+    on_or_before=None,
+    on_or_after=None,
+    between=None,
+    # Set return type
+    returning="binary_flag",
+    date_format=None,
+    # Matching rule
+    find_first_match_in_period=None,
+    find_last_match_in_period=None,
+    return_expectations=None,
+):
+    """
+    Returns data from the High Cost Drugs Dataset
+
+    More details available in this notebook:
+    https://github.com/opensafely/highcostdrugs-research/blob/master/analysis/High%20Cost%20Drugs%20Dataset.ipynb
+
+    Args:
+        drug_name_matches: a drug name as a string, or a list of such names, or
+            a codelist containing such names. Results will be filtered to just
+            rows matching any of the supplied names exactly. Note these are not
+            standardised names, they are just the names however they come to us
+            in the original data.
+        returning: a string indicating what type of value should be returned. Options are:
+            binary_flag: if the patient received any matching drugs
+            date: date drug received
+        on_or_before: as described elsewhere
+        on_or_after: as described elsewhere
+        between: as described elsewhere
+        find_first_match_in_period: as described elsewhere
+        find_last_match_in_period: as described elsewhere
+        date_format: only "YYYY" and "YYYY-MM" supported here as day level data
+            not available
+        return_expectations: as described elsewhere
+
+    Example:
+        The first month in which each patient received "ACME Drug" after March
+        2019:
+
+            covid_admission_date=patients.admitted_to_hospital(
+                drug_name_matches="ACME Drug",
+                on_or_after="2019-03-01",
+                find_first_match_in_period=True,
+                returning="date",
+                date_format="YYYY-MM",
+                return_expectations={"date": {"earliest": "2019-03-01"}},
+            )
+    """
+    if date_format == "YYYY-MM-DD":
+        raise ValueError("Day level data not available for high cost drugs")
+    return "with_high_cost_drugs", locals()

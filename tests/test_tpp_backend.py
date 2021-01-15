@@ -20,6 +20,7 @@ from tests.tpp_backend_setup import (
     Appointment,
     CodedEvent,
     EC_Diagnosis,
+    HighCostDrugs,
     Household,
     HouseholdMember,
     MedicationDictionary,
@@ -76,6 +77,7 @@ def setup_function(function):
     session.query(EC).delete()
     session.query(APCS_Der).delete()
     session.query(APCS).delete()
+    session.query(HighCostDrugs).delete()
     session.query(Patient).delete()
     session.commit()
 
@@ -2983,3 +2985,54 @@ def test_dynamic_index_dates_with_invalid_expression():
                 on_or_before="last_day_of_month(earliest_bar) + 1 mnth",
             ),
         )
+
+
+def test_high_cost_drugs():
+    session = make_session()
+    session.add_all(
+        [
+            Patient(
+                HighCostDrugs=[
+                    HighCostDrugs(
+                        DrugName="foo", FinancialYear="201920", FinancialMonth="2"
+                    ),
+                    HighCostDrugs(
+                        DrugName="bar", FinancialYear="201920", FinancialMonth="6"
+                    ),
+                    HighCostDrugs(
+                        DrugName="bar", FinancialYear="201920", FinancialMonth="7"
+                    ),
+                    HighCostDrugs(
+                        DrugName="foo", FinancialYear="201920", FinancialMonth="10"
+                    ),
+                ],
+            ),
+        ]
+    )
+    session.commit()
+    study = StudyDefinition(
+        population=patients.all(),
+        latest_drug_date=patients.with_high_cost_drugs(
+            find_last_match_in_period=True,
+            returning="date",
+            date_format="YYYY-MM",
+        ),
+        first_bar_date=patients.with_high_cost_drugs(
+            drug_name_matches="bar",
+            find_first_match_in_period=True,
+            returning="date",
+            date_format="YYYY-MM",
+        ),
+        latest_drug_before_bar=patients.with_high_cost_drugs(
+            on_or_before="first_bar_date - 1 month",
+            find_last_match_in_period=True,
+            returning="date",
+            date_format="YYYY-MM",
+        ),
+    )
+    assert_results(
+        study.to_dicts(),
+        latest_drug_date=["2020-01"],
+        first_bar_date=["2019-09"],
+        latest_drug_before_bar=["2019-05"],
+    )

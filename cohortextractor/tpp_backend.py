@@ -1889,6 +1889,62 @@ class TPPBackend:
             """
         return sql
 
+    def patients_with_high_cost_drugs(
+        self,
+        drug_name_matches=None,
+        # Set date limits
+        between=None,
+        # Set return type
+        returning="binary_flag",
+        # Matching rule
+        find_first_match_in_period=None,
+        find_last_match_in_period=None,
+        include_date_of_match=False,
+    ):
+        drug_name_matches = to_list(drug_name_matches)
+        if drug_name_matches:
+            drug_name_condition = f"DrugName IN ({codelist_to_sql(drug_name_matches)})"
+        else:
+            drug_name_condition = "1 = 1"
+
+        # Result ordering
+        if find_first_match_in_period:
+            date_aggregate = "MIN"
+        else:
+            date_aggregate = "MAX"
+
+        if returning == "binary_flag":
+            column_definition = "1"
+        elif returning == "date":
+            column_definition = f"{date_aggregate}(t.date)"
+        else:
+            raise ValueError(f"Unsupported `returning` value: {returning}")
+
+        date_condition, date_joins = self.get_date_condition("t", "t.date", between)
+
+        return f"""
+        SELECT
+          t.Patient_ID as patient_id,
+          {column_definition} AS {returning}
+        FROM (
+          SELECT
+            Patient_ID,
+            DrugName,
+            DATEFROMPARTS(
+              (CAST(FinancialYear AS INT) / 100) + IIF(CAST(FinancialMonth AS INT) > 9, 1, 0),
+              ((CAST(FinancialMonth AS INT) + 2) % 12) + 1,
+              1
+            ) AS date
+          FROM
+            HighCostDrugs
+          WHERE
+            {drug_name_condition}
+        ) t
+        {date_joins}
+        WHERE {date_condition}
+        GROUP BY t.Patient_ID
+        """
+
 
 class ColumnExpression:
     def __init__(
