@@ -194,6 +194,11 @@ class Patient(Base):
         back_populates="Patient",
         cascade="all, delete, delete-orphan",
     )
+    HighCostDrugs = relationship(
+        "HighCostDrugs",
+        back_populates="Patient",
+        cascade="all, delete, delete-orphan",
+    )
 
 
 class RegistrationHistory(Base):
@@ -525,3 +530,43 @@ class APCS_Der(Base):
     APCS = relationship("APCS", back_populates="APCS_Der")
     Spell_Primary_Diagnosis = Column(String)
     Spell_Secondary_Diagnosis = Column(String)
+
+
+class HighCostDrugs(Base):
+    __tablename__ = "HighCostDrugs"
+    # COLUMN_NAME	                    TYPE_NAME	PRECISION	LENGTH	IS_NULLABLE
+    # Patient_ID	                    bigint	    19	        8	    NO
+    # FinancialMonth	                varchar	    2	        2	    YES
+    # FinancialYear	                    varchar	    6	        6	    YES
+    # PersonAge	                        int	        10	        4	    YES
+    # PersonGender	                    int	        10	        4	    YES
+    # ActivityTreatmentFunctionCode	    varchar	    100	        100	    YES
+    # TherapeuticIndicationCode	        varchar	    1000	    1000	YES
+    # HighCostTariffExcludedDrugCode    varchar	    100	        100	    YES
+    # DrugName	                        varchar	    1000	    1000	YES
+    # RouteOfAdministration	            varchar	    100	        100	    YES
+    # DrugStrength	                    varchar	    1000	    1000	YES
+    # DrugVolume	                    varchar	    1000	    1000	YES
+    # DrugPackSize	                    varchar	    1000	    1000	YES
+    # DrugQuanitityOrWeightProportion	varchar	    1000	    1000	YES
+    # UnitOfMeasurement	                varchar	    100	        100	    YES
+    # DispensingRoute	                varchar	    100	        100	    YES
+    # HomeDeliveryCharge	            varchar	    100	        100	    YES
+    # TotalCost	                        varchar	    100	        100	    YES
+    # DerivedSNOMEDFromName	            varchar	    1000	    1000	YES
+    # DerivedVTM	                    varchar	    1000	    1000	YES
+    # DerivedVTMName	                varchar	    1000	    1000	YES
+
+    # This column isn't in the actual database but SQLAlchemy gets a bit upset
+    # if we don't give it a primary key
+    id = Column(Integer, primary_key=True)
+
+    Patient_ID = Column(Integer, ForeignKey("Patient.Patient_ID"))
+    Patient = relationship(
+        "Patient", back_populates="HighCostDrugs", cascade="all, delete"
+    )
+    DrugName = Column(String)
+    # String like "202021" for "Year April 2020 to March 2021"
+    FinancialYear = Column(String)
+    # April = "1", May="2", ... March="12"
+    FinancialMonth = Column(String)
