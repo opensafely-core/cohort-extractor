@@ -1755,7 +1755,7 @@ def with_high_cost_drugs(
         The first month in which each patient received "ACME Drug" after March
         2019:
 
-            covid_admission_date=patients.admitted_to_hospital(
+            covid_admission_date=patients.with_high_cost_drugs(
                 drug_name_matches="ACME Drug",
                 on_or_after="2019-03-01",
                 find_first_match_in_period=True,
