@@ -458,7 +458,7 @@ def update_codelists():
                     f"{line} does not match [project]/[codelist]/[version] "
                     "or user/[username]/[codelist]/[version]"
                 )
-            url = f"https://codelists.opensafely.org/codelist/{line}/"
+            url = f"https://codelists.opensafely.org/codelist/{line}/download.csv"
             filename = "-".join(tokens[:-1]) + ".csv"
 
             rsp = requests.get(url)
