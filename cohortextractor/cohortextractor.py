@@ -452,15 +452,19 @@ def update_codelists():
                 continue
 
             print(line)
-            project_id, codelist_id, version = line.split("/")
-            url = f"https://codelists.opensafely.org/codelist/{project_id}/{codelist_id}/{version}/download.csv"
+            tokens = line.split("/")
+            if len(tokens) not in [3, 4]:
+                raise ValueError(
+                    f"{line} does not match [project]/[codelist]/[version] "
+                    "or user/[username]/[codelist]/[version]"
+                )
+            url = f"https://codelists.opensafely.org/codelist/{line}/"
+            filename = "-".join(tokens[:-1]) + ".csv"
 
             rsp = requests.get(url)
             rsp.raise_for_status()
 
-            with open(
-                os.path.join(base_path, f"{project_id}-{codelist_id}.csv"), "wb"
-            ) as f:
+            with open(os.path.join(base_path, filename), "wb") as f:
                 f.write(rsp.content)
 
 
