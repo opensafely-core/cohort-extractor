@@ -207,6 +207,9 @@ def _generate_date_range(date_range_str):
     while start <= end:
         dates.append(start.isoformat())
         start = _increment_date(start, period)
+    # The latest data is generally more interesting/useful so we may as well
+    # extract that first
+    dates.reverse()
     return dates
 
 
