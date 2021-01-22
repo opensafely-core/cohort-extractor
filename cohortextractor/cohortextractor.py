@@ -176,6 +176,7 @@ def _generate_cohort(
     os.makedirs(output_dir, exist_ok=True)
     for index_date in _generate_date_range(index_date_range):
         if index_date is not None:
+            logger.info(f"Setting index_date to {index_date}")
             study.set_index_date(index_date)
             date_suffix = f"_{index_date}"
         else:
@@ -207,6 +208,9 @@ def _generate_date_range(date_range_str):
     while start <= end:
         dates.append(start.isoformat())
         start = _increment_date(start, period)
+    # The latest data is generally more interesting/useful so we may as well
+    # extract that first
+    dates.reverse()
     return dates
 
 
