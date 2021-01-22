@@ -176,6 +176,7 @@ def _generate_cohort(
     os.makedirs(output_dir, exist_ok=True)
     for index_date in _generate_date_range(index_date_range):
         if index_date is not None:
+            logger.info(f"Setting index_date to {index_date}")
             study.set_index_date(index_date)
             date_suffix = f"_{index_date}"
         else:
