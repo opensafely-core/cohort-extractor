@@ -104,6 +104,20 @@ class CodedEvent(Base):
     SnomedConceptId = Column(String)
 
 
+class CodedEventSnomed(Base):
+    __tablename__ = "CodedEvent_SNOMED"
+
+    Patient_ID = Column(Integer, ForeignKey("Patient.Patient_ID"))
+    Patient = relationship(
+        "Patient", back_populates="CodedEventsSnomed", cascade="all, delete"
+    )
+    CodedEvent_ID = Column(Integer, primary_key=True)
+    NumericValue = Column(Float)
+    ConsultationDate = Column(DateTime)
+    ConceptID = Column(String(collation="Latin1_General_BIN"))
+    CodingSystem = Column(Integer)
+
+
 class Appointment(Base):
     __tablename__ = "Appointment"
 
@@ -141,6 +155,11 @@ class Patient(Base):
     )
     CodedEvents = relationship(
         "CodedEvent", back_populates="Patient", cascade="all, delete, delete-orphan"
+    )
+    CodedEventsSnomed = relationship(
+        "CodedEventSnomed",
+        back_populates="Patient",
+        cascade="all, delete, delete-orphan",
     )
     ICNARC = relationship(
         "ICNARC", back_populates="Patient", cascade="all, delete, delete-orphan"
