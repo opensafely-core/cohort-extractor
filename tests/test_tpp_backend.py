@@ -19,6 +19,7 @@ from tests.tpp_backend_setup import (
     APCS_Der,
     Appointment,
     CodedEvent,
+    CodedEventSnomed,
     EC_Diagnosis,
     HighCostDrugs,
     Household,
@@ -57,6 +58,7 @@ def setup_function(function):
     """Ensure test database is empty"""
     session = make_session()
     session.query(CodedEvent).delete()
+    session.query(CodedEventSnomed).delete()
     session.query(ICNARC).delete()
     session.query(ONSDeaths).delete()
     session.query(CPNS).delete()
@@ -216,6 +218,27 @@ def test_clinical_event_without_filters():
     )
     results = study.to_dicts()
     assert [x["asthma_condition"] for x in results] == ["1", "1", "0"]
+
+
+def test_snomed_clinical_event():
+    condition_code = "123456"
+    session = make_session()
+    patient = Patient()
+    patient.CodedEventsSnomed.append(
+        CodedEventSnomed(ConceptID=condition_code, ConsultationDate="2020-01-01")
+    )
+    session.add(patient)
+    session.add(Patient())
+    session.commit()
+
+    study = StudyDefinition(
+        population=patients.all(),
+        asthma_condition=patients.with_these_clinical_events(
+            codelist([condition_code], "snomed")
+        ),
+    )
+    results = study.to_dicts()
+    assert [x["asthma_condition"] for x in results] == ["1", "0"]
 
 
 def test_clinical_event_with_max_date():

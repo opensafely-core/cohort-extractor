@@ -741,8 +741,9 @@ class TPPBackend:
     ):
         # We only support this option for now
         assert on_most_recent_day_of_measurement
+        coded_event_table, coded_event_column = coded_event_table_column(codelist)
         date_condition, date_joins = self.get_date_condition(
-            "CodedEvent", "ConsultationDate", between
+            coded_event_table, "ConsultationDate", between
         )
         codelist_sql = codelist_to_sql(codelist)
         # The subquery finds, for each patient, the most recent day on which
@@ -753,20 +754,20 @@ class TPPBackend:
         return f"""
         SELECT
           days.Patient_ID AS patient_id,
-          AVG(CodedEvent.NumericValue) AS value,
+          AVG({coded_event_table}.NumericValue) AS value,
           days.date_measured AS date
         FROM (
-            SELECT CodedEvent.Patient_ID, CAST(MAX(ConsultationDate) AS date) AS date_measured
-            FROM CodedEvent
+            SELECT {coded_event_table}.Patient_ID, CAST(MAX(ConsultationDate) AS date) AS date_measured
+            FROM {coded_event_table}
             {date_joins}
-            WHERE CTV3Code IN ({codelist_sql}) AND {date_condition}
-            GROUP BY CodedEvent.Patient_ID
+            WHERE {coded_event_column} IN ({codelist_sql}) AND {date_condition}
+            GROUP BY {coded_event_table}.Patient_ID
         ) AS days
-        LEFT JOIN CodedEvent
+        LEFT JOIN {coded_event_table}
         ON (
-          CodedEvent.Patient_ID = days.Patient_ID
-          AND CodedEvent.CTV3Code IN ({codelist_sql})
-          AND CAST(CodedEvent.ConsultationDate AS date) = days.date_measured
+          {coded_event_table}.Patient_ID = days.Patient_ID
+          AND {coded_event_table}.{coded_event_column} IN ({codelist_sql})
+          AND CAST({coded_event_table}.ConsultationDate AS date) = days.date_measured
         )
         GROUP BY days.Patient_ID, days.date_measured
         """
@@ -862,7 +863,10 @@ class TPPBackend:
         Patients who have had at least one of these clinical events in the
         defined period
         """
-        assert kwargs["codelist"].system == "ctv3"
+        coded_event_table, coded_event_column = coded_event_table_column(
+            kwargs["codelist"]
+        )
+
         # This uses a special case function with a "fake it til you make it" API
         if kwargs["returning"] == "number_of_episodes":
             kwargs.pop("returning")
@@ -870,12 +874,18 @@ class TPPBackend:
             assert not kwargs.pop("find_first_match_in_period", None)
             assert not kwargs.pop("find_last_match_in_period", None)
             assert not kwargs.pop("include_date_of_match", None)
-            return self._number_of_episodes_by_clinical_event(**kwargs)
+            return self._number_of_episodes_by_clinical_event(
+                coded_event_table, coded_event_column, **kwargs
+            )
         # This is the default code path for most queries
         else:
             assert not kwargs.pop("episode_defined_as", None)
             return self._patients_with_events(
-                "CodedEvent", "", "CTV3Code", codes_are_case_sensitive=True, **kwargs
+                coded_event_table,
+                "",
+                coded_event_column,
+                codes_are_case_sensitive=True,
+                **kwargs,
             )
 
     def _patients_with_events(
@@ -1037,6 +1047,8 @@ class TPPBackend:
 
     def _number_of_episodes_by_clinical_event(
         self,
+        from_table,
+        code_column,
         codelist,
         # Set date limits
         between=None,
@@ -1047,10 +1059,10 @@ class TPPBackend:
             codelist, case_sensitive=True
         )
         date_condition, date_joins = self.get_date_condition(
-            "CodedEvent", "ConsultationDate", between
+            from_table, "ConsultationDate", between
         )
         ignored_day_condition, extra_queries = self._these_codes_occur_on_same_day(
-            "CodedEvent", ignore_days_where_these_codes_occur, between
+            from_table, ignore_days_where_these_codes_occur, between
         )
         if episode_defined_as is not None:
             pattern = r"^series of events each <= (\d+) days apart$"
@@ -1069,22 +1081,22 @@ class TPPBackend:
           SUM(is_new_episode) AS number_of_episodes
         FROM (
             SELECT
-              CodedEvent.Patient_ID,
+              {from_table}.Patient_ID,
               CASE
                 WHEN
                   DATEDIFF(
                     day,
                     LAG(ConsultationDate) OVER (
-                      PARTITION BY CodedEvent.Patient_ID ORDER BY ConsultationDate
+                      PARTITION BY {from_table}.Patient_ID ORDER BY ConsultationDate
                     ),
                     ConsultationDate
                   ) <= {washout_period}
                 THEN 0
                 ELSE 1
               END AS is_new_episode
-            FROM CodedEvent
+            FROM {from_table}
             INNER JOIN {codelist_table}
-            ON CTV3Code = {codelist_table}.code
+            ON {code_column} = {codelist_table}.code
             {date_joins}
             WHERE {date_condition} AND NOT {ignored_day_condition}
         ) t
@@ -1111,16 +1123,17 @@ class TPPBackend:
             codelist, case_sensitive=True
         )
         same_day_table = self.get_temp_table_name("same_day_events")
+        coded_event_table, coded_event_column = coded_event_table_column(codelist)
         date_condition, date_joins = self.get_date_condition(
-            "CodedEvent", "ConsultationDate", between
+            coded_event_table, "ConsultationDate", between
         )
         queries += [
             f"""
             SELECT Patient_ID, CAST(ConsultationDate AS date) AS day
             INTO {same_day_table}
-            FROM CodedEvent
+            FROM {coded_event_table}
             INNER JOIN {codelist_table}
-            ON CTV3Code = {codelist_table}.code
+            ON {coded_event_column} = {codelist_table}.code
             {date_joins}
             WHERE {date_condition}
             """,
@@ -2050,6 +2063,15 @@ def truncate_date(column, date_format):
     # Style 23 below means YYYY-MM-DD format, see:
     # https://docs.microsoft.com/en-us/sql/t-sql/functions/cast-and-convert-transact-sql?view=sql-server-ver15#date-and-time-styles
     return f"CONVERT(VARCHAR({date_length}), {column}, 23)"
+
+
+def coded_event_table_column(codelist):
+    if codelist.system == "ctv3":
+        return "CodedEvent", "CTV3Code"
+    elif codelist.system == "snomed":
+        return "CodedEvent_SNOMED", "ConceptID"
+    else:
+        assert False, codelist.system
 
 
 class UniqueCheck:
