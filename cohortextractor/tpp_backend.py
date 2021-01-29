@@ -951,6 +951,11 @@ class TPPBackend:
             raise ValueError(f"Unsupported `returning` value: {returning}")
 
         if use_partition_query:
+            if from_table == "CodedEvent_SNOMED":
+                from_table_id_col = "CodedEvent_ID"
+            else:
+                from_table_id_col = f"{from_table}_ID"
+
             sql = f"""
             SELECT
               Patient_ID AS patient_id,
@@ -960,7 +965,7 @@ class TPPBackend:
               SELECT {from_table}.Patient_ID, {column_definition}, ConsultationDate,
               ROW_NUMBER() OVER (
                 PARTITION BY {from_table}.Patient_ID
-                ORDER BY ConsultationDate {ordering}, {from_table}_ID
+                ORDER BY ConsultationDate {ordering}, {from_table_id_col}
               ) AS rownum
               FROM {from_table}{additional_join}
               INNER JOIN {codelist_table}
