@@ -16,13 +16,17 @@ setup(
     install_requires=[
         "opensafely-jobrunner>=2.0,<3.0",
         "pandas",
+        "presto-python-client",
         "prettytable",
         "pyyaml",
         "requests",
+        "requests-pkcs12",
+        "retry",
         "seaborn",
         "sqlalchemy",
         "sqlparse",
         "structlog",
+        "tabulate",
         "tinynetrc",
     ],
     entry_points={
