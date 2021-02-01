@@ -3,6 +3,7 @@ import datetime
 import os
 import re
 import uuid
+import warnings
 
 import structlog
 
@@ -1093,11 +1094,12 @@ class EMISBackend:
         self._db_connection = None
 
     def validate_recent_date(self, date, max_delta_days=30):
+        pass
         date = datetime.datetime.strptime(date, "%Y-%m-%d").date()
         delta = datetime.date.today() - date
         if delta.days > max_delta_days:
-            msg = f"{self._current_column_name} must be passed a date more recent than {max_delta_days} days in the past"
-            raise ValueError(msg)
+            msg = f"{self._current_column_name} should be passed a date more recent than {max_delta_days} days in the past"
+            warnings.warn(msg)
 
     def get_aggregate_expression(
         self, column_type, column_definitions, column_names, aggregate_function
