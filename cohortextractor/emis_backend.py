@@ -526,7 +526,7 @@ class EMISBackend:
         Patients who have been prescribed at least one of this list of
         medications in the defined period
         """
-        assert kwargs["codelist"].system == "snomed"
+        assert kwargs["codelist"].system in ("snomed", "snomedct")
         if kwargs["returning"] == "numeric_value":
             raise ValueError("Unsupported `returning` value: numeric_value")
         # This uses a special case function with a "fake it til you make it" API
@@ -553,7 +553,7 @@ class EMISBackend:
         Patients who have had at least one of these clinical events in the
         defined period
         """
-        assert kwargs["codelist"].system == "snomedct"
+        assert kwargs["codelist"].system in ("snomed", "snomedct")
         # This uses a special case function with a "fake it til you make it" API
         if kwargs["returning"] == "number_of_episodes":
             kwargs.pop("returning")
