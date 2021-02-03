@@ -3,6 +3,7 @@ import datetime
 import os
 import re
 import uuid
+import warnings
 
 import structlog
 
@@ -14,7 +15,7 @@ logger = structlog.get_logger()
 
 # Characters that are safe to interpolate into SQL (see
 # `placeholders_and_params` below)
-safe_punctation = r"_.-"
+safe_punctation = r" _.-+/()"
 SAFE_CHARS_RE = re.compile(f"^[a-zA-Z0-9{re.escape(safe_punctation)}]+$")
 
 
@@ -526,7 +527,7 @@ class EMISBackend:
         Patients who have been prescribed at least one of this list of
         medications in the defined period
         """
-        assert kwargs["codelist"].system == "snomed"
+        assert kwargs["codelist"].system in ("snomed", "snomedct")
         if kwargs["returning"] == "numeric_value":
             raise ValueError("Unsupported `returning` value: numeric_value")
         # This uses a special case function with a "fake it til you make it" API
@@ -553,7 +554,7 @@ class EMISBackend:
         Patients who have had at least one of these clinical events in the
         defined period
         """
-        assert kwargs["codelist"].system == "snomedct"
+        assert kwargs["codelist"].system in ("snomed", "snomedct")
         # This uses a special case function with a "fake it til you make it" API
         if kwargs["returning"] == "number_of_episodes":
             kwargs.pop("returning")
@@ -1093,11 +1094,12 @@ class EMISBackend:
         self._db_connection = None
 
     def validate_recent_date(self, date, max_delta_days=30):
+        pass
         date = datetime.datetime.strptime(date, "%Y-%m-%d").date()
         delta = datetime.date.today() - date
         if delta.days > max_delta_days:
-            msg = f"{self._current_column_name} must be passed a date more recent than {max_delta_days} days in the past"
-            raise ValueError(msg)
+            msg = f"{self._current_column_name} should be passed a date more recent than {max_delta_days} days in the past"
+            warnings.warn(msg)
 
     def get_aggregate_expression(
         self, column_type, column_definitions, column_names, aggregate_function
@@ -1165,6 +1167,10 @@ def quote(value):
         return str(value)
 
     value = str(value)
+
+    if re.match(r"^\w+ \+ interval '\d+' (day|month|year)$", value):
+        return value
+
     try:
         datetime.datetime.strptime(value, "%Y-%m-%d")
         return f"DATE('{value}')"

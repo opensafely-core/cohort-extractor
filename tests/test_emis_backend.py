@@ -935,10 +935,7 @@ def test_patients_categorised_as():
     assert "has_bar" not in results[0].keys()
 
 
-def test_patients_registered_practice_as_of(freezer):
-    # Ensure that registered_practice_as_of dates are recent
-    freezer.move_to("2020-03-01")
-
+def test_patients_registered_practice_as_of():
     session = make_session()
     patient = Patient(
         stp_code="789",
@@ -966,25 +963,8 @@ def test_patients_registered_practice_as_of(freezer):
     assert [i["region"] for i in results] == ["London"]
     assert [i["pseudo_id"] for i in results] == ["abc"]
 
-    # Now jump forwards in time and check that an error is raised
-    freezer.move_to("2021-03-01")
-    with pytest.raises(ValueError):
-        StudyDefinition(
-            population=patients.all(),
-            stp=patients.registered_practice_as_of("2020-02-01", returning="stp_code"),
-            msoa=patients.registered_practice_as_of(
-                "2020-02-01", returning="msoa_code"
-            ),
-            region=patients.registered_practice_as_of(
-                "2020-02-01", returning="nuts1_region_name"
-            ),
-        )
 
-
-def test_patients_address_as_of(freezer):
-    # Ensure that registered_practice_as_of dates are recent
-    freezer.move_to("2020-03-01")
-
+def test_patients_address_as_of():
     session = make_session()
     patient = Patient(imd_rank=300, rural_urban=2)
     patient_no_address = Patient()
