@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import csv
 import glob
 import os
@@ -9,7 +10,11 @@ import pytest
 from cohortextractor import StudyDefinition, codelist, patients
 from cohortextractor.date_expressions import InvalidExpressionError
 from cohortextractor.mssql_utils import mssql_connection_params_from_url
-from cohortextractor.tpp_backend import AppointmentStatus, quote
+from cohortextractor.tpp_backend import (
+    AppointmentStatus,
+    escape_like_query_fragment,
+    quote,
+)
 from tests.helpers import assert_results
 from tests.tpp_backend_setup import (
     APCS,
@@ -1594,13 +1599,46 @@ def test_using_expression_in_population_definition():
 
 
 def test_quote():
-    with pytest.raises(ValueError):
-        quote("foo!")
     assert quote("2012-02-01") == "'20120201'"
     assert quote("2012") == "'2012'"
     assert quote(2012) == "2012"
     assert quote(0.1) == "0.1"
     assert quote("foo") == "'foo'"
+    assert quote("what's up?") == "'what''s up?'"
+
+
+def test_quote_against_db():
+    session = make_session()
+    values = [1, 1.5, "hello", "", "what's up?", "new\nlines", "ixekizumabß"]
+    for value in values:
+        result = session.execute(f"SELECT {quote(value)}")
+        assert list(result)[0][0] == value
+
+
+def test_escape_like_query_fragment():
+    assert escape_like_query_fragment("foo") == "foo"
+    assert escape_like_query_fragment("foo%bar_") == "foo\\%bar\\_"
+
+
+def test_escape_like_query_fragment_against_db():
+    session = make_session()
+    cases = [
+        ("foobar", "ob", True),
+        ("foo[]\\%_^bar", "o[]\\%_^b", True),
+        ("foobar", "f%r", False),
+    ]
+    for text, pattern, should_match in cases:
+        like_pattern = f"%{escape_like_query_fragment(pattern)}%"
+        result = session.execute(
+            f"SELECT value FROM"
+            f"  (VALUES({quote(text)})) AS t(value)"
+            f"  WHERE value LIKE {quote(like_pattern)} ESCAPE '\\'"
+        )
+        # print(f"'{text}' should{'' if should_match else ' not'} match '{pattern}'")
+        if should_match:
+            assert list(result)[0][0] == text
+        else:
+            assert len(list(result)) == 0
 
 
 def test_number_of_episodes():

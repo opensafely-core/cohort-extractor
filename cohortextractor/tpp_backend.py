@@ -17,11 +17,6 @@ from .mssql_utils import (
 
 logger = structlog.get_logger()
 
-# Characters that are safe to interpolate into SQL (see
-# `placeholders_and_params` below)
-safe_punctation = r" _.-+/()"
-SAFE_CHARS_RE = re.compile(f"^[a-zA-Z0-9{re.escape(safe_punctation)}]+$")
-
 
 class TPPBackend:
     _db_connection = None
@@ -1847,7 +1842,7 @@ class TPPBackend:
         if with_these_diagnoses:
             assert with_these_diagnoses.system == "icd10"
             fragments = [
-                f"Der_Diagnosis_All LIKE {pattern}"
+                f"Der_Diagnosis_All LIKE {pattern} ESCAPE '\\'"
                 for pattern in codelist_to_like_patterns(
                     with_these_diagnoses, prefix="%[^A-Za-z0-9]", suffix="%"
                 )
@@ -1857,7 +1852,7 @@ class TPPBackend:
         if with_these_procedures:
             assert with_these_procedures.system == "opcs4"
             fragments = [
-                f"Der_Procedure_All LIKE {pattern}"
+                f"Der_Procedure_All LIKE {pattern} ESCAPE '\\'"
                 for pattern in codelist_to_like_patterns(
                     with_these_procedures, prefix="%[^A-Za-z0-9]", suffix="%"
                 )
@@ -1992,24 +1987,32 @@ class ColumnExpression:
         return self.expression
 
 
-def codelist_to_sql_list(codelist):
+def codelist_to_list(codelist):
     if getattr(codelist, "has_categories", False):
-        return [quote(code) for (code, category) in codelist]
+        return [code for (code, category) in codelist]
     else:
-        return [quote(code) for code in codelist]
+        return list(codelist)
 
 
 def codelist_to_like_patterns(codelist, prefix="", suffix=""):
     patterns = []
-    for quoted_code in codelist_to_sql_list(codelist):
-        assert quoted_code[0] == "'"
-        assert quoted_code[-1] == "'"
-        patterns.append(f"'{prefix}{quoted_code[1:-1]}{suffix}'")
+    for code in codelist_to_list(codelist):
+        escaped_code = escape_like_query_fragment(code)
+        patterns.append(quote(f"{prefix}{escaped_code}{suffix}"))
     return patterns
 
 
+# Special characters from:
+# https://docs.microsoft.com/en-us/sql/t-sql/language-elements/like-transact-sql?view=sql-server-ver15
+LIKE_ESCAPE_TABLE = str.maketrans({char: f"\\{char}" for char in "%_[]^"})
+
+
+def escape_like_query_fragment(text):
+    return text.translate(LIKE_ESCAPE_TABLE)
+
+
 def codelist_to_sql(codelist):
-    return ",".join(codelist_to_sql_list(codelist))
+    return ",".join(map(quote, codelist_to_list(codelist)))
 
 
 def to_list(value):
@@ -2046,9 +2049,11 @@ def quote(value):
     else:
         value = str(value)
         value = standardise_if_date(value)
-        if not SAFE_CHARS_RE.match(value) and value != "":
-            raise ValueError(f"Value contains disallowed characters: {value}")
-        return f"'{value}'"
+        # This looks a bit too simple but it's what SQLAlchemy does and it is,
+        # as far as I can tell, all you need to do to encode string literals.
+        # https://github.com/sqlalchemy/sqlalchemy/blob/ac1228a872/lib/sqlalchemy/dialects/mssql/base.py#L1117-L1127
+        escaped = value.replace("'", "''")
+        return f"'{escaped}'"
 
 
 def remove_lower_date_bound(between):
