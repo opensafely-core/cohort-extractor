@@ -161,6 +161,12 @@ measures = [
         denominator="population",
     ),
     Measure(
+        id="liver_disease_one_group",
+        numerator="has_chronic_liver_disease",
+        denominator="population",
+        group_by="population",
+    ),
+    Measure(
         id="liver_disease_by_stp",
         numerator="has_chronic_liver_disease",
         denominator="population",
