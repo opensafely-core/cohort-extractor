@@ -306,9 +306,8 @@ def _generate_measures(output_dir, study_name, suffix, skip_existing=False):
 
 def _calculate_measure_df(patient_df, measure):
     if measure.group_by:
-        measure_df = patient_df[
-            [measure.numerator, measure.denominator, *measure.group_by]
-        ]
+        columns = set([measure.numerator, measure.denominator, *measure.group_by])
+        measure_df = patient_df[list(columns)]
         measure_df = measure_df.groupby(measure.group_by).sum()
         measure_df = measure_df.reset_index()
     else:
@@ -337,6 +336,7 @@ def _load_csv_for_measures(file, measures):
     # This is a special column which we don't load from the CSV but whose value
     # is always set to 1 for every row
     numeric_columns.discard("population")
+    group_by_columns.discard("population")
     dtype = {col: "category" for col in group_by_columns}
     for col in numeric_columns:
         dtype[col] = "float64"
