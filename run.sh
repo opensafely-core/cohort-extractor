@@ -16,26 +16,13 @@ if [[ -z "$1" || "$1" = 'help' || "$1" = '--help' || "$1" = '-help' ]]; then
   exit 1
 fi
 
-# If the command is `bash` then just remove all arguments to use the default
-# entrypoint
-if [[ "$1" = "bash" ]]; then
-  set --
-fi
-
-# If the command is `cohortextractor` then rewrite it to execute the correct
-# Python module as the entry point script doesn't seem to work in this context
-if [[ "$1" = "cohortextractor" ]]; then
-  shift 1
-  set -- python -m cohortextractor.cohortextractor "$@"
-fi
-
 exec docker-compose run \
   --rm \
-  --entrypoint /bin/bash \
+  --entrypoint /usr/bin/env \
   --volume "$PWD:/workspace" \
   -e PYENV_VERSION=3.7.8 \
   -e TPP_DATABASE_URL='mssql://SA:Your_password123!@mssql:1433/Test_OpenCorona' \
   -e EMIS_DATABASE_URL=presto://presto:8080/mssql/dbo \
   -e EMIS_DATASOURCE_DATABASE_URL='mssql://SA:Your_password123!@mssql:1433/Test_EMIS' \
   app \
-    --login -- "$@"
+  -- "$@"
