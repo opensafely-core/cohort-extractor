@@ -693,8 +693,9 @@ def registered_practice_as_of(
 
     Args:
         date: date of interest as a string with the format `YYYY-MM-DD`. Filters results to the given date.
-        returning: a str defining the type of data to be returned. options include `msoa`, nuts1_region_name,
-             and `stp_code`. The default value is `None`.
+        returning: a str defining the type of data to be returned. options include `msoa` (Middle Layer Super Output Area codes), 
+             `nuts1_region_name` (9 English regions), `stp_code` (Sustainability Transformation Partnerships codes) and `pseudo_id` 
+             (Pseudonymised GP practice identifier). The default value is `None`.
         return_expectations: a dict defining the `rate` and the `categories` returned with ratios
 
     Returns:
