@@ -1248,7 +1248,7 @@ class TPPBackend:
         FROM (
           SELECT PatientAddress.Patient_ID, {column},
           ROW_NUMBER() OVER (
-            PARTITION BY Patient_ID
+            PARTITION BY PatientAddress.Patient_ID
             ORDER BY
               StartDate DESC,
               EndDate DESC,

@@ -1090,7 +1090,8 @@ def test_patients_address_as_of():
                         RuralUrbanClassificationCode=3,
                         MSOACode="S02001286",
                     ),
-                ]
+                ],
+                CodedEvents=[CodedEvent(CTV3Code="foo", ConsultationDate="2020-01-01")],
             ),
             Patient(
                 Addresses=[
@@ -1137,12 +1138,20 @@ def test_patients_address_as_of():
             "2020-01-01", returning="rural_urban_classification"
         ),
         msoa=patients.address_as_of("2020-01-01", returning="msoa"),
+        foo_date=patients.with_these_clinical_events(
+            codelist(["foo"], "ctv3"),
+            returning="date",
+            date_format="YYYY-MM-DD",
+        ),
+        msoa_on_foo_date=patients.address_as_of("foo_date", returning="msoa"),
     )
     assert_results(
         study.to_dicts(),
         imd=["300", "600", "0", "0"],
         rural_urban=["2", "4", "0", "0"],
         msoa=["E02001286", "S02001286", "", ""],
+        foo_date=["2020-01-01", "", "", ""],
+        msoa_on_foo_date=["E02001286", "", "", ""],
     )
 
 
