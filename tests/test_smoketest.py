@@ -55,12 +55,15 @@ def test_smoketest(tmp_path):
     # liver_disease
     with open(tmp_path / "measure_liver_disease.csv") as f:
         contents = list(csv.reader(f))
-    assert contents[0] == [
-        "has_chronic_liver_disease",
-        "population",
-        "value",
-        "date",
-    ]
+
+    assert set(contents[0]) == set(
+        [
+            "population",
+            "has_chronic_liver_disease",
+            "value",
+            "date",
+        ]
+    )
 
 
 def _cohortextractor(*args):
