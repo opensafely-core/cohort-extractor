@@ -590,12 +590,14 @@ class EMISBackend:
         # Set return type
         returning="binary_flag",
         include_date_of_match=False,
+        numeric_value_in_range=(None, None),
     ):
         codelist_table = self.create_codelist_table(codelist)
         date_condition = make_date_filter("effective_date", between)
         not_an_ignored_day_condition = self._none_of_these_codes_occur_on_same_day(
             from_table, ignore_days_where_these_codes_occur
         )
+        numeric_value_condition = get_numeric_value_condition(*numeric_value_in_range)
 
         # Result ordering
         if find_first_match_in_period:
@@ -657,7 +659,9 @@ class EMISBackend:
               FROM {from_table}{additional_join}
               INNER JOIN {codelist_table}
               ON {code_column} = {codelist_table}.code
-              WHERE {date_condition} AND {not_an_ignored_day_condition}
+              WHERE {date_condition}
+                AND {not_an_ignored_day_condition}
+                AND {numeric_value_condition}
             ) t
             WHERE rownum = 1
             """
@@ -671,7 +675,9 @@ class EMISBackend:
             FROM {from_table}{additional_join}
             INNER JOIN {codelist_table}
             ON {code_column} = {codelist_table}.code
-            WHERE {date_condition} AND {not_an_ignored_day_condition}
+            WHERE {date_condition}
+              AND {not_an_ignored_day_condition}
+              AND {numeric_value_condition}
             GROUP BY registration_id, {from_table}.hashed_organisation
             """
 
@@ -742,12 +748,15 @@ class EMISBackend:
         between=None,
         ignore_days_where_these_codes_occur=None,
         episode_defined_as=None,
+        numeric_value_in_range=(None, None),
     ):
         codelist_table = self.create_codelist_table(codelist)
         date_condition = make_date_filter("effective_date", between)
         not_an_ignored_day_condition = self._none_of_these_codes_occur_on_same_day(
             OBSERVATION_TABLE, ignore_days_where_these_codes_occur
         )
+        numeric_value_condition = get_numeric_value_condition(*numeric_value_in_range)
+
         if episode_defined_as is not None:
             pattern = r"^series of events each <= (\d+) days apart$"
             match = re.match(pattern, episode_defined_as)
@@ -781,7 +790,9 @@ class EMISBackend:
             FROM {OBSERVATION_TABLE}
             INNER JOIN {codelist_table}
             ON snomed_concept_id = {codelist_table}.code
-            WHERE {date_condition} AND {not_an_ignored_day_condition}
+            WHERE {date_condition}
+              AND {not_an_ignored_day_condition}
+              AND {numeric_value_condition}
         ) t
         GROUP BY registration_id, hashed_organisation
         """
@@ -1208,6 +1219,17 @@ def truncate_date(column, date_format):
     else:
         raise ValueError(f"Unhandled date format: {date_format}")
     return f"date_format({column}, '{date_format}')"
+
+
+def get_numeric_value_condition(lower, upper):
+    if lower is None and upper is None:
+        return "1 = 1"
+    elif lower is None:
+        return f"value_pq_1 <= {upper}"
+    elif upper is None:
+        return f"value_pq_1 >= {lower}"
+    else:
+        return f"value_pq_1 >= {lower} AND value_pq_1 >= {lower}"
 
 
 class UniqueCheck:

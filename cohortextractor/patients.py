@@ -513,6 +513,7 @@ def with_these_clinical_events(
     returning="binary_flag",
     include_date_of_match=False,
     date_format=None,
+    numeric_value_in_range=(None, None),
     # Special (and probably temporary) arguments to support queries we need
     # to do right now. This API will need to be thought through properly at
     # some stage.
@@ -565,6 +566,9 @@ def with_these_clinical_events(
             ignored. if a events is found on this day, the date is not matched even it matches a
             code in the main `codelist`
         episode_defined_as: a string expression indicating how an episode should be defined
+        numeric_value_in_range: a pair of numbers `(lower, upper)`.  Only events whose
+            numeric value is between `lower` and `upper` are matched.  Either `lower` or
+            `upper` may be `None`.
         return_binary_flag: a boolean indicating if the number of matches in a period should be
             returned (deprecated: use `date_format` instead),
         return_number_of_matches_in_period: a boolean indicating if the number of matches in a period should be
@@ -693,8 +697,8 @@ def registered_practice_as_of(
 
     Args:
         date: date of interest as a string with the format `YYYY-MM-DD`. Filters results to the given date.
-        returning: a str defining the type of data to be returned. options include `msoa` (Middle Layer Super Output Area codes), 
-             `nuts1_region_name` (9 English regions), `stp_code` (Sustainability Transformation Partnerships codes) and `pseudo_id` 
+        returning: a str defining the type of data to be returned. options include `msoa` (Middle Layer Super Output Area codes),
+             `nuts1_region_name` (9 English regions), `stp_code` (Sustainability Transformation Partnerships codes) and `pseudo_id`
              (Pseudonymised GP practice identifier). The default value is `None`.
         return_expectations: a dict defining the `rate` and the `categories` returned with ratios
 

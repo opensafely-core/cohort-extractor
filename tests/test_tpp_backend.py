@@ -453,6 +453,54 @@ def test_clinical_event_with_numeric_value():
     assert [x["asthma_value_date"] for x in results] == ["", "2002-01", ""]
 
 
+def test_clinical_event_with_numeric_value_filter():
+    condition_code = "ASTHMA"
+    _make_clinical_events_selection(
+        condition_code,
+        patient_dates=[
+            [
+                ("2001-01-01", 1),
+                ("2001-01-02", 2),
+                ("2001-01-03", 3),
+                ("2001-01-04", 4),
+                ("2001-01-05", 5),
+            ],
+        ],
+    )
+    study = StudyDefinition(
+        population=patients.all(),
+        lower=patients.with_these_clinical_events(
+            codelist([condition_code], "ctv3"),
+            returning="numeric_value",
+            numeric_value_in_range=(3, None),
+            find_first_match_in_period=True,
+        ),
+        upper=patients.with_these_clinical_events(
+            codelist([condition_code], "ctv3"),
+            returning="numeric_value",
+            numeric_value_in_range=(None, 3),
+            find_first_match_in_period=True,
+        ),
+        both=patients.with_these_clinical_events(
+            codelist([condition_code], "ctv3"),
+            returning="numeric_value",
+            numeric_value_in_range=(2, 4),
+            find_first_match_in_period=True,
+        ),
+        neither=patients.with_these_clinical_events(
+            codelist([condition_code], "ctv3"),
+            returning="numeric_value",
+            numeric_value_in_range=(None, None),
+            find_first_match_in_period=True,
+        ),
+    )
+    results = study.to_dicts()
+    assert [x["lower"] for x in results] == ["3.0"]
+    assert [x["upper"] for x in results] == ["1.0"]
+    assert [x["both"] for x in results] == ["2.0"]
+    assert [x["neither"] for x in results] == ["1.0"]
+
+
 def test_clinical_event_with_category():
     session = make_session()
     session.add_all(

@@ -901,6 +901,7 @@ class TPPBackend:
         # Set return type
         returning="binary_flag",
         include_date_of_match=False,
+        numeric_value_in_range=(None, None),
     ):
         codelist_table, codelist_queries = self.create_codelist_table(
             codelist, codes_are_case_sensitive
@@ -911,6 +912,7 @@ class TPPBackend:
         ignored_day_condition, extra_queries = self._these_codes_occur_on_same_day(
             from_table, ignore_days_where_these_codes_occur, between
         )
+        numeric_value_condition = get_numeric_value_condition(*numeric_value_in_range)
 
         # Result ordering
         if find_first_match_in_period:
@@ -966,7 +968,9 @@ class TPPBackend:
               INNER JOIN {codelist_table}
               ON {code_column} = {codelist_table}.code
               {date_joins}
-              WHERE {date_condition} AND NOT {ignored_day_condition}
+              WHERE {date_condition}
+                AND NOT {ignored_day_condition}
+                AND {numeric_value_condition}
             ) t
             WHERE rownum = 1
             """
@@ -980,7 +984,9 @@ class TPPBackend:
             INNER JOIN {codelist_table}
             ON {code_column} = {codelist_table}.code
             {date_joins}
-            WHERE {date_condition} AND NOT {ignored_day_condition}
+            WHERE {date_condition}
+              AND NOT {ignored_day_condition}
+              AND {numeric_value_condition}
             GROUP BY {from_table}.Patient_ID
             """
 
@@ -1054,6 +1060,7 @@ class TPPBackend:
         between=None,
         ignore_days_where_these_codes_occur=None,
         episode_defined_as=None,
+        numeric_value_in_range=(None, None),
     ):
         codelist_table, codelist_queries = self.create_codelist_table(
             codelist, case_sensitive=True
@@ -1064,6 +1071,8 @@ class TPPBackend:
         ignored_day_condition, extra_queries = self._these_codes_occur_on_same_day(
             from_table, ignore_days_where_these_codes_occur, between
         )
+        numeric_value_condition = get_numeric_value_condition(*numeric_value_in_range)
+
         if episode_defined_as is not None:
             pattern = r"^series of events each <= (\d+) days apart$"
             match = re.match(pattern, episode_defined_as)
@@ -1098,7 +1107,9 @@ class TPPBackend:
             INNER JOIN {codelist_table}
             ON {code_column} = {codelist_table}.code
             {date_joins}
-            WHERE {date_condition} AND NOT {ignored_day_condition}
+            WHERE {date_condition}
+              AND NOT {ignored_day_condition}
+              AND {numeric_value_condition}
         ) t
         GROUP BY t.Patient_ID
         """
@@ -2082,6 +2093,17 @@ def coded_event_table_column(codelist):
         return "CodedEvent_SNOMED", "ConceptID"
     else:
         assert False, codelist.system
+
+
+def get_numeric_value_condition(lower, upper):
+    if lower is None and upper is None:
+        return "1 = 1"
+    elif lower is None:
+        return f"NumericValue <= {upper}"
+    elif upper is None:
+        return f"NumericValue >= {lower}"
+    else:
+        return f"NumericValue >= {lower} AND NumericValue >= {lower}"
 
 
 class UniqueCheck:
