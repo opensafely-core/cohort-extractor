@@ -37,6 +37,8 @@ from tests.tpp_backend_setup import (
     PatientAddress,
     PotentialCareHomeAddress,
     RegistrationHistory,
+    SGSS_AllTests_Negative,
+    SGSS_AllTests_Positive,
     SGSS_Negative,
     SGSS_Positive,
     Vaccination,
@@ -70,8 +72,10 @@ def setup_function(function):
     session.query(Vaccination).delete()
     session.query(VaccinationReference).delete()
     session.query(Appointment).delete()
-    session.query(SGSS_Positive).delete()
+    session.query(SGSS_AllTests_Negative).delete()
+    session.query(SGSS_AllTests_Positive).delete()
     session.query(SGSS_Negative).delete()
+    session.query(SGSS_Positive).delete()
     session.query(MedicationIssue).delete()
     session.query(MedicationDictionary).delete()
     session.query(RegistrationHistory).delete()

@@ -187,6 +187,16 @@ class Patient(Base):
     SGSS_Negatives = relationship(
         "SGSS_Negative", back_populates="Patient", cascade="all, delete, delete-orphan"
     )
+    SGSS_AllTests_Positives = relationship(
+        "SGSS_AllTests_Positive",
+        back_populates="Patient",
+        cascade="all, delete, delete-orphan",
+    )
+    SGSS_AllTests_Negatives = relationship(
+        "SGSS_AllTests_Negative",
+        back_populates="Patient",
+        cascade="all, delete, delete-orphan",
+    )
     Sex = Column(String)
     HouseholdMemberships = relationship(
         "HouseholdMember",
@@ -390,11 +400,15 @@ class SGSS_Negative(Base):
     Patient = relationship(
         "Patient", back_populates="SGSS_Negatives", cascade="all, delete"
     )
+    # This column should only ever have this value
     Organism_Species_Name = Column(String, default="NEGATIVE SARS-CoV-2 (COVID-19)")
     Earliest_Specimen_Date = Column(Date)
     Lab_Report_Date = Column(Date)
+
+    # Possible values: "OTHER", "PILLAR 2 TESTING"
+    Lab_Type = Column(String)
+
     # Other columns in the table which we don't use:
-    #   PHE_ID
     #   Age_in_Years
     #   Patient_Sex
     #   County_Description
@@ -414,12 +428,106 @@ class SGSS_Positive(Base):
     Organism_Species_Name = Column(String, default="SARS-CoV-2 CORONAVIRUS (Covid-19)")
     Earliest_Specimen_Date = Column(Date)
     Lab_Report_Date = Column(Date)
+
+    # Possible values: "OTHER", "PILLAR 2 TESTING"
+    Lab_Type = Column(String)
+
+    # SGTF: S gene target failure
+    # Possible values: "", "0", "1", "9"
+    # Definitions (from email from PHE)
+    #
+    #   1: Isolate with confirmed SGTF
+    #   Undetectable S gene; CT value (CH3) =0
+    #   Detectable ORF1ab gene; CT value (CH2) <=30 and >0
+    #   Detectable N gene; CT value (CH1) <=30 and >0
+    #
+    #   0: S gene detected
+    #   Detectable S gene (CH3>0)
+    #   Detectable y ORF1ab CT value (CH1) <=30 and >0
+    #   Detectable N gene CT value (CH2) <=30 and >0
+    #
+    #   9: Cannot be classified
+    #
+    #   Null are where the target is not S Gene. I think LFTs are currently
+    #   also coming across as 9 so will need to review those to null as well as
+    #   clearly this is a PCR only variable.
+    SGTF = Column(String)
+
     # Other columns in the table which we don't use:
-    #   PHE_ID
     #   Age_in_Years
     #   Patient_Sex
     #   County_Description
     #   PostCode_Source
+
+
+# The SGSS_(Postive|Negative) tables above contain only the first positive test
+# for each patient whereas the AllTests tables below contain every positive
+# test.
+class SGSS_AllTests_Negative(Base):
+    __tablename__ = "SGSS_AllTests_Negative"
+
+    # This column isn't in the actual database but SQLAlchemy gets a bit upset
+    # if we don't give it a primary key
+    id = Column(Integer, primary_key=True)
+    Patient_ID = Column(Integer, ForeignKey("Patient.Patient_ID"))
+    Patient = relationship(
+        "Patient", back_populates="SGSS_AllTests_Negatives", cascade="all, delete"
+    )
+    # This column should only ever have this value
+    Organism_Species_Name = Column(String, default="NEGATIVE SARS-CoV-2 (COVID-19)")
+    Specimen_Date = Column(Date)
+    Lab_Report_Date = Column(Date)
+
+    # Possible values: "OTHER", "PILLAR 2 TESTING"
+    Lab_Type = Column(String)
+
+    # Possible values: NULL, "false", "true"
+    Symptomatic = Column(String)
+
+    # Possible values: "Pillar 1", "Pillar 2"
+    Pillar = Column(String)
+
+    # Possible values: NULL, "True"
+    LFT_Flag = Column(String)
+
+    # Other columns in the table which we don't use:
+    #   Age_in_Years
+    #   Patient_Sex
+    #   County_Description
+    #   PostCode_Source
+    #   Ethnic_Category_Desc
+
+
+class SGSS_AllTests_Positive(Base):
+    __tablename__ = "SGSS_AllTests_Positive"
+
+    # This column isn't in the actual database but SQLAlchemy gets a bit upset
+    # if we don't give it a primary key
+    id = Column(Integer, primary_key=True)
+    Patient_ID = Column(Integer, ForeignKey("Patient.Patient_ID"))
+    Patient = relationship(
+        "Patient", back_populates="SGSS_AllTests_Positives", cascade="all, delete"
+    )
+    Organism_Species_Name = Column(String, default="SARS-CoV-2 CORONAVIRUS (Covid-19)")
+    Specimen_Date = Column(Date)
+    Lab_Report_Date = Column(Date)
+
+    # Possible values: "OTHER"
+    Lab_Type = Column(String)
+
+    # Possible values: "N", "U", "Y"
+    Symptomatic = Column(String)
+
+    # These columns are entirely NULL for some reason
+    Pillar = Column(String)
+    LFT_Flag = Column(String)
+
+    # Other columns in the table which we don't use:
+    #   Age_in_Years
+    #   Patient_Sex
+    #   County_Description
+    #   PostCode_Source
+    #   Ethnic_Category_Desc
 
 
 class PotentialCareHomeAddress(Base):
