@@ -1638,35 +1638,22 @@ class TPPBackend:
             flag = 1 if test_result == "positive" else 0
             result_condition = f"test_result = {quote(flag)}"
 
-        # These are the values we're expecting in our SGSS tables. If we ever
-        # get anything other than these we should throw an error rather than
-        # blindly continuing.
-        positive_descr = "SARS-CoV-2 CORONAVIRUS (Covid-19)"
-        negative_descr = "NEGATIVE SARS-CoV-2 (COVID-19)"
-
         return f"""
         SELECT
           t.patient_id,
           1 AS binary_flag,
-          {date_aggregate}(t.date) AS date,
-          -- We have to calculate something over the error check field
-          -- otherwise it never gets computed
-          MAX(_e) AS _e
+          {date_aggregate}(t.date) AS date
         FROM (
           SELECT
             1 AS test_result,
             Patient_ID AS patient_id,
-            Earliest_Specimen_Date AS date,
-            -- Crude error check so we blow up in the case of unexpected data
-            1 / CASE WHEN Organism_Species_Name = '{positive_descr}' THEN 1 ELSE 0 END AS _e
+            Earliest_Specimen_Date AS date
           FROM SGSS_Positive
           UNION ALL
           SELECT
             0 AS test_result,
             Patient_ID AS patient_id,
-            Earliest_Specimen_Date AS date,
-            -- Crude error check so we blow up in the case of unexpected data
-            1 / CASE WHEN Organism_Species_Name = '{negative_descr}' THEN 1 ELSE 0 END AS _e
+            Earliest_Specimen_Date AS date
           FROM SGSS_Negative
         ) t
         {date_joins}

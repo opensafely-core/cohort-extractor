@@ -2081,28 +2081,6 @@ def test_patients_with_test_result_in_sgss():
     ]
 
 
-@pytest.mark.parametrize("positive", [True, False])
-def test_patients_with_test_result_in_sgss_raises_error_on_bad_data(positive):
-    kwargs = dict(
-        Earliest_Specimen_Date="2020-05-15", Organism_Species_Name="unexpected"
-    )
-    if positive:
-        patient = Patient(SGSS_Positives=[SGSS_Positive(**kwargs)])
-    else:
-        patient = Patient(SGSS_Negatives=[SGSS_Negative(**kwargs)])
-    session = make_session()
-    session.add(patient)
-    session.commit()
-    study = StudyDefinition(
-        population=patients.all(),
-        covid_test=patients.with_test_result_in_sgss(
-            pathogen="SARS-CoV-2",
-        ),
-    )
-    with pytest.raises(Exception):
-        study.to_dicts()
-
-
 def test_patients_date_of_birth():
     session = make_session()
     session.add_all(
