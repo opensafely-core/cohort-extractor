@@ -1352,7 +1352,7 @@ def with_test_result_in_sgss(
     It's important to note that data is supplied in two separate datasets: an
     "Earliest Specimen" dataset and an "All Tests" dataset.
 
-    #  Earliest Specimen Dataset
+    ###  Earliest Specimen Dataset
 
     Where a patient has multiple positive tests, SGSS groups these into
     "episodes" (referred to as "Organism-Patient-Illness-Episodes"). Each
@@ -1382,7 +1382,7 @@ def with_test_result_in_sgss(
         episode. This may change, but is set as it is due to limited
         information around re-infection and virus clearance.
 
-    # All Tests Dataset
+    ### All Tests Dataset
 
     This dataset is not subject to the same restriction as above and we expect
     each individual test result (postive or negative) to appear in this
@@ -1391,7 +1391,7 @@ def with_test_result_in_sgss(
     some fields we need (e.g. SGTF) which are only supplied on the "earliest
     specimen" dataset.
 
-    # S-Gene Target Failure
+    ### S-Gene Target Failure
 
     Using the `returning="s_gene_target_failure"` option provides additional
     output from PCR tests results which can be used as a proxy for the presence
@@ -1401,24 +1401,25 @@ def with_test_result_in_sgss(
 
     Definitions (from email from PHE)
 
-      1: Isolate with confirmed SGTF
-      Undetectable S gene; CT value (CH3) =0
-      Detectable ORF1ab gene; CT value (CH2) <=30 and >0
-      Detectable N gene; CT value (CH1) <=30 and >0
+        1: Isolate with confirmed SGTF
+        Undetectable S gene; CT value (CH3) =0
+        Detectable ORF1ab gene; CT value (CH2) <=30 and >0
+        Detectable N gene; CT value (CH1) <=30 and >0
 
-      0: S gene detected
-      Detectable S gene (CH3>0)
-      Detectable y ORF1ab CT value (CH1) <=30 and >0
-      Detectable N gene CT value (CH2) <=30 and >0
+        0: S gene detected
+        Detectable S gene (CH3>0)
+        Detectable y ORF1ab CT value (CH1) <=30 and >0
+        Detectable N gene CT value (CH2) <=30 and >0
 
-      9: Cannot be classified
+        9: Cannot be classified
 
-      Null are where the target is not S Gene. I think LFTs are currently
-      also coming across as 9 so will need to review those to null as well as
-      clearly this is a PCR only variable.
+        Null are where the target is not S Gene. I think LFTs are currently
+        also coming across as 9 so will need to review those to null as well as
+        clearly this is a PCR only variable.
 
-    For more detail on SGSS in general see:
-    https://assets.publishing.service.gov.uk/government/uploads/system/uploads/attachment_data/file/739854/PHE_Laboratory_Reporting_Guidelines.pdf
+    For more detail on SGSS in general see [PHE_Laboratory_Reporting_Guidelines.pdf][PHE_LRG]
+
+    [PHE_LRG]: https://assets.publishing.service.gov.uk/government/uploads/system/uploads/attachment_data/file/739854/PHE_Laboratory_Reporting_Guidelines.pdf
 
     Args:
         pathogen: pathogen we are interested in. Only SARS-CoV-2 results are
