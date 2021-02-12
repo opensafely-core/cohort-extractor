@@ -1621,57 +1621,97 @@ class TPPBackend:
         # Matching rule
         find_first_match_in_period=None,
         find_last_match_in_period=None,
+        restrict_to_earliest_specimen_date=True,
         # Set return type
         returning="binary_flag",
         include_date_of_match=False,
     ):
         assert pathogen == "SARS-CoV-2"
-        assert test_result in ("positive", "negative", "any")
-        if returning not in ("binary_flag", "date"):
+
+        if (
+            returning == "s_gene_target_failure"
+            and not restrict_to_earliest_specimen_date
+        ):
+            raise ValueError(
+                "Due to limitations in the SGSS data we receive you can't "
+                "combine the options:\n"
+                "  returning = 's_gene_target_failure'\n"
+                "  restrict_to_earliest_specimen_date = False"
+            )
+
+        if returning == "binary_flag":
+            column = "1"
+        elif returning == "date":
+            # To make the SQL easier we always generate a "date" column whether
+            # one is requested or not. This means when we're explicitly asked
+            # for a date column there's nothing extra we need to do, but we
+            # need _some_ value in the SQL so we do this
+            column = "1"
+            returning = "binary_flag"
+        elif returning == "s_gene_target_failure":
+            column = "t2.sgtf"
+        else:
             raise ValueError(f"Unsupported `returning` value: {returning}")
 
-        date_condition, date_joins = self.get_date_condition("t", "t.date", between)
-        date_aggregate = "MIN" if find_first_match_in_period else "MAX"
-        if test_result == "any":
-            result_condition = "1 = 1"
+        if restrict_to_earliest_specimen_date:
+            positive_query = """
+            SELECT
+              Patient_ID AS patient_id,
+              Earliest_Specimen_Date AS date,
+              SGTF AS sgtf
+            FROM SGSS_Positive
+            """
+            negative_query = """
+            SELECT
+              Patient_ID AS patient_id,
+              Earliest_Specimen_Date AS date,
+              '' AS sgtf
+            FROM SGSS_Negative
+            """
         else:
-            flag = 1 if test_result == "positive" else 0
-            result_condition = f"test_result = {quote(flag)}"
+            positive_query = """
+            SELECT
+              Patient_ID AS patient_id,
+              Specimen_Date AS date
+            FROM SGSS_AllTests_Positive
+            """
+            negative_query = """
+            SELECT
+              Patient_ID AS patient_id,
+              Specimen_Date AS date
+            FROM SGSS_AllTests_Negative
+            """
 
-        # These are the values we're expecting in our SGSS tables. If we ever
-        # get anything other than these we should throw an error rather than
-        # blindly continuing.
-        positive_descr = "SARS-CoV-2 CORONAVIRUS (Covid-19)"
-        negative_descr = "NEGATIVE SARS-CoV-2 (COVID-19)"
+        if test_result == "any":
+            table_query = f"{positive_query}\nUNION ALL\n{negative_query}"
+        elif test_result == "positive":
+            table_query = positive_query
+        elif test_result == "negative":
+            table_query = negative_query
+        else:
+            raise ValueError("Unsupported test_result '{test_result}'")
+
+        date_condition, date_joins = self.get_date_condition("t1", "t1.date", between)
+        date_ordering = "ASC" if find_first_match_in_period else "DESC"
 
         return f"""
         SELECT
-          t.patient_id,
-          1 AS binary_flag,
-          {date_aggregate}(t.date) AS date,
-          -- We have to calculate something over the error check field
-          -- otherwise it never gets computed
-          MAX(_e) AS _e
+          t2.patient_id AS patient_id,
+          t2.date AS date,
+          {column} AS {returning}
         FROM (
-          SELECT
-            1 AS test_result,
-            Patient_ID AS patient_id,
-            Earliest_Specimen_Date AS date,
-            -- Crude error check so we blow up in the case of unexpected data
-            1 / CASE WHEN Organism_Species_Name = '{positive_descr}' THEN 1 ELSE 0 END AS _e
-          FROM SGSS_Positive
-          UNION ALL
-          SELECT
-            0 AS test_result,
-            Patient_ID AS patient_id,
-            Earliest_Specimen_Date AS date,
-            -- Crude error check so we blow up in the case of unexpected data
-            1 / CASE WHEN Organism_Species_Name = '{negative_descr}' THEN 1 ELSE 0 END AS _e
-          FROM SGSS_Negative
-        ) t
-        {date_joins}
-        WHERE {date_condition} AND {result_condition}
-        GROUP BY t.patient_id
+          SELECT t1.*,
+            ROW_NUMBER() OVER (
+              PARTITION BY t1.patient_id
+              ORDER BY t1.date {date_ordering}
+            ) AS rownum
+          FROM (
+            {table_query}
+          ) t1
+          {date_joins}
+          WHERE {date_condition}
+        ) t2
+        WHERE t2.rownum = 1
         """
 
     def patients_household_as_of(self, reference_date, returning):
