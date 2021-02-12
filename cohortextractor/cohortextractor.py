@@ -306,8 +306,10 @@ def _generate_measures(output_dir, study_name, suffix, skip_existing=False):
 
 def _calculate_measure_df(patient_df, measure):
     if measure.group_by:
-        columns = set([measure.numerator, measure.denominator, *measure.group_by])
-        measure_df = patient_df[list(columns)]
+        columns = [measure.numerator, measure.denominator, *measure.group_by]
+        # Remove duplicates but preserve order
+        columns = list(dict.fromkeys(columns).keys())
+        measure_df = patient_df[columns]
         measure_df = measure_df.groupby(measure.group_by).sum()
         measure_df = measure_df.reset_index()
     else:
