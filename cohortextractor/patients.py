@@ -1336,25 +1336,30 @@ def with_test_result_in_sgss(
     # Matching rule
     find_first_match_in_period=None,
     find_last_match_in_period=None,
+    restrict_to_earliest_specimen_date=True,
     # Set return type
     returning="binary_flag",
     date_format=None,
     return_expectations=None,
 ):
     """
-    Finds lab test results recorded in SGSS (Second Generation Surveillance
-    System).
+    Finds COVID lab test results recorded in SGSS (Second Generation
+    Surveillance System).
 
-    Please note for the dates this is used in the database as the date the specimen was taken, rather than the
-    date of the lab result.
+    Please note that all dates used here are "specimen dates" (i.e. the date
+    the specimen was taken), rather than the date the lab result was obtained.
 
-    There's an important caveat here: where a patient has multiple positive
-    tests, SGSS groups these into "episodes" (referred to as
-    "Organism-Patient-Illness-Episodes"). Each pathogen has a maximum episode
-    duration (usually 2 weeks) and unless positive tests are separated by
-    longer than this period they are assumed to be the same episode of illness.
-    The specimen date recorded is the *earliest* positive specimen within the
-    episode.
+    It's important to note that data is supplied in two separate datasets: an
+    "Earliest Specimen" dataset and an "All Tests" dataset.
+
+    #  Earliest Specimen Dataset
+
+    Where a patient has multiple positive tests, SGSS groups these into
+    "episodes" (referred to as "Organism-Patient-Illness-Episodes"). Each
+    pathogen has a maximum episode duration (usually 2 weeks) and unless
+    positive tests are separated by longer than this period they are assumed to
+    be the same episode of illness.  The specimen date recorded is the
+    *earliest* positive specimen within the episode.
 
     For SARS-CoV-2 the episode length has been set to infinity, meaning that
     once a patient has tested positive every positive test will be part of the
@@ -1364,11 +1369,10 @@ def with_test_result_in_sgss(
     querying for positive results as only one date will ever be recorded and it
     will be the earliest.
 
-    Our natural assumption, though it doesn't seem to be explicity stated in
-    the documentation, is that every negative result is treated as unique.
-
-    For more detail on SGSS in general see:
-    https://assets.publishing.service.gov.uk/government/uploads/system/uploads/attachment_data/file/739854/PHE_Laboratory_Reporting_Guidelines.pdf
+    Our original assumption, though the documentation didn't state either way,
+    is that every negative result would be treated as unique. However this does
+    not appear to be the case as though some patients do have multiple negative
+    tests in this dataset, the number is far too small to be realistic.
 
     Information about the SARS-CoV-2 episode length was via email from someone
     at the National Infection Service:
@@ -1378,39 +1382,91 @@ def with_test_result_in_sgss(
         episode. This may change, but is set as it is due to limited
         information around re-infection and virus clearance.
 
+    # All Tests Dataset
+
+    This dataset is not subject to the same restriction as above and we expect
+    each individual test result (postive or negative) to appear in this
+    regardless of whether they are considered as within the same infection
+    episode. In an ideal world we could use just this dataset, but there are
+    some fields we need (e.g. SGTF) which are only supplied on the "earliest
+    specimen" dataset.
+
+    # S-Gene Target Failure
+
+    Using the `returning="s_gene_target_failure"` option provides additional
+    output from PCR tests results which can be used as a proxy for the presence
+    of certain Variants of Concern.
+
+    Possible values are "", "0", "1", "9"
+
+    Definitions (from email from PHE)
+
+      1: Isolate with confirmed SGTF
+      Undetectable S gene; CT value (CH3) =0
+      Detectable ORF1ab gene; CT value (CH2) <=30 and >0
+      Detectable N gene; CT value (CH1) <=30 and >0
+
+      0: S gene detected
+      Detectable S gene (CH3>0)
+      Detectable y ORF1ab CT value (CH1) <=30 and >0
+      Detectable N gene CT value (CH2) <=30 and >0
+
+      9: Cannot be classified
+
+      Null are where the target is not S Gene. I think LFTs are currently
+      also coming across as 9 so will need to review those to null as well as
+      clearly this is a PCR only variable.
+
+    For more detail on SGSS in general see:
+    https://assets.publishing.service.gov.uk/government/uploads/system/uploads/attachment_data/file/739854/PHE_Laboratory_Reporting_Guidelines.pdf
+
     Args:
-        pathogen: pathogen we are interested in. Only SARS-CoV-2 results are included in our data extract so this
-            will throw an error if the specified pathogen is anything other than
-            "SARS-CoV-2".
+        pathogen: pathogen we are interested in. Only SARS-CoV-2 results are
+            included in our data extract so this will throw an error if the
+            specified pathogen is anything other than "SARS-CoV-2".
         test_result: must be one of "positive", "negative" or "any"
-        on_or_before: date of interest as a string with the format `YYYY-MM-DD`. Filters results to
-            on or before the given date. The default value is `None`.
-        on_or_after: date of interest as a string with the format `YYYY-MM-DD`. Filters results to
-            on or after the given date. The default value is `None`.
-        between: two dates of interest as a list with each date as a string with the format `YYYY-MM-DD`.
-            Filters results to between the two dates provided. The default value is `None`.
-        find_first_match_in_period: a boolean that indicates if the data returned is first event
-            if there are multiple matches within the time period
-        find_last_match_in_period: a boolean that indicates if the data returned is last event
-            if there are multiple matches within the time period
-        returning: a string indicating what type of value should be returned. The options are limited to binary_flag
-            (which indicates if they have had the an event or not) and date (which indicate date of event and used
-            with either find_first_match_in_period or find_last_match_in_period)
-        date_format: a string detailing the format of the dates to be returned. It can be `YYYY-MM-DD`,
-            `YYYY-MM` or `YYYY` and wherever possible the least disclosive data should be returned. i.e returning
-            only year is less disclosive than a date with day, month and year.
-        return_expectations: a dictionary defining the incidence and distribution of expected value
-            within the population in question.
+        on_or_before: date of interest as a string with the format
+            `YYYY-MM-DD`. Filters results to on or before the given date. The
+            default value is `None`.
+        on_or_after: date of interest as a string with the format `YYYY-MM-DD`.
+            Filters results to on or after the given date. The default value is
+            `None`.
+        between: two dates of interest as a list with each date as a string
+            with the format `YYYY-MM-DD`.  Filters results to between the two
+            dates provided. The default value is `None`.
+        find_first_match_in_period: a boolean that indicates if the data
+            returned is first event if there are multiple matches within the
+            time period
+        find_last_match_in_period: a boolean that indicates if the data
+            returned is last event if there are multiple matches within the
+            time period
+        restrict_to_earliest_specimen_date: a boolean indicating whether to use
+            the "earliest specimen" or "all tests" dataset (see above). True by
+            default, meaning that the "earliest specimen" dataset is used.
+        returning: a string indicating what type of value should be returned.
+            The options are limited to `binary_flag` (which indicates if they
+            have had the an event or not), `date` (which indicate date of event
+            and used with either find_first_match_in_period or
+            find_last_match_in_period) and `s_gene_target_failure` which
+            returns the value of the SGTF field (see above)
+        date_format: a string detailing the format of the dates to be returned.
+            It can be `YYYY-MM-DD`, `YYYY-MM` or `YYYY` and wherever possible
+            the least disclosive data should be returned. i.e returning only
+            year is less disclosive than a date with day, month and year.
+        return_expectations: a dictionary defining the incidence and
+            distribution of expected value within the population in question.
 
     Returns:
-        list: of integers of `1` or `0` if `returning` argument is set to `binary_flag`;
-            list of strings with a date format returned if `returning` argument is set to `date`;
+        list: of integers of `1` or `0` if `returning` argument is set to
+            `binary_flag`; list of strings with a date format returned if
+            `returning` argument is set to `date`;
 
     Example:
 
-        Two variables are created. One called `first_tested_for_covid` is the first date that a patient has a
-        covid test never mind the result. The second called `first_positive_test_date` is the first date
-        that a patient has a positive test result.
+        Two variables are created. One called `first_tested_for_covid` is the
+        first date that a patient has a covid test never mind the result. The
+        second called `first_positive_test_date` is the first date that a
+        patient has a positive test result.
 
             first_tested_for_covid=patients.with_test_result_in_sgss(
                 pathogen="SARS-CoV-2",

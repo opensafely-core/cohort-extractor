@@ -348,6 +348,7 @@ class GetColumnType:
             "has_members_in_other_ehr_systems": "bool",
             "percentage_of_members_with_data_in_this_backend": "int",
             "msoa": "str",
+            "s_gene_target_failure": "str",
         }
         try:
             return mapping[returning]
