@@ -1170,6 +1170,89 @@ def date_of(
     return "value_from", locals()
 
 
+def with_vaccination_record(
+    tpp,
+    emis,
+    # Set date limits
+    on_or_before=None,
+    on_or_after=None,
+    between=None,
+    # Set return type
+    returning="binary_flag",
+    date_format=None,
+    # Matching rule
+    find_first_match_in_period=None,
+    find_last_match_in_period=None,
+    return_expectations=None,
+):
+    """
+    Identify patients with a vaccination record.
+
+    Since vaccine records are stored differently in TPP and EMIS,
+    different kinds of arguments are required for each backend.
+
+    Args:
+        tpp: a dictionary with one or both of the following keys:
+            `target_disease_matches`: the target disease as a string
+            `product_name_matches`: the product name as a string
+        emis: a dictionary with one or both of the following keys:
+            `procedure_codes`: a codelist of SNOMED codes indicating the vaccination procedure
+            `product_codes`: a codelist of dm+d codes indicating the product used in the vaccination
+        product_codes: dm+d codes indicating the product used.
+        on_or_before: date of interest as a string with the format `YYYY-MM-DD`. Filters results to
+            on or before the given date. The default value is `None`.
+        on_or_after: date of interest as a string with the format `YYYY-MM-DD`. Filters results to
+            on or after the given date. The default value is `None`.
+        between: two dates of interest as a list with each date as a string with the format `YYYY-MM-DD`.
+            Filters results to between the two dates provided. The default value is `None`.
+        returning: a string indicating what type of value should be returned. The options are limited to binary_flag
+            (which indicates if they have had the vaccination or not) or a date of vaccination
+        date_format: a string detailing the format of the dates to be returned. It can be `YYYY-MM-DD`,
+            `YYYY-MM` or `YYYY` and wherever possible the least disclosive data should be returned. i.e returning
+            only year is less disclosive than a date with day, month and year.
+        find_first_match_in_period: a boolean that indicates if the data returned is first indication of vaccination
+            if there are multiple matches within the time period
+        find_last_match_in_period: a boolean that indicates if the data returned is last indication of vaccination
+            if there are multiple matches within the time period
+        return_expectations: a dictionary defining the incidence and distribution of expected value
+            within the population in question.
+
+    Returns:
+        list: of integers of `1` or `0` if `returning` argument is set to `binary_flag`;
+            list of strings with a date format returned if `returning` argument is set to `date`
+
+    Example:
+
+        Creates a variable called `has_covid_vacc` that returns the first date of
+        vaccination for any patients with a recorded covid vaccine.
+
+            has_covid_vacc=patients.with_tpp_vaccination_record(
+                tpp={
+                    "target_disease_matches": "SARS-2 CORONAVIRUS",
+                },
+                emis={
+                    "procedure_codes": codelist([
+                        840534001,         # Covid vaccine administered
+                        1324681000000101,  # First covid vaccine administered
+                        1324691000000104,  # Second covid vaccine administered
+                    ], coding_system="snomedct")
+                }
+                returning="date",
+                date_format="YYYY-MM",
+                find_first_match_in_period=True,
+                return_expectations={
+                    date": {"earliest": "2020-12-08", "latest": "2021-02-16"}
+                }
+            ),
+
+    If both `procedure_codes` and `product_codes` are provided, only patients who have
+    records for both the procedure and the product are returned.  Note that sometimes a
+    procedure is recorded without the product (or vice versa).
+    """
+
+    return "with_vaccination_record", locals()
+
+
 def with_tpp_vaccination_record(
     target_disease_matches=None,
     product_name_matches=None,
@@ -1186,7 +1269,7 @@ def with_tpp_vaccination_record(
     return_expectations=None,
 ):
     """
-    Identify patients with a vaccination record for a target disease within the tpp vaccination record
+    Identify patients with a vaccination record for a target disease within the TPP vaccination record
 
     Vaccinations can be recorded via a Vaccination Record or via prescription of a vaccine i.e a product code.
 

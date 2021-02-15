@@ -1495,6 +1495,10 @@ class TPPBackend:
           {date_condition}
         """
 
+    def patients_with_vaccination_record(self, tpp, emis, **kwargs):
+        tpp.update(kwargs)
+        return self.patients_with_tpp_vaccination_record(**tpp)
+
     def patients_with_tpp_vaccination_record(
         self,
         target_disease_matches=None,
