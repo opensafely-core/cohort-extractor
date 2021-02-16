@@ -457,6 +457,40 @@ def test_clinical_event_with_numeric_value():
     assert [x["asthma_value_date"] for x in results] == ["", "2002-01", ""]
 
 
+def test_clinical_event_ignoring_missing_values():
+    condition_code = "ASTHMA"
+    _make_clinical_events_selection(
+        condition_code,
+        patient_dates=[
+            [
+                ("2001-01-01", 0),
+                ("2001-01-02", 2),
+                ("2001-01-03", 0),
+                ("2001-01-04", 4),
+                ("2001-01-05", 0),
+            ],
+        ],
+    )
+    study = StudyDefinition(
+        population=patients.all(),
+        first=patients.with_these_clinical_events(
+            codelist([condition_code], "ctv3"),
+            returning="numeric_value",
+            ignore_missing_values=True,
+            find_first_match_in_period=True,
+        ),
+        last=patients.with_these_clinical_events(
+            codelist([condition_code], "ctv3"),
+            returning="numeric_value",
+            ignore_missing_values=True,
+            find_last_match_in_period=True,
+        ),
+    )
+    results = study.to_dicts()
+    assert [x["first"] for x in results] == ["2.0"]
+    assert [x["last"] for x in results] == ["4.0"]
+
+
 def test_clinical_event_with_category():
     session = make_session()
     session.add_all(
