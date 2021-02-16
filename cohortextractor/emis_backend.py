@@ -590,11 +590,17 @@ class EMISBackend:
         # Set return type
         returning="binary_flag",
         include_date_of_match=False,
+        ignore_missing_values=False,
     ):
         codelist_table = self.create_codelist_table(codelist)
         date_condition = make_date_filter("effective_date", between)
         not_an_ignored_day_condition = self._none_of_these_codes_occur_on_same_day(
             from_table, ignore_days_where_these_codes_occur
+        )
+        missing_value_condition = (
+            "(value_pq_1 IS NOT NULL AND value_pq_1 != 0)"
+            if ignore_missing_values
+            else "1 = 1"
         )
 
         # Result ordering
@@ -657,7 +663,9 @@ class EMISBackend:
               FROM {from_table}{additional_join}
               INNER JOIN {codelist_table}
               ON {code_column} = {codelist_table}.code
-              WHERE {date_condition} AND {not_an_ignored_day_condition}
+              WHERE {date_condition}
+                AND {not_an_ignored_day_condition}
+                AND {missing_value_condition}
             ) t
             WHERE rownum = 1
             """
@@ -671,7 +679,9 @@ class EMISBackend:
             FROM {from_table}{additional_join}
             INNER JOIN {codelist_table}
             ON {code_column} = {codelist_table}.code
-            WHERE {date_condition} AND {not_an_ignored_day_condition}
+            WHERE {date_condition}
+              AND {not_an_ignored_day_condition}
+              AND {missing_value_condition}
             GROUP BY registration_id, {from_table}.hashed_organisation
             """
 
@@ -742,12 +752,19 @@ class EMISBackend:
         between=None,
         ignore_days_where_these_codes_occur=None,
         episode_defined_as=None,
+        ignore_missing_values=False,
     ):
         codelist_table = self.create_codelist_table(codelist)
         date_condition = make_date_filter("effective_date", between)
         not_an_ignored_day_condition = self._none_of_these_codes_occur_on_same_day(
             OBSERVATION_TABLE, ignore_days_where_these_codes_occur
         )
+        missing_value_condition = (
+            "(value_pq_1 IS NOT NULL AND value_pq_1 != 0)"
+            if ignore_missing_values
+            else "1 = 1"
+        )
+
         if episode_defined_as is not None:
             pattern = r"^series of events each <= (\d+) days apart$"
             match = re.match(pattern, episode_defined_as)
@@ -781,7 +798,9 @@ class EMISBackend:
             FROM {OBSERVATION_TABLE}
             INNER JOIN {codelist_table}
             ON snomed_concept_id = {codelist_table}.code
-            WHERE {date_condition} AND {not_an_ignored_day_condition}
+            WHERE {date_condition}
+              AND {not_an_ignored_day_condition}
+              AND {missing_value_condition}
         ) t
         GROUP BY registration_id, hashed_organisation
         """

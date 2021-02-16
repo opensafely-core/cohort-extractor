@@ -901,6 +901,7 @@ class TPPBackend:
         # Set return type
         returning="binary_flag",
         include_date_of_match=False,
+        ignore_missing_values=False,
     ):
         codelist_table, codelist_queries = self.create_codelist_table(
             codelist, codes_are_case_sensitive
@@ -910,6 +911,9 @@ class TPPBackend:
         )
         ignored_day_condition, extra_queries = self._these_codes_occur_on_same_day(
             from_table, ignore_days_where_these_codes_occur, between
+        )
+        missing_value_condition = (
+            "NumericValue != 0" if ignore_missing_values else "1 = 1"
         )
 
         # Result ordering
@@ -966,7 +970,9 @@ class TPPBackend:
               INNER JOIN {codelist_table}
               ON {code_column} = {codelist_table}.code
               {date_joins}
-              WHERE {date_condition} AND NOT {ignored_day_condition}
+              WHERE {date_condition}
+                AND NOT {ignored_day_condition}
+                AND {missing_value_condition}
             ) t
             WHERE rownum = 1
             """
@@ -980,7 +986,9 @@ class TPPBackend:
             INNER JOIN {codelist_table}
             ON {code_column} = {codelist_table}.code
             {date_joins}
-            WHERE {date_condition} AND NOT {ignored_day_condition}
+            WHERE {date_condition}
+              AND NOT {ignored_day_condition}
+              AND {missing_value_condition}
             GROUP BY {from_table}.Patient_ID
             """
 
@@ -1054,6 +1062,7 @@ class TPPBackend:
         between=None,
         ignore_days_where_these_codes_occur=None,
         episode_defined_as=None,
+        ignore_missing_values=False,
     ):
         codelist_table, codelist_queries = self.create_codelist_table(
             codelist, case_sensitive=True
@@ -1064,6 +1073,10 @@ class TPPBackend:
         ignored_day_condition, extra_queries = self._these_codes_occur_on_same_day(
             from_table, ignore_days_where_these_codes_occur, between
         )
+        missing_value_condition = (
+            "NumericValue != 0" if ignore_missing_values else "1 = 1"
+        )
+
         if episode_defined_as is not None:
             pattern = r"^series of events each <= (\d+) days apart$"
             match = re.match(pattern, episode_defined_as)
@@ -1098,7 +1111,9 @@ class TPPBackend:
             INNER JOIN {codelist_table}
             ON {code_column} = {codelist_table}.code
             {date_joins}
-            WHERE {date_condition} AND NOT {ignored_day_condition}
+            WHERE {date_condition}
+              AND NOT {ignored_day_condition}
+              AND {missing_value_condition}
         ) t
         GROUP BY t.Patient_ID
         """

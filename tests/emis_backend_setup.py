@@ -146,7 +146,7 @@ class Observation(Base):
     hashed_organisation = Column(String)
     patient = relationship("Patient", back_populates="observations")
     snomed_concept_id = Column(BigInteger)
-    value_pq_1 = Column(Float)
+    value_pq_1 = Column(Float, nullable=True)
     effective_date = Column(DateTime)
 
 
