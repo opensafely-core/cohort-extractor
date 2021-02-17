@@ -566,9 +566,9 @@ def with_these_clinical_events(
             ignored. if a events is found on this day, the date is not matched even it matches a
             code in the main `codelist`
         episode_defined_as: a string expression indicating how an episode should be defined
-        ignore_missing_values: ignore events where the value is missing.  Note that in
-            TPP, a missing value is recorded as a zero, so we do not distinguish between
-            values that are zero and values are missing in either backend
+        ignore_missing_values: ignore events where the value is missing or zero.  We are
+            unable to distinguish between zeros and null values due to limitations in
+            how the data is recorded in TPP.
         return_binary_flag: a boolean indicating if the number of matches in a period should be
             returned (deprecated: use `date_format` instead),
         return_number_of_matches_in_period: a boolean indicating if the number of matches in a period should be
