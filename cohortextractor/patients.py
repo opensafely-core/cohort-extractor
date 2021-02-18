@@ -1921,3 +1921,7 @@ def with_high_cost_drugs(
     if date_format == "YYYY-MM-DD":
         raise ValueError("Day level data not available for high cost drugs")
     return "with_high_cost_drugs", locals()
+
+
+def ethnicity_from_sus(*, setting, on_conflict):
+    pass
