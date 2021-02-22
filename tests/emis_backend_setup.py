@@ -31,6 +31,7 @@ from sqlalchemy.orm import relationship, sessionmaker
 from cohortextractor.emis_backend import (
     CPNS_TABLE,
     ICNARC_TABLE,
+    IMMUNISATIONS_TABLE,
     MEDICATION_TABLE,
     OBSERVATION_TABLE,
     ONS_TABLE,
@@ -105,6 +106,9 @@ class Patient(Base):
     english_region_code = Column(String)
     english_region_name = Column(String)
 
+    immunisations = relationship(
+        "Immunisation", back_populates="patient", cascade="all, delete, delete-orphan"
+    )
     medications = relationship(
         "Medication", back_populates="patient", cascade="all, delete, delete-orphan"
     )
@@ -125,6 +129,17 @@ class Patient(Base):
         if "nhs_no" not in kwargs:
             kwargs["nhs_no"] = uuid.uuid4().hex
         super().__init__(*args, **kwargs)
+
+
+class Immunisation(Base):
+    __tablename__ = IMMUNISATIONS_TABLE
+
+    id = Column(Integer, primary_key=True)
+    registration_id = Column(Integer, ForeignKey(f"{PATIENT_TABLE}.registration_id"))
+    hashed_organisation = Column(String)
+    patient = relationship("Patient", back_populates="immunisations")
+    snomed_concept_id = Column(BigInteger)
+    effective_date = Column(DateTime)
 
 
 class Medication(Base):

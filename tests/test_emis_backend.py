@@ -9,6 +9,7 @@ from cohortextractor.emis_backend import quote
 from tests.emis_backend_setup import (
     CPNS,
     ICNARC,
+    Immunisation,
     Medication,
     Observation,
     ONSDeaths,
@@ -41,6 +42,7 @@ def setup_function(function):
     session.query(ICNARC).delete()
     session.query(ONSDeaths).delete()
     session.query(CPNS).delete()
+    session.query(Immunisation).delete()
     session.query(Medication).delete()
     session.query(Patient).delete()
     session.commit()
@@ -125,6 +127,169 @@ def test_meds_with_count():
     )
     results = study.to_dicts()
     assert [x["asthma_meds"] for x in results] == ["3", "0"]
+
+
+def test_patients_with_vaccination_record():
+    covid_vacc = "840534001"
+    first_covid_vacc = "1324681000000101"
+    second_covid_vacc = "1324691000000104"
+    pf_vacc = "39115611000001103"
+    az_vacc = "39114911000001105"
+
+    covid_codelist = codelist(
+        [covid_vacc, first_covid_vacc, second_covid_vacc], "snomedct"
+    )
+    pf_codelist = codelist([pf_vacc], "dmd")
+    az_codelist = codelist([az_vacc], "dmd")
+    vacc_codelist = codelist([pf_vacc, az_vacc], "dmd")
+
+    pf_date_1 = "2020-12-01"
+    pf_date_2 = "2021-01-01"
+    az_date_1 = "2020-12-01"
+    az_date_2 = "2020-12-02"
+
+    session = make_session()
+    session.add_all(
+        [
+            # Has no immunisations
+            Patient(),
+            # Has two Pfizer vaccinations with consistent dates
+            Patient(
+                medications=[
+                    Medication(snomed_concept_id=pf_vacc, effective_date=pf_date_1),
+                    Medication(snomed_concept_id=pf_vacc, effective_date=pf_date_2),
+                ],
+                immunisations=[
+                    Immunisation(
+                        snomed_concept_id=first_covid_vacc, effective_date=pf_date_1
+                    ),
+                    Immunisation(
+                        snomed_concept_id=second_covid_vacc, effective_date=pf_date_2
+                    ),
+                ],
+            ),
+            # Has one AZ vaccination with inconsistent dates
+            Patient(
+                medications=[
+                    Medication(snomed_concept_id=az_vacc, effective_date=az_date_1),
+                ],
+                immunisations=[
+                    Immunisation(
+                        snomed_concept_id=first_covid_vacc, effective_date=az_date_2
+                    ),
+                ],
+            ),
+        ]
+    )
+    session.commit()
+
+    study = StudyDefinition(
+        population=patients.all(),
+        had_pf=patients.with_vaccination_record(
+            emis={
+                "procedure_codes": covid_codelist,
+                "product_codes": pf_codelist,
+            },
+            tpp={},
+        ),
+        had_az=patients.with_vaccination_record(
+            emis={
+                "procedure_codes": covid_codelist,
+                "product_codes": az_codelist,
+            },
+            tpp={},
+        ),
+        first_pf=patients.with_vaccination_record(
+            emis={
+                "procedure_codes": covid_codelist,
+                "product_codes": pf_codelist,
+            },
+            tpp={},
+            find_first_match_in_period=True,
+            returning="date",
+            date_format="YYYY-MM-DD",
+        ),
+        last_pf=patients.with_vaccination_record(
+            emis={
+                "procedure_codes": covid_codelist,
+                "product_codes": pf_codelist,
+            },
+            tpp={},
+            find_last_match_in_period=True,
+            returning="date",
+            date_format="YYYY-MM-DD",
+        ),
+        first_az=patients.with_vaccination_record(
+            emis={
+                "procedure_codes": covid_codelist,
+                "product_codes": az_codelist,
+            },
+            tpp={},
+            find_first_match_in_period=True,
+            returning="date",
+            date_format="YYYY-MM-DD",
+        ),
+        last_az=patients.with_vaccination_record(
+            emis={
+                "procedure_codes": covid_codelist,
+                "product_codes": az_codelist,
+            },
+            tpp={},
+            find_last_match_in_period=True,
+            returning="date",
+            date_format="YYYY-MM-DD",
+        ),
+        first_product=patients.with_vaccination_record(
+            emis={
+                "product_codes": vacc_codelist,
+            },
+            tpp={},
+            find_first_match_in_period=True,
+            returning="date",
+            date_format="YYYY-MM-DD",
+        ),
+        last_product=patients.with_vaccination_record(
+            emis={
+                "product_codes": vacc_codelist,
+            },
+            tpp={},
+            find_last_match_in_period=True,
+            returning="date",
+            date_format="YYYY-MM-DD",
+        ),
+        first_procedure=patients.with_vaccination_record(
+            emis={
+                "procedure_codes": covid_codelist,
+            },
+            tpp={},
+            find_first_match_in_period=True,
+            returning="date",
+            date_format="YYYY-MM-DD",
+        ),
+        last_procedure=patients.with_vaccination_record(
+            emis={
+                "procedure_codes": covid_codelist,
+            },
+            tpp={},
+            find_last_match_in_period=True,
+            returning="date",
+            date_format="YYYY-MM-DD",
+        ),
+    )
+
+    assert_results(
+        study.to_dicts(),
+        had_pf=["0", "1", "0"],
+        had_az=["0", "0", "1"],
+        first_pf=["", pf_date_1, ""],
+        last_pf=["", pf_date_2, ""],
+        first_az=["", "", az_date_1],
+        last_az=["", "", az_date_2],
+        first_product=["", pf_date_1, az_date_1],
+        last_product=["", pf_date_2, az_date_1],
+        first_procedure=["", pf_date_1, az_date_2],
+        last_procedure=["", pf_date_2, az_date_2],
+    )
 
 
 def _make_clinical_events_selection(condition_code, patient_dates=None):

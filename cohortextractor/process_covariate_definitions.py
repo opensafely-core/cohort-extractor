@@ -289,6 +289,9 @@ class GetColumnType:
     def type_of_with_death_recorded_in_primary_care(self, returning, **kwargs):
         return self._type_from_return_value(returning)
 
+    def type_of_with_vaccination_record(self, returning, **kwargs):
+        return self._type_from_return_value(returning)
+
     def type_of_with_tpp_vaccination_record(self, returning, **kwargs):
         return self._type_from_return_value(returning)
 

@@ -22,6 +22,7 @@ SAFE_CHARS_RE = re.compile(f"^[a-zA-Z0-9{re.escape(safe_punctation)}]+$")
 PATIENT_TABLE = "patient_all_orgs_v2"
 MEDICATION_TABLE = "medication_all_orgs_v2"
 OBSERVATION_TABLE = "observation_all_orgs_v2"
+IMMUNISATIONS_TABLE = "immunisation_all_orgs_v2"
 ICNARC_TABLE = "icnarc_view"
 ONS_TABLE = "ons_view"
 CPNS_TABLE = "cpns_view"
@@ -255,7 +256,7 @@ class EMISBackend:
         # The underscore prefix is our convention to indicate a temporary table
         # but has no significance for the database
         table_name = self.make_temp_table_name(f"{table_number}_{column_name}")
-        cast = int if codelist.system in ("snomed", "snomedct") else str
+        cast = int if codelist.system in ("snomed", "snomedct", "dmd") else str
         organisation_hash = quote(get_organisation_hash())
         if codelist.has_categories:
             values = ", ".join(
@@ -890,6 +891,106 @@ class EMISBackend:
           date_of_death BETWEEN {quote(min_date)} AND {quote(max_date)}
         """,
         )
+
+    def patients_with_vaccination_record(
+        self,
+        tpp,
+        emis,
+        # Set date limits
+        between=None,
+        # Set return type
+        returning="binary_flag",
+        # Matching rule
+        find_first_match_in_period=None,
+        find_last_match_in_period=None,
+    ):
+        product_codes = emis.get("product_codes")
+        procedure_codes = emis.get("procedure_codes")
+
+        if returning not in ("binary_flag", "date"):
+            raise ValueError(f"Unsupported `returning` value: {returning}")
+
+        date_condition = make_date_filter("effective_date", between)
+        if find_first_match_in_period:
+            date_aggregate = "MIN"
+            date_comparator = "<"
+        else:
+            date_aggregate = "MAX"
+            date_comparator = ">"
+
+        if product_codes:
+            product_codes_table = self.create_codelist_table(product_codes)
+        if procedure_codes:
+            procedure_codes_table = self.create_codelist_table(procedure_codes)
+
+        if procedure_codes and product_codes:
+            sql = f"""
+            SELECT
+                patient_id,
+                hashed_organisation,
+                1 AS has_event,
+                {date_aggregate}(DATE(date)) AS date
+            FROM (
+                SELECT
+                    m.registration_id AS patient_id,
+                    m.hashed_organisation AS hashed_organisation,
+                    1 AS has_event,
+                    CASE
+                        WHEN m.effective_date {date_comparator} i.effective_date THEN m.effective_date
+                        ELSE i.effective_date
+                    END AS date
+                FROM {MEDICATION_TABLE} AS m
+                INNER JOIN {IMMUNISATIONS_TABLE} AS i
+                    ON m.registration_id = i.registration_id
+                INNER JOIN {product_codes_table}
+                    ON m.snomed_concept_id = {product_codes_table}.code
+                INNER JOIN {procedure_codes_table}
+                    ON i.snomed_concept_id = {procedure_codes_table}.code
+                WHERE {date_condition}
+            )
+            GROUP BY patient_id, hashed_organisation
+            """
+
+        elif procedure_codes:
+            assert not product_codes
+            sql = f"""
+            SELECT
+                registration_id AS patient_id,
+                i.hashed_organisation AS hashed_organisation,
+                1 AS has_event,
+                {date_aggregate}(DATE(effective_date)) AS date
+            FROM {IMMUNISATIONS_TABLE} AS i
+            INNER JOIN {procedure_codes_table}
+                ON i.snomed_concept_id = {procedure_codes_table}.code
+            WHERE {date_condition}
+            GROUP BY registration_id, i.hashed_organisation
+            """
+
+        elif product_codes:
+            assert not procedure_codes
+            sql = f"""
+            SELECT
+                registration_id AS patient_id,
+                m.hashed_organisation AS hashed_organisation,
+                1 AS has_event,
+                {date_aggregate}(DATE(effective_date)) AS date
+            FROM {MEDICATION_TABLE} AS m
+            INNER JOIN {product_codes_table}
+                ON m.snomed_concept_id = {product_codes_table}.code
+            WHERE {date_condition}
+            GROUP BY registration_id, m.hashed_organisation
+            """
+
+        else:
+            raise ValueError(
+                "Provide at least one of `product_codes` or `procedure_codes`"
+            )
+
+        if returning == "date":
+            columns = ["patient_id", "date"]
+        else:
+            columns = ["patient_id", "has_event"]
+        return columns, sql
 
     def patients_address_as_of(self, date, returning=None, round_to_nearest=None):
         # At the moment we can only return current values for the fields in question.

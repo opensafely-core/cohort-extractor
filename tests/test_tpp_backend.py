@@ -1906,6 +1906,70 @@ def test_medications_returning_code_with_ignored_days():
     assert [i["most_recent_drug_date"] for i in results] == ["2010-01-03"]
 
 
+def test_patients_with_vaccination_record():
+    session = make_session()
+    vaccines = [
+        (1, "Hepatyrix", ["TYPHOID", "HEPATITIS A"]),
+        (2, "Madeva", ["INFLUENZA"]),
+        (3, "Optaflu", ["INFLUENZA"]),
+    ]
+    ids = {}
+    for name_id, name, contents in vaccines:
+        ids[name] = name_id
+        for content in contents:
+            session.add(
+                VaccinationReference(
+                    VaccinationName=name,
+                    VaccinationName_ID=name_id,
+                    VaccinationContent=content,
+                )
+            )
+    session.add_all(
+        [
+            Patient(
+                Vaccinations=[
+                    Vaccination(
+                        VaccinationName_ID=ids["Hepatyrix"],
+                        VaccinationDate="2010-01-01",
+                    ),
+                    Vaccination(
+                        VaccinationName_ID=ids["Optaflu"], VaccinationDate="2014-01-01"
+                    ),
+                ]
+            ),
+            Patient(
+                Vaccinations=[
+                    Vaccination(
+                        VaccinationName_ID=ids["Madeva"], VaccinationDate="2013-01-01"
+                    ),
+                    Vaccination(
+                        VaccinationName_ID=ids["Hepatyrix"],
+                        VaccinationDate="2015-01-01",
+                    ),
+                ]
+            ),
+        ]
+    )
+    session.commit()
+
+    # This is the same as the first study definition in
+    # test_patients_with_tpp_vaccination_record
+    study = StudyDefinition(
+        population=patients.all(),
+        value=patients.with_vaccination_record(
+            tpp={
+                "target_disease_matches": "TYPHOID",
+            },
+            emis={},
+            on_or_after="2012-01-01",
+        ),
+        date=patients.date_of("value"),
+    )
+    results = study.to_dicts()
+    assert [i["value"] for i in results] == ["0", "1"]
+    assert [i["date"] for i in results] == ["", "2015"]
+
+
 def test_patients_with_tpp_vaccination_record():
     session = make_session()
     vaccines = [
