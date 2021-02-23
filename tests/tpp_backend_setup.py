@@ -453,6 +453,9 @@ class SGSS_Positive(Base):
     #   clearly this is a PCR only variable.
     SGTF = Column(String)
 
+    # Possible values: "LFT_Only", "PCR_Only", "LFT_WithPCR"
+    CaseCategory = Column(String)
+
     # Other columns in the table which we don't use:
     #   Age_in_Years
     #   Patient_Sex

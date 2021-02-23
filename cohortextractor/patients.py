@@ -1504,6 +1504,14 @@ def with_test_result_in_sgss(
         also coming across as 9 so will need to review those to null as well as
         clearly this is a PCR only variable.
 
+    ### Case Category (type of test used)
+
+    Using the `returning="case_category"` option (only available on positive,
+    earliest specimen date results) reports whether the test was a Lateral Flow
+    or PCR test. Possible values are:
+
+        "LFT_Only", "PCR_Only", "LFT_WithPCR"
+
     For more detail on SGSS in general see [PHE_Laboratory_Reporting_Guidelines.pdf][PHE_LRG]
 
     [PHE_LRG]: https://assets.publishing.service.gov.uk/government/uploads/system/uploads/attachment_data/file/739854/PHE_Laboratory_Reporting_Guidelines.pdf
@@ -1535,8 +1543,9 @@ def with_test_result_in_sgss(
             The options are limited to `binary_flag` (which indicates if they
             have had the an event or not), `date` (which indicate date of event
             and used with either find_first_match_in_period or
-            find_last_match_in_period) and `s_gene_target_failure` which
-            returns the value of the SGTF field (see above)
+            find_last_match_in_period), `s_gene_target_failure` which returns
+            the value of the SGTF field (see above), and `case_category` (see
+            above)
         date_format: a string detailing the format of the dates to be returned.
             It can be `YYYY-MM-DD`, `YYYY-MM` or `YYYY` and wherever possible
             the least disclosive data should be returned. i.e returning only
