@@ -352,6 +352,7 @@ class GetColumnType:
             "percentage_of_members_with_data_in_this_backend": "int",
             "msoa": "str",
             "s_gene_target_failure": "str",
+            "case_category": "str",
         }
         try:
             return mapping[returning]

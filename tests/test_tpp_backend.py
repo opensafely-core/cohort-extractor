@@ -2135,8 +2135,16 @@ def test_patients_with_test_result_in_sgss():
         [
             Patient(
                 SGSS_Positives=[
-                    SGSS_Positive(Earliest_Specimen_Date="2020-05-15", SGTF="9"),
-                    SGSS_Positive(Earliest_Specimen_Date="2020-05-20", SGTF="0"),
+                    SGSS_Positive(
+                        Earliest_Specimen_Date="2020-05-15",
+                        SGTF="9",
+                        CaseCategory="PCR_Only",
+                    ),
+                    SGSS_Positive(
+                        Earliest_Specimen_Date="2020-05-20",
+                        SGTF="0",
+                        CaseCategory="LFT_Only",
+                    ),
                 ],
                 SGSS_Negatives=[
                     SGSS_Negative(Earliest_Specimen_Date="2020-05-02"),
@@ -2154,7 +2162,11 @@ def test_patients_with_test_result_in_sgss():
             Patient(
                 SGSS_Negatives=[SGSS_Negative(Earliest_Specimen_Date="2020-04-01")],
                 SGSS_Positives=[
-                    SGSS_Positive(Earliest_Specimen_Date="2020-04-20", SGTF="1")
+                    SGSS_Positive(
+                        Earliest_Specimen_Date="2020-04-20",
+                        SGTF="1",
+                        CaseCategory="LFT_WithPCR",
+                    )
                 ],
                 SGSS_AllTests_Negatives=[
                     SGSS_AllTests_Negative(Specimen_Date="2020-04-01")
@@ -2194,6 +2206,12 @@ def test_patients_with_test_result_in_sgss():
             returning="date",
             date_format="YYYY-MM-DD",
         ),
+        case_category=patients.with_test_result_in_sgss(
+            pathogen="SARS-CoV-2",
+            test_result="positive",
+            find_first_match_in_period=True,
+            returning="case_category",
+        ),
         first_negative_after_a_positive=patients.with_test_result_in_sgss(
             pathogen="SARS-CoV-2",
             test_result="negative",
@@ -2229,6 +2247,7 @@ def test_patients_with_test_result_in_sgss():
             "",
             "",
         ],
+        case_category=["PCR_Only", "LFT_WithPCR", "", ""],
         first_negative_after_a_positive=["2020-07-10", "", "", ""],
         last_positive_test_date=["2020-05-20", "2020-05-02", "", ""],
         sgtf_result=["9", "1", "", ""],

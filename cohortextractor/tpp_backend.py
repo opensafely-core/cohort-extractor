@@ -1658,6 +1658,17 @@ class TPPBackend:
                 "  restrict_to_earliest_specimen_date = False"
             )
 
+        if returning == "case_category" and (
+            not restrict_to_earliest_specimen_date or test_result != "positive"
+        ):
+            raise ValueError(
+                "Due to limitations in the SGSS data we receive you can only use:\n"
+                "  returning = 'case_category'\n"
+                "with the options:\n"
+                "  restrict_to_earliest_specimen_date = True\n"
+                "  test_result = 'positive'"
+            )
+
         if returning == "binary_flag":
             column = "1"
         elif returning == "date":
@@ -1669,6 +1680,8 @@ class TPPBackend:
             returning = "binary_flag"
         elif returning == "s_gene_target_failure":
             column = "t2.sgtf"
+        elif returning == "case_category":
+            column = "t2.case_cateogory"
         else:
             raise ValueError(f"Unsupported `returning` value: {returning}")
 
@@ -1677,14 +1690,16 @@ class TPPBackend:
             SELECT
               Patient_ID AS patient_id,
               Earliest_Specimen_Date AS date,
-              SGTF AS sgtf
+              SGTF AS sgtf,
+              CaseCategory AS case_cateogory
             FROM SGSS_Positive
             """
             negative_query = """
             SELECT
               Patient_ID AS patient_id,
               Earliest_Specimen_Date AS date,
-              '' AS sgtf
+              '' AS sgtf,
+              '' AS case_category
             FROM SGSS_Negative
             """
         else:
