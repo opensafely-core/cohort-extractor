@@ -1963,3 +1963,51 @@ def test_patients_aggregate_value_of():
     results = study_with_hidden_columns.to_dicts()
     assert [x["max_value"] for x in results] == ["23.0", "18.0", "10.0", "8.0", "0.0"]
     assert "abc_value" not in results[0].keys()
+
+
+def test_dynamic_index_dates():
+    session = make_session()
+    session.add_all(
+        [
+            Patient(
+                observations=[
+                    Observation(effective_date="2020-01-01", snomed_concept_id=123),
+                    Observation(effective_date="2020-02-01", snomed_concept_id=123),
+                    Observation(effective_date="2020-03-01", snomed_concept_id=456),
+                    Observation(effective_date="2020-04-20", snomed_concept_id=123),
+                    Observation(effective_date="2020-05-01", snomed_concept_id=123),
+                    Observation(effective_date="2020-06-01", snomed_concept_id=456),
+                ],
+            ),
+        ]
+    )
+    session.commit()
+    study = StudyDefinition(
+        population=patients.all(),
+        earliest_456=patients.with_these_clinical_events(
+            codelist(["456"], system="snomed"),
+            returning="date",
+            date_format="YYYY-MM-DD",
+            find_first_match_in_period=True,
+        ),
+        latest_123_before_456=patients.with_these_clinical_events(
+            codelist(["123"], system="snomed"),
+            returning="date",
+            date_format="YYYY-MM-DD",
+            find_last_match_in_period=True,
+            on_or_before="earliest_456",
+        ),
+        latest_123_in_month_after_456=patients.with_these_clinical_events(
+            codelist(["123"], system="snomed"),
+            returning="date",
+            date_format="YYYY-MM-DD",
+            find_last_match_in_period=True,
+            on_or_before="last_day_of_month(earliest_456) + 1 month",
+        ),
+    )
+    assert_results(
+        study.to_dicts(),
+        earliest_456=["2020-03-01"],
+        latest_123_before_456=["2020-02-01"],
+        latest_123_in_month_after_456=["2020-04-20"],
+    )
