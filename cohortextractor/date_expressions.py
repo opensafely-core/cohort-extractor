@@ -58,10 +58,6 @@ def evaluate_date_expressions_in_expectations_definition(
 
 
 def validate_date(date_str):
-    if re.match(r"^\w+ \+ interval '\d+' (day|month|year)$", date_str):
-        # This expression contains presto's date arithmetic syntax
-        return date_str
-
     try:
         datetime.date.fromisoformat(date_str)
     except ValueError:

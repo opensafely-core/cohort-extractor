@@ -1354,10 +1354,6 @@ def quote(value):
         return str(value)
 
     value = str(value)
-
-    if re.match(r"^\w+ \+ interval '\d+' (day|month|year)$", value):
-        return value
-
     try:
         datetime.datetime.strptime(value, "%Y-%m-%d")
         return f"DATE('{value}')"
