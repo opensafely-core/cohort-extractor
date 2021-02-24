@@ -5,6 +5,7 @@ import tempfile
 import pytest
 
 from cohortextractor import StudyDefinition, codelist, patients
+from cohortextractor.date_expressions import InvalidExpressionError
 from cohortextractor.emis_backend import quote
 from tests.emis_backend_setup import (
     CPNS,
@@ -2011,3 +2012,19 @@ def test_dynamic_index_dates():
         latest_123_before_456=["2020-02-01"],
         latest_123_in_month_after_456=["2020-04-20"],
     )
+
+
+def test_dynamic_index_dates_with_invalid_expression():
+    with pytest.raises(InvalidExpressionError):
+        StudyDefinition(
+            population=patients.all(),
+            earliest_123=patients.with_these_clinical_events(
+                codelist([123], system="snomed"),
+                returning="date",
+                date_format="YYYY-MM-DD",
+            ),
+            latest_456_in_month_after_bar=patients.with_these_clinical_events(
+                codelist([456], system="snomed"),
+                on_or_before="last_day_of_month(earliest_bar) + 1 mnth",
+            ),
+        )
