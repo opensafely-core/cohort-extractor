@@ -37,6 +37,7 @@ class EMISBackend:
         self.covariate_definitions = covariate_definitions
         self.postprocess_covariate_definitions()
         self.codelist_tables = []
+        self.next_table_id = 1
         self.temp_table_prefix = self.get_temp_table_prefix()
         self.queries = self.get_queries(self.covariate_definitions)
         logger.info(
@@ -260,12 +261,7 @@ class EMISBackend:
         return return_value
 
     def create_codelist_table(self, codelist):
-        table_number = len(self.codelist_tables) + 1
-        # We include the current column name for ease of debugging
-        column_name = self._current_column_name or "unknown"
-        # The underscore prefix is our convention to indicate a temporary table
-        # but has no significance for the database
-        table_name = self.add_table_prefix(f"{table_number}_{column_name}")
+        table_name = self.get_temp_table_name("codelist")
         cast = int if codelist.system in ("snomed", "snomedct", "dmd") else str
         organisation_hash = quote(get_organisation_hash())
         if codelist.has_categories:
@@ -292,6 +288,15 @@ class EMISBackend:
                     """
             )
         return table_name
+
+    def get_temp_table_name(self, suffix):
+        table_name = f"{self.next_table_id}_"
+        self.next_table_id += 1
+        # We include the current column name if available for ease of debugging
+        if self._current_column_name:
+            table_name += f"{self._current_column_name}_"
+        table_name += suffix
+        return self.add_table_prefix(table_name)
 
     def patients_age_as_of(self, reference_date):
         quoted_date = quote(reference_date)
