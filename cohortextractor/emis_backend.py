@@ -36,7 +36,6 @@ class EMISBackend:
         self.database_url = database_url
         self.covariate_definitions = covariate_definitions
         self.postprocess_covariate_definitions()
-        self.codelist_tables = []
         self.next_table_id = 1
         self.temp_table_prefix = self.get_temp_table_prefix()
         self.queries = self.get_queries(self.covariate_definitions)
@@ -82,8 +81,6 @@ class EMISBackend:
         Useful for debugging, optimising, etc.
         """
         prepared_sql = ["-- Create codelist tables"]
-        for sql in self.codelist_tables:
-            prepared_sql.append(f"{sql};\n\n")
         for name, query in self.queries:
             prepared_sql.append(f"-- Query for {name}")
             prepared_sql.append(f"{query};\n\n")
@@ -206,8 +203,6 @@ class EMISBackend:
     def execute_query(self):
         cursor = self.get_db_connection().cursor()
         logger.info("Uploading codelists into temporary tables")
-        for sql in self.codelist_tables:
-            cursor.execute(sql)
         queries = list(self.queries)
         final_query = queries.pop()
         for sql in queries:
@@ -272,25 +267,25 @@ class EMISBackend:
                 f"({quote(cast(code))}, {quote(category)})"
                 for code, category in codelist
             )
-            self.codelist_tables.append(
+            queries = [
                 f"""
                     CREATE TABLE IF NOT EXISTS {table_name} AS
                     SELECT code, category, {organisation_hash} AS hashed_organisation FROM (
                       VALUES {values}
                     ) AS t (code, category)
                     """
-            )
+            ]
         else:
             values = ", ".join(f"({quote(cast(code))})" for code in codelist)
-            self.codelist_tables.append(
+            queries = [
                 f"""
                     CREATE TABLE IF NOT EXISTS {table_name} AS
                     SELECT code, {organisation_hash} AS hashed_organisation FROM (
                       VALUES {values}
                     ) AS t (code)
                     """
-            )
-        return table_name
+            ]
+        return table_name, queries
 
     def get_temp_table_name(self, suffix):
         table_name = f"{self.next_table_id}_"
@@ -592,7 +587,7 @@ class EMISBackend:
         include_date_of_match=False,
         ignore_missing_values=False,
     ):
-        codelist_table = self.create_codelist_table(codelist)
+        codelist_table, codelist_queries = self.create_codelist_table(codelist)
         date_condition = make_date_filter("effective_date", between)
         ignored_day_condition, extra_queries = self._these_codes_occur_on_same_day(
             from_table, ignore_days_where_these_codes_occur
@@ -682,7 +677,7 @@ class EMISBackend:
             GROUP BY registration_id, {from_table}.hashed_organisation
             """
 
-        return extra_queries + [sql]
+        return codelist_queries + extra_queries + [sql]
 
     def _number_of_episodes_by_medication(
         self,
@@ -692,7 +687,7 @@ class EMISBackend:
         ignore_days_where_these_codes_occur=None,
         episode_defined_as=None,
     ):
-        codelist_table = self.create_codelist_table(codelist)
+        codelist_table, codelist_queries = self.create_codelist_table(codelist)
         date_condition = make_date_filter("effective_date", between)
         ignored_day_condition, extra_queries = self._these_codes_occur_on_same_day(
             MEDICATION_TABLE, ignore_days_where_these_codes_occur
@@ -734,7 +729,7 @@ class EMISBackend:
         ) t
         GROUP BY registration_id, hashed_organisation
         """
-        return extra_queries + [sql]
+        return codelist_queries + extra_queries + [sql]
 
     def _number_of_episodes_by_clinical_event(
         self,
@@ -745,7 +740,7 @@ class EMISBackend:
         episode_defined_as=None,
         ignore_missing_values=False,
     ):
-        codelist_table = self.create_codelist_table(codelist)
+        codelist_table, codelist_queries = self.create_codelist_table(codelist)
         date_condition = make_date_filter("effective_date", between)
         ignored_day_condition, extra_queries = self._these_codes_occur_on_same_day(
             OBSERVATION_TABLE, ignore_days_where_these_codes_occur
@@ -795,7 +790,7 @@ class EMISBackend:
         ) t
         GROUP BY registration_id, hashed_organisation
         """
-        return extra_queries + [sql]
+        return codelist_queries + extra_queries + [sql]
 
     def _these_codes_occur_on_same_day(self, joined_table, codelist):
         """
@@ -809,7 +804,7 @@ class EMISBackend:
         """
         if codelist is None:
             return "0 = 1", []
-        codelist_table = self.create_codelist_table(codelist)
+        codelist_table, queries = self.create_codelist_table(codelist)
         condition = f"""
         EXISTS (
           SELECT * FROM {OBSERVATION_TABLE} AS sameday
@@ -820,7 +815,7 @@ class EMISBackend:
             AND CAST(sameday.effective_date AS date) = CAST({joined_table}.effective_date AS date)
         )
         """
-        return condition, []
+        return condition, queries
 
     def patients_registered_practice_as_of(self, date, returning=None):
         # At the moment we can only return current values for the fields in question.
@@ -903,10 +898,17 @@ class EMISBackend:
             date_aggregate = "MAX"
             date_comparator = ">"
 
+        codelist_queries = []
         if product_codes:
-            product_codes_table = self.create_codelist_table(product_codes)
+            product_codes_table, codelist_query = self.create_codelist_table(
+                product_codes
+            )
+            codelist_queries.extend(codelist_query)
         if procedure_codes:
-            procedure_codes_table = self.create_codelist_table(procedure_codes)
+            procedure_codes_table, codelist_query = self.create_codelist_table(
+                procedure_codes
+            )
+            codelist_queries.extend(codelist_query)
 
         if procedure_codes and product_codes:
             sql = f"""
@@ -971,7 +973,7 @@ class EMISBackend:
                 "Provide at least one of `product_codes` or `procedure_codes`"
             )
 
-        return sql
+        return codelist_queries + [sql]
 
     def patients_address_as_of(self, date, returning=None, round_to_nearest=None):
         # At the moment we can only return current values for the fields in question.
