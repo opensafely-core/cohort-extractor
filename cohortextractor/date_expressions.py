@@ -341,3 +341,32 @@ class MSSQLDateFormatter(DateFormatter):
     date_unit_year = date_unit_years
     date_unit_month = date_unit_months
     date_unit_day = date_unit_days
+
+
+class PrestoDateFormatter(DateFormatter):
+    def date_function_first_day_of_month(self, date):
+        return f"date_trunc('month', {date})"
+
+    def date_function_last_day_of_month(self, date):
+        return f"last_day_of_month({date})"
+
+    def date_function_first_day_of_year(self, date):
+        return f"date_trunc('year', {date})"
+
+    def date_function_last_day_of_year(self, date):
+        # :(
+        return f"from_iso8601_date(cast(year({date}) as varchar(4)) || '-12-31')"
+
+    def date_unit_years(self, date, value):
+        return f"date_add(year, {value}, {date})"
+
+    def date_unit_months(self, date, value):
+        return f"date_add(month, {value}, {date})"
+
+    def date_unit_days(self, date, value):
+        return f"date_add(day, {value}, {date})"
+
+    # Define the singular units as aliases to the plural
+    date_unit_year = date_unit_years
+    date_unit_month = date_unit_months
+    date_unit_day = date_unit_days
