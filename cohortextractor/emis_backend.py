@@ -413,8 +413,7 @@ class EMISBackend:
         # were taken.
         height_date_condition = make_date_filter(
             "effective_date",
-            between,
-            upper_bound_only=True,
+            remove_lower_date_bound(between),
         )
         heights_cte = f"""
           SELECT t.registration_id, t.height, t.effective_date
@@ -1264,12 +1263,10 @@ def quote(value):
     return f"'{value}'"
 
 
-def make_date_filter(column, between, upper_bound_only=False):
+def make_date_filter(column, between):
     if between is None:
         between = (None, None)
     min_date, max_date = between
-    if upper_bound_only:
-        min_date = None
     if min_date is not None and max_date is not None:
         return f"{column} BETWEEN {quote(min_date)} AND {quote(max_date)}"
     elif min_date is not None:
@@ -1278,6 +1275,11 @@ def make_date_filter(column, between, upper_bound_only=False):
         return f"{column} <= {quote(max_date)}"
     else:
         return "1=1"
+
+
+def remove_lower_date_bound(between):
+    if between is not None:
+        return (None, between[1])
 
 
 def truncate_date(column, date_format):
