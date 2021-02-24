@@ -610,7 +610,7 @@ class EMISBackend:
     ):
         codelist_table = self.create_codelist_table(codelist)
         date_condition = make_date_filter("effective_date", between)
-        not_an_ignored_day_condition = self._none_of_these_codes_occur_on_same_day(
+        ignored_day_condition = self._these_codes_occur_on_same_day(
             from_table, ignore_days_where_these_codes_occur
         )
         missing_value_condition = (
@@ -680,7 +680,7 @@ class EMISBackend:
               INNER JOIN {codelist_table}
               ON {code_column} = {codelist_table}.code
               WHERE {date_condition}
-                AND {not_an_ignored_day_condition}
+                AND NOT {ignored_day_condition}
                 AND {missing_value_condition}
             ) t
             WHERE rownum = 1
@@ -696,7 +696,7 @@ class EMISBackend:
             INNER JOIN {codelist_table}
             ON {code_column} = {codelist_table}.code
             WHERE {date_condition}
-              AND {not_an_ignored_day_condition}
+              AND NOT {ignored_day_condition}
               AND {missing_value_condition}
             GROUP BY registration_id, {from_table}.hashed_organisation
             """
@@ -719,7 +719,7 @@ class EMISBackend:
     ):
         codelist_table = self.create_codelist_table(codelist)
         date_condition = make_date_filter("effective_date", between)
-        not_an_ignored_day_condition = self._none_of_these_codes_occur_on_same_day(
+        ignored_day_condition = self._these_codes_occur_on_same_day(
             MEDICATION_TABLE, ignore_days_where_these_codes_occur
         )
         if episode_defined_as is not None:
@@ -755,7 +755,7 @@ class EMISBackend:
             FROM {MEDICATION_TABLE}
             INNER JOIN {codelist_table}
             ON snomed_concept_id = {codelist_table}.code
-            WHERE {date_condition} AND {not_an_ignored_day_condition}
+            WHERE {date_condition} AND NOT {ignored_day_condition}
         ) t
         GROUP BY registration_id, hashed_organisation
         """
@@ -772,7 +772,7 @@ class EMISBackend:
     ):
         codelist_table = self.create_codelist_table(codelist)
         date_condition = make_date_filter("effective_date", between)
-        not_an_ignored_day_condition = self._none_of_these_codes_occur_on_same_day(
+        ignored_day_condition = self._these_codes_occur_on_same_day(
             OBSERVATION_TABLE, ignore_days_where_these_codes_occur
         )
         missing_value_condition = (
@@ -815,14 +815,14 @@ class EMISBackend:
             INNER JOIN {codelist_table}
             ON snomed_concept_id = {codelist_table}.code
             WHERE {date_condition}
-              AND {not_an_ignored_day_condition}
+              AND NOT {ignored_day_condition}
               AND {missing_value_condition}
         ) t
         GROUP BY registration_id, hashed_organisation
         """
         return ["patient_id", "episode_count"], sql
 
-    def _none_of_these_codes_occur_on_same_day(self, joined_table, codelist):
+    def _these_codes_occur_on_same_day(self, joined_table, codelist):
         """
         Generates a SQL condition that filters rows in `joined_table` so that
         they only include events which happened on days where none of the codes
@@ -833,10 +833,10 @@ class EMISBackend:
         their annual COPD review".
         """
         if codelist is None:
-            return "1 = 1"
+            return "0 = 1"
         codelist_table = self.create_codelist_table(codelist)
         return f"""
-        NOT EXISTS (
+        EXISTS (
           SELECT * FROM {OBSERVATION_TABLE} AS sameday
           INNER JOIN {codelist_table}
           ON sameday.snomed_concept_id = {codelist_table}.code
