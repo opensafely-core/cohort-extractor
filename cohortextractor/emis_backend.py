@@ -415,6 +415,27 @@ class EMISBackend:
         else:
             return "1=1", join_str
 
+    def get_date_sql(self, table, *date_expressions):
+        """
+        Given a table name and one or more date expressions return the
+        corresponding SQL expressions followed by a fragment of SQL supplying
+        any necessary JOINs
+        """
+        all_join_tables = set()
+        sql_expressions = []
+        for date_expression in date_expressions:
+            assert date_expression is not None
+            sql_expression, join_tables = self.date_ref_to_sql_expr(date_expression)
+            sql_expressions.append(sql_expression)
+            all_join_tables.update(join_tables)
+        joins = [
+            f"LEFT JOIN {join_table}\n"
+            f"ON {join_table}.patient_id = {table}.patient_id"
+            for join_table in all_join_tables
+        ]
+        join_str = "\n".join(joins)
+        return (*sql_expressions, join_str)
+
     def date_ref_to_sql_expr(self, date):
         """
         Given a date reference return its corresponding SQL expression,
@@ -427,19 +448,20 @@ class EMISBackend:
         return quote(date), []
 
     def patients_age_as_of(self, reference_date):
-        quoted_date = quote(reference_date)
+        date_expr, date_joins = self.get_date_sql(PATIENT_TABLE, reference_date)
         return f"""
             SELECT
               registration_id AS patient_id,
               hashed_organisation,
               CASE WHEN
-                 date_add('year', date_diff('year', date_of_birth, {quoted_date}), date_of_birth) > {quoted_date}
+                 date_add('year', date_diff('year', date_of_birth, {date_expr}), date_of_birth) > {date_expr}
               THEN
-                 date_diff('year', date_of_birth, {quoted_date}) - 1
+                 date_diff('year', date_of_birth, {date_expr}) - 1
               ELSE
-                 date_diff('year', date_of_birth, {quoted_date})
+                 date_diff('year', date_of_birth, {date_expr})
               END AS value
             FROM {PATIENT_TABLE}
+            {date_joins}
             """
 
     def patients_sex(self):
@@ -646,14 +668,18 @@ class EMISBackend:
         """
         All patients registered with the same practice through the given period
         """
+        start_date_sql, end_date_sql, date_joins = self.get_date_sql(
+            PATIENT_TABLE, start_date, end_date
+        )
         return f"""
             SELECT
                 {PATIENT_TABLE}.registration_id AS patient_id,
                 hashed_organisation,
                 1 AS value
             FROM {PATIENT_TABLE}
-            WHERE registered_date <= {quote(start_date)}
-              AND (registration_end_date > {quote(end_date)} OR registration_end_date IS NULL)
+            {date_joins}
+            WHERE registered_date <= {start_date_sql}
+              AND (registration_end_date > {end_date_sql} OR registration_end_date IS NULL)
             """
 
     def patients_with_these_medications(self, **kwargs):
