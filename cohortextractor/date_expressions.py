@@ -236,7 +236,7 @@ def date_replace(date, **kwargs):
     raise InvalidDateError(f"No such date {target_date}")
 
 
-class MSSQLDateFormatter:
+class DateFormatter:
 
     regex = create_regex()
 
@@ -318,6 +318,8 @@ class MSSQLDateFormatter:
                 f"(allowed are {', '.join(methods)})"
             )
 
+
+class MSSQLDateFormatter(DateFormatter):
     def date_function_first_day_of_month(self, date):
         return f"DATEADD(DAY, 1, EOMONTH({date}, -1))"
 
