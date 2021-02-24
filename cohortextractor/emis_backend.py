@@ -301,7 +301,7 @@ class EMISBackend:
     def patients_age_as_of(self, reference_date):
         quoted_date = quote(reference_date)
         return (
-            ["patient_id", "age"],
+            ["patient_id", "value"],
             f"""
             SELECT
               registration_id AS patient_id,
@@ -312,14 +312,14 @@ class EMISBackend:
                  date_diff('year', date_of_birth, {quoted_date}) - 1
               ELSE
                  date_diff('year', date_of_birth, {quoted_date})
-              END AS age
+              END AS value
             FROM {PATIENT_TABLE}
             """,
         )
 
     def patients_sex(self):
         return (
-            ["patient_id", "sex"],
+            ["patient_id", "value"],
             f"""
           SELECT
             registration_id AS patient_id,
@@ -329,7 +329,7 @@ class EMISBackend:
               WHEN 1 THEN 'M'
               WHEN 2 THEN 'F'
               ELSE ''
-            END AS sex
+            END AS value
           FROM {PATIENT_TABLE}""",
         )
 
@@ -338,9 +338,9 @@ class EMISBackend:
         All patients
         """
         return (
-            ["patient_id", "is_included"],
+            ["patient_id", "value"],
             f"""
-            SELECT registration_id AS patient_id, hashed_organisation, 1 AS is_included
+            SELECT registration_id AS patient_id, hashed_organisation, 1 AS value
             FROM {PATIENT_TABLE}
             """,
         )
@@ -392,9 +392,9 @@ class EMISBackend:
         )
 
         bmi_cte = f"""
-        SELECT t.registration_id, t.BMI, t.effective_date
+        SELECT t.registration_id, t.value, t.effective_date
         FROM (
-          SELECT registration_id, "value_pq_1" AS BMI, effective_date,
+          SELECT registration_id, "value_pq_1" AS value, effective_date,
           ROW_NUMBER() OVER (PARTITION BY registration_id ORDER BY effective_date DESC) AS rownum
           FROM {OBSERVATION_TABLE}
           WHERE snomed_concept_id = {quote(bmi_code)} AND {date_condition}
@@ -446,8 +446,8 @@ class EMISBackend:
           hashed_organisation,
           CASE
             WHEN height = 0 THEN NULL
-            ELSE ROUND(COALESCE(weight/(height*height), bmis.BMI), 1)
-          END AS BMI,
+            ELSE ROUND(COALESCE(weight/(height*height), bmis.value), 1)
+          END AS value,
           CASE
             WHEN weight IS NULL OR height IS NULL THEN DATE(bmis.effective_date)
             ELSE DATE(weights.effective_date)
@@ -461,7 +461,7 @@ class EMISBackend:
         ON bmis.registration_id = patients.registration_id AND date_diff('year', patients.date_of_birth, bmis.effective_date) >= {min_age}
         -- XXX maybe add a "WHERE NULL..." here
         """
-        columns = ["patient_id", "BMI"]
+        columns = ["patient_id", "value"]
         if include_date_of_match:
             columns.append("date")
         return columns, sql
@@ -489,7 +489,7 @@ class EMISBackend:
         SELECT
           days.registration_id AS patient_id,
           days.hashed_organisation,
-          AVG({OBSERVATION_TABLE}."value_pq_1") AS mean_value,
+          AVG({OBSERVATION_TABLE}."value_pq_1") AS value,
           days.date_measured AS date
         FROM (
             SELECT
@@ -508,7 +508,7 @@ class EMISBackend:
         )
         GROUP BY days.registration_id, days.hashed_organisation, days.date_measured
         """
-        columns = ["patient_id", "mean_value"]
+        columns = ["patient_id", "value"]
         if include_date_of_match:
             columns.append("date")
         return columns, sql
@@ -526,12 +526,12 @@ class EMISBackend:
         All patients registered with the same practice through the given period
         """
         return (
-            ["patient_id", "is_registered"],
+            ["patient_id", "value"],
             f"""
             SELECT
                 {PATIENT_TABLE}.registration_id AS patient_id,
                 hashed_organisation,
-                1 AS is_registered
+                1 AS value
             FROM {PATIENT_TABLE}
             WHERE registered_date <= {quote(start_date)}
               AND (registration_end_date > {quote(end_date)} OR registration_end_date IS NULL)
@@ -628,20 +628,18 @@ class EMISBackend:
             date_aggregate = "MAX"
 
         query_column = None
+        column_name = returning
         if returning == "binary_flag" or returning == "date":
-            column_name = "has_event"
+            column_name = "binary_flag"
             column_definition = "1"
             use_partition_query = False
         elif returning == "number_of_matches_in_period":
-            column_name = "count"
             column_definition = "COUNT(*)"
             use_partition_query = False
         elif returning == "numeric_value":
-            column_name = "value"
             column_definition = '"value_pq_1"'
             use_partition_query = True
         elif returning == "code":
-            column_name = "code"
             column_definition = f"CAST({code_column} AS VARCHAR(18))"
             query_column = code_column
             use_partition_query = True
@@ -651,7 +649,6 @@ class EMISBackend:
                     "Cannot return categories because the supplied codelist does "
                     "not have any categories defined"
                 )
-            column_name = "category"
             column_definition = "category"
             use_partition_query = True
         else:
@@ -707,6 +704,9 @@ class EMISBackend:
             columns = ["patient_id", column_name]
             if include_date_of_match:
                 columns.append("date")
+        columns = ["patient_id", returning]
+        if include_date_of_match and returning != "date":
+            columns.append("date")
         return columns, sql, extra_queries
 
     def _number_of_episodes_by_medication(
@@ -737,7 +737,7 @@ class EMISBackend:
         SELECT
           registration_id AS patient_id,
           hashed_organisation,
-          SUM(is_new_episode) AS episode_count
+          SUM(is_new_episode) AS number_of_episodes
         FROM (
             SELECT
               registration_id,
@@ -759,7 +759,7 @@ class EMISBackend:
         ) t
         GROUP BY registration_id, hashed_organisation
         """
-        return ["patient_id", "episode_count"], sql, extra_queries
+        return ["patient_id", "number_of_episodes"], sql, extra_queries
 
     def _number_of_episodes_by_clinical_event(
         self,
@@ -796,7 +796,7 @@ class EMISBackend:
         SELECT
           registration_id AS patient_id,
           hashed_organisation,
-          SUM(is_new_episode) AS episode_count
+          SUM(is_new_episode) AS number_of_episodes
         FROM (
             SELECT
               registration_id,
@@ -820,7 +820,7 @@ class EMISBackend:
         ) t
         GROUP BY registration_id, hashed_organisation
         """
-        return ["patient_id", "episode_count"], sql, extra_queries
+        return ["patient_id", "number_of_episodes"], sql, extra_queries
 
     def _these_codes_occur_on_same_day(self, joined_table, codelist):
         """
@@ -944,7 +944,7 @@ class EMISBackend:
             SELECT
                 patient_id,
                 hashed_organisation,
-                1 AS has_event,
+                1 AS binary_flag,
                 {date_aggregate}(DATE(date)) AS date
             FROM (
                 SELECT
@@ -1002,10 +1002,7 @@ class EMISBackend:
                 "Provide at least one of `product_codes` or `procedure_codes`"
             )
 
-        if returning == "date":
-            columns = ["patient_id", "date"]
-        else:
-            columns = ["patient_id", "has_event"]
+        columns = ["patient_id", returning]
         return columns, sql
 
     def patients_address_as_of(self, date, returning=None, round_to_nearest=None):
@@ -1043,10 +1040,8 @@ class EMISBackend:
     ):
         if find_first_match_in_period:
             date_aggregate = "MIN"
-            date_column_name = "first_admitted_date"
         else:
             date_aggregate = "MAX"
-            date_column_name = "last_admitted_date"
         date_expression = f"""
         {date_aggregate}(
         CASE
@@ -1060,20 +1055,18 @@ class EMISBackend:
         date_condition = make_date_filter(date_expression, between)
 
         if returning == "date_admitted":
-            column_name = date_column_name
             column_definition = date_expression
         elif returning == "binary_flag":
-            column_name = "was_admitted"
             column_definition = 1
         else:
             assert False, "`returning` must be one of `binary_flag` or `date_admitted`"
         return (
-            ["patient_id", column_name],
+            ["patient_id", returning],
             f"""
             SELECT
               registration_id AS patient_id,
               hashed_organisation,
-              {column_definition} AS {column_name},
+              {column_definition} AS {returning},
               MAX(Ventilator) AS ventilated -- apparently can be 0, 1 or NULL
             FROM
               {ICNARC_TABLE}
@@ -1109,27 +1102,24 @@ class EMISBackend:
             code_conditions = "1 = 1"
         if returning == "binary_flag":
             column_definition = "1"
-            column_name = "died"
         elif returning == "date_of_death":
             # Yes, we're converting an integer to a string to a timestamp to a date.
             column_definition = (
                 "CAST(date_parse(CAST(o.reg_stat_dod AS VARCHAR), '%Y%m%d') AS date)"
             )
-            column_name = "date_of_death"
         elif returning == "underlying_cause_of_death":
             column_definition = "o.icd10u"
-            column_name = "underlying_cause_of_death"
         else:
             raise ValueError(f"Unsupported `returning` value: {returning}")
         return (
-            ["patient_id", column_name],
+            ["patient_id", returning],
             # ONS_TABLE is updated with each release of data from ONS, so we need to
             # filter for just the records which match the most recent upload_date
             f"""
             SELECT
                 p.registration_id as patient_id,
                 p.hashed_organisation as hashed_organisation,
-                {column_definition} AS {column_name}
+                {column_definition} AS {returning}
             FROM {ONS_TABLE} o
             JOIN {PATIENT_TABLE} p ON o.pseudonhsnumber = p.nhs_no
             WHERE ({code_conditions})
@@ -1163,19 +1153,17 @@ class EMISBackend:
         date_condition = make_date_filter("dateofdeath", between)
         if returning == "binary_flag":
             column_definition = "1"
-            column_name = "died"
         elif returning == "date_of_death":
             column_definition = "MAX(dateofdeath)"
-            column_name = "date_of_death"
         else:
             raise ValueError(f"Unsupported `returning` value: {returning}")
         return (
-            ["patient_id", column_name],
+            ["patient_id", returning],
             f"""
             SELECT
               registration_id as patient_id,
               hashed_organisation,
-              {column_definition} AS {column_name},
+              {column_definition} AS {returning},
               -- Crude error check so we blow up in the case of inconsistent dates
               1 / CASE WHEN MAX(dateofdeath) = MIN(dateofdeath) THEN 1 ELSE 0 END AS _e
             FROM {CPNS_TABLE}
