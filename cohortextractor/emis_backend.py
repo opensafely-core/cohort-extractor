@@ -94,7 +94,6 @@ class EMISBackend:
         column_types = {}
         is_hidden = {}
         table_queries = {}
-        table_setup_queries = {}
         for name, (query_type, query_args) in covariate_definitions.items():
             # So we can safely mutate these below
             query_args = query_args.copy()
@@ -127,16 +126,20 @@ class EMISBackend:
                 )
             else:
                 date_format_args = pop_keys_from_dict(query_args, ["date_format"])
-                cols, sql, setup_queries = self.get_query(name, query_type, query_args)
+                sql_list = self.get_queries_for_column(name, query_type, query_args)
+                # Wrap the final SELECT query so that it writes its results
+                # into the appropriate temporary table
                 table_name = self.add_table_prefix(name)
-                table_queries[
-                    name
-                ] = f"CREATE TABLE IF NOT EXISTS {table_name} AS {sql}"
-                table_setup_queries[name] = setup_queries
-                # The first column should always be patient_id so we can join on it
-                assert cols[0] == "patient_id"
+                sql_list[
+                    -1
+                ] = f"CREATE TABLE IF NOT EXISTS {table_name} AS ({sql_list[-1]})"
+                table_queries[name] = sql_list
+
                 output_columns[name] = self.get_column_expression(
-                    column_type, name, cols[1], **date_format_args
+                    column_type,
+                    name,
+                    returning=query_args.get("returning", "value"),
+                    **date_format_args,
                 )
         # If the population query defines its own temporary table then we use
         # that as the primary table to query against and left join everything
@@ -173,10 +176,9 @@ class EMISBackend:
         WHERE {output_columns["population"]} = 1
         """
         all_queries = []
-        for name, query in table_queries.items():
-            for setup_query in table_setup_queries[name]:
-                all_queries.append((name, setup_query))
-            all_queries.append((name, query))
+        for name, sql_list in table_queries.items():
+            for sql in sql_list:
+                all_queries.append((name, sql))
         all_queries.append(("final_output", joined_output_query))
         return all_queries
 
@@ -246,18 +248,21 @@ class EMISBackend:
     def add_table_prefix(self, name):
         return f"{self.temp_table_prefix}_{name}"
 
-    def get_query(self, column_name, query_type, query_args):
+    def get_queries_for_column(self, column_name, query_type, query_args):
         method_name = f"patients_{query_type}"
         method = getattr(self, method_name)
         # Keep track of the current column name for debugging purposes
         self._current_column_name = column_name
         return_value = method(**query_args)
         self._current_column_name = None
-        if len(return_value) == 2:
-            return_value = (*return_value, [])
-        assert (
-            "hashed_organisation" in return_value[1]
-        ), f"SQL for `{column_name}` must contain 'hashed_organisation'"
+        # We want to allow the query methods to return just a single SQL string
+        # which we automatically wrap in a list
+        if isinstance(return_value, str):
+            return_value = [return_value]
+        for query in return_value:
+            assert (
+                "hashed_organisation" in query
+            ), f"SQL for `{column_name}` must contain 'hashed_organisation'"
         return return_value
 
     def create_codelist_table(self, codelist):
@@ -300,9 +305,7 @@ class EMISBackend:
 
     def patients_age_as_of(self, reference_date):
         quoted_date = quote(reference_date)
-        return (
-            ["patient_id", "value"],
-            f"""
+        return f"""
             SELECT
               registration_id AS patient_id,
               hashed_organisation,
@@ -314,13 +317,10 @@ class EMISBackend:
                  date_diff('year', date_of_birth, {quoted_date})
               END AS value
             FROM {PATIENT_TABLE}
-            """,
-        )
+            """
 
     def patients_sex(self):
-        return (
-            ["patient_id", "value"],
-            f"""
+        return f"""
           SELECT
             registration_id AS patient_id,
             hashed_organisation,
@@ -330,20 +330,16 @@ class EMISBackend:
               WHEN 2 THEN 'F'
               ELSE ''
             END AS value
-          FROM {PATIENT_TABLE}""",
-        )
+          FROM {PATIENT_TABLE}"""
 
     def patients_all(self):
         """
         All patients
         """
-        return (
-            ["patient_id", "value"],
-            f"""
+        return f"""
             SELECT registration_id AS patient_id, hashed_organisation, 1 AS value
             FROM {PATIENT_TABLE}
-            """,
-        )
+            """
 
     def patients_most_recent_bmi(
         self,
@@ -440,7 +436,7 @@ class EMISBackend:
 
         min_age = int(minimum_age_at_measurement)
 
-        sql = f"""
+        return f"""
         SELECT
           patients.registration_id AS patient_id,
           hashed_organisation,
@@ -461,10 +457,6 @@ class EMISBackend:
         ON bmis.registration_id = patients.registration_id AND date_diff('year', patients.date_of_birth, bmis.effective_date) >= {min_age}
         -- XXX maybe add a "WHERE NULL..." here
         """
-        columns = ["patient_id", "value"]
-        if include_date_of_match:
-            columns.append("date")
-        return columns, sql
 
     def patients_mean_recorded_value(
         self,
@@ -508,10 +500,7 @@ class EMISBackend:
         )
         GROUP BY days.registration_id, days.hashed_organisation, days.date_measured
         """
-        columns = ["patient_id", "value"]
-        if include_date_of_match:
-            columns.append("date")
-        return columns, sql
+        return sql
 
     def patients_registered_as_of(self, reference_date):
         """
@@ -525,9 +514,7 @@ class EMISBackend:
         """
         All patients registered with the same practice through the given period
         """
-        return (
-            ["patient_id", "value"],
-            f"""
+        return f"""
             SELECT
                 {PATIENT_TABLE}.registration_id AS patient_id,
                 hashed_organisation,
@@ -535,8 +522,7 @@ class EMISBackend:
             FROM {PATIENT_TABLE}
             WHERE registered_date <= {quote(start_date)}
               AND (registration_end_date > {quote(end_date)} OR registration_end_date IS NULL)
-            """,
-        )
+            """
 
     def patients_with_these_medications(self, **kwargs):
         """
@@ -698,16 +684,7 @@ class EMISBackend:
             GROUP BY registration_id, {from_table}.hashed_organisation
             """
 
-        if returning == "date":
-            columns = ["patient_id", "date"]
-        else:
-            columns = ["patient_id", column_name]
-            if include_date_of_match:
-                columns.append("date")
-        columns = ["patient_id", returning]
-        if include_date_of_match and returning != "date":
-            columns.append("date")
-        return columns, sql, extra_queries
+        return extra_queries + [sql]
 
     def _number_of_episodes_by_medication(
         self,
@@ -759,7 +736,7 @@ class EMISBackend:
         ) t
         GROUP BY registration_id, hashed_organisation
         """
-        return ["patient_id", "number_of_episodes"], sql, extra_queries
+        return extra_queries + [sql]
 
     def _number_of_episodes_by_clinical_event(
         self,
@@ -820,7 +797,7 @@ class EMISBackend:
         ) t
         GROUP BY registration_id, hashed_organisation
         """
-        return ["patient_id", "number_of_episodes"], sql, extra_queries
+        return extra_queries + [sql]
 
     def _these_codes_occur_on_same_day(self, joined_table, codelist):
         """
@@ -862,17 +839,14 @@ class EMISBackend:
         else:
             raise ValueError(f"Unsupported `returning` value: {returning}")
 
-        return (
-            ["patient_id", returning],
-            f"""
+        return f"""
             SELECT
               registration_id AS patient_id,
               hashed_organisation,
               {column} AS {returning}
             FROM
               {PATIENT_TABLE}
-            """,
-        )
+            """
 
     def patients_with_death_recorded_in_primary_care(
         self,
@@ -894,9 +868,7 @@ class EMISBackend:
             max_date = "9999-12-31"  # Far enough in the future to catch everyone
         if min_date is None:
             min_date = "1900-01-01"  # Far enough in the path to catch everyone
-        return (
-            ["patient_id", returning],
-            f"""
+        return f"""
         SELECT
           registration_id AS patient_id,
           hashed_organisation,
@@ -905,8 +877,7 @@ class EMISBackend:
           {PATIENT_TABLE}
         WHERE
           date_of_death BETWEEN {quote(min_date)} AND {quote(max_date)}
-        """,
-        )
+        """
 
     def patients_with_vaccination_record(
         self,
@@ -1002,8 +973,7 @@ class EMISBackend:
                 "Provide at least one of `product_codes` or `procedure_codes`"
             )
 
-        columns = ["patient_id", returning]
-        return columns, sql
+        return sql
 
     def patients_address_as_of(self, date, returning=None, round_to_nearest=None):
         # At the moment we can only return current values for the fields in question.
@@ -1018,17 +988,14 @@ class EMISBackend:
         else:
             raise ValueError(f"Unsupported `returning` value: {returning}")
 
-        return (
-            ["patient_id", returning],
-            f"""
+        return f"""
             SELECT
               registration_id AS patient_id,
               hashed_organisation,
               {column} AS {returning}
             FROM
               {PATIENT_TABLE}
-            """,
-        )
+            """
 
     # https://github.com/ebmdatalab/tpp-sql-notebook/issues/72
     def patients_admitted_to_icu(
@@ -1060,9 +1027,7 @@ class EMISBackend:
             column_definition = 1
         else:
             assert False, "`returning` must be one of `binary_flag` or `date_admitted`"
-        return (
-            ["patient_id", returning],
-            f"""
+        return f"""
             SELECT
               registration_id AS patient_id,
               hashed_organisation,
@@ -1073,8 +1038,7 @@ class EMISBackend:
             GROUP BY registration_id, hashed_organisation
             HAVING
               {date_condition} AND SUM(basicdays_respiratorysupport) + SUM(advanceddays_respiratorysupport) >= 1
-            """,
-        )
+            """
 
     def patients_with_these_codes_on_death_certificate(
         self,
@@ -1111,11 +1075,9 @@ class EMISBackend:
             column_definition = "o.icd10u"
         else:
             raise ValueError(f"Unsupported `returning` value: {returning}")
-        return (
-            ["patient_id", returning],
-            # ONS_TABLE is updated with each release of data from ONS, so we need to
-            # filter for just the records which match the most recent upload_date
-            f"""
+        # ONS_TABLE is updated with each release of data from ONS, so we need to
+        # filter for just the records which match the most recent upload_date
+        return f"""
             SELECT
                 p.registration_id as patient_id,
                 p.hashed_organisation as hashed_organisation,
@@ -1127,8 +1089,7 @@ class EMISBackend:
                 AND date_parse(o.upload_date, '%d/%m/%Y') = (
                     SELECT MAX(date_parse(upload_date, '%d/%m/%Y')) FROM {ONS_TABLE}
                 )
-            """,
-        )
+            """
 
     def patients_died_from_any_cause(
         self,
@@ -1157,9 +1118,7 @@ class EMISBackend:
             column_definition = "MAX(dateofdeath)"
         else:
             raise ValueError(f"Unsupported `returning` value: {returning}")
-        return (
-            ["patient_id", returning],
-            f"""
+        return f"""
             SELECT
               registration_id as patient_id,
               hashed_organisation,
@@ -1169,8 +1128,7 @@ class EMISBackend:
             FROM {CPNS_TABLE}
             WHERE {date_condition}
             GROUP BY registration_id, hashed_organisation
-            """,
-        )
+            """
 
     def get_case_expression(
         self, column_types, column_definitions, category_definitions
