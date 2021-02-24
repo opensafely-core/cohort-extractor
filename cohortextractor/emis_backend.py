@@ -176,10 +176,9 @@ class EMISBackend:
         WHERE {output_columns["population"]} = 1
         """
         all_queries = []
-        for name, sql_list in table_queries.items():
-            for sql in sql_list:
-                all_queries.append((name, sql))
-        all_queries.append(("final_output", joined_output_query))
+        for sql_list in table_queries.values():
+            all_queries.extend(sql_list)
+        all_queries.append(joined_output_query)
         return all_queries
 
     def get_column_expression(self, column_type, source, returning, date_format=None):
@@ -210,9 +209,8 @@ class EMISBackend:
         for sql in self.codelist_tables:
             cursor.execute(sql)
         queries = list(self.queries)
-        final_query = queries.pop()[1]
-        for name, sql in queries:
-            logger.info(f"Running query: {name}")
+        final_query = queries.pop()
+        for sql in queries:
             cursor.execute(sql)
         output_table = self.get_output_table_name(os.environ.get("TEMP_DATABASE_NAME"))
         if output_table:
