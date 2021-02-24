@@ -610,7 +610,7 @@ class EMISBackend:
     ):
         codelist_table = self.create_codelist_table(codelist)
         date_condition = make_date_filter("effective_date", between)
-        ignored_day_condition = self._these_codes_occur_on_same_day(
+        ignored_day_condition, extra_queries = self._these_codes_occur_on_same_day(
             from_table, ignore_days_where_these_codes_occur
         )
         missing_value_condition = (
@@ -707,7 +707,7 @@ class EMISBackend:
             columns = ["patient_id", column_name]
             if include_date_of_match:
                 columns.append("date")
-        return columns, sql
+        return columns, sql, extra_queries
 
     def _number_of_episodes_by_medication(
         self,
@@ -719,7 +719,7 @@ class EMISBackend:
     ):
         codelist_table = self.create_codelist_table(codelist)
         date_condition = make_date_filter("effective_date", between)
-        ignored_day_condition = self._these_codes_occur_on_same_day(
+        ignored_day_condition, extra_queries = self._these_codes_occur_on_same_day(
             MEDICATION_TABLE, ignore_days_where_these_codes_occur
         )
         if episode_defined_as is not None:
@@ -759,7 +759,7 @@ class EMISBackend:
         ) t
         GROUP BY registration_id, hashed_organisation
         """
-        return ["patient_id", "episode_count"], sql
+        return ["patient_id", "episode_count"], sql, extra_queries
 
     def _number_of_episodes_by_clinical_event(
         self,
@@ -772,7 +772,7 @@ class EMISBackend:
     ):
         codelist_table = self.create_codelist_table(codelist)
         date_condition = make_date_filter("effective_date", between)
-        ignored_day_condition = self._these_codes_occur_on_same_day(
+        ignored_day_condition, extra_queries = self._these_codes_occur_on_same_day(
             OBSERVATION_TABLE, ignore_days_where_these_codes_occur
         )
         missing_value_condition = (
@@ -820,7 +820,7 @@ class EMISBackend:
         ) t
         GROUP BY registration_id, hashed_organisation
         """
-        return ["patient_id", "episode_count"], sql
+        return ["patient_id", "episode_count"], sql, extra_queries
 
     def _these_codes_occur_on_same_day(self, joined_table, codelist):
         """
@@ -833,9 +833,9 @@ class EMISBackend:
         their annual COPD review".
         """
         if codelist is None:
-            return "0 = 1"
+            return "0 = 1", []
         codelist_table = self.create_codelist_table(codelist)
-        return f"""
+        condition = f"""
         EXISTS (
           SELECT * FROM {OBSERVATION_TABLE} AS sameday
           INNER JOIN {codelist_table}
@@ -845,6 +845,7 @@ class EMISBackend:
             AND CAST(sameday.effective_date AS date) = CAST({joined_table}.effective_date AS date)
         )
         """
+        return condition, []
 
     def patients_registered_practice_as_of(self, date, returning=None):
         # At the moment we can only return current values for the fields in question.
