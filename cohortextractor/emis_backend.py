@@ -381,6 +381,51 @@ class EMISBackend:
         table_name += suffix
         return self.add_table_prefix(table_name)
 
+    def get_date_condition(self, table, date_expr, between):
+        """
+        Takes a table name, an SQL expression representing a date (which can
+        just be a column name on the table, or something more complicated) and
+        a date interval.
+        Returns two fragements of SQL: a "condition" and a "join"
+        The condition is SQL which evaluates true when `date_expr` is in the
+        supplied period.
+        The join provides the (possibly empty) JOINs which need to be appened
+        to "table" in order to evaluate the condition.
+        """
+        if between is None:
+            between = (None, None)
+        min_date, max_date = between
+        min_date_expr, join_tables1 = self.date_ref_to_sql_expr(min_date)
+        max_date_expr, join_tables2 = self.date_ref_to_sql_expr(max_date)
+        joins = [
+            f"LEFT JOIN {join_table}\n"
+            f"ON {join_table}.patient_id = {table}.patient_id"
+            for join_table in set(join_tables1 + join_tables2)
+        ]
+        join_str = "\n".join(joins)
+        if min_date_expr is not None and max_date_expr is not None:
+            return (
+                f"{date_expr} BETWEEN {min_date_expr} AND {max_date_expr}",
+                join_str,
+            )
+        elif min_date_expr is not None:
+            return f"{date_expr} >= {min_date_expr}", join_str
+        elif max_date_expr is not None:
+            return f"{date_expr} <= {max_date_expr}", join_str
+        else:
+            return "1=1", join_str
+
+    def date_ref_to_sql_expr(self, date):
+        """
+        Given a date reference return its corresponding SQL expression,
+        together with a list of any tables to which this expression refers
+        """
+        if date is None:
+            return None, []
+        # We don't yet handle any of the fancy cross-column references, just
+        # plain date literals
+        return quote(date), []
+
     def patients_age_as_of(self, reference_date):
         quoted_date = quote(reference_date)
         return f"""
@@ -446,7 +491,9 @@ class EMISBackend:
         # 2) If height and weight is not available, then take latest
         # recorded BMI. Both values must be recorded when the patient
         # is >=16, weight must be within the last 10 years
-        date_condition = make_date_filter("effective_date", between)
+        date_condition, date_joins = self.get_date_condition(
+            OBSERVATION_TABLE, "effective_date", between
+        )
 
         # TODO these codes need validating
         bmi_code = 301331008  # Finding of body mass index (finding)
@@ -468,10 +515,13 @@ class EMISBackend:
         bmi_cte = f"""
         SELECT t.registration_id, t.value, t.effective_date
         FROM (
-          SELECT registration_id, "value_pq_1" AS value, effective_date,
-          ROW_NUMBER() OVER (PARTITION BY registration_id ORDER BY effective_date DESC) AS rownum
+          SELECT {OBSERVATION_TABLE}.registration_id, "value_pq_1" AS value, effective_date,
+          ROW_NUMBER() OVER (
+            PARTITION BY {OBSERVATION_TABLE}.registration_id ORDER BY effective_date DESC
+          ) AS rownum
           FROM {OBSERVATION_TABLE}
           WHERE snomed_concept_id = {quote(bmi_code)} AND {date_condition}
+          {date_joins}
         ) t
         WHERE t.rownum = 1
         """
@@ -496,7 +546,8 @@ class EMISBackend:
         # The height date restriction is different from the others. We don't
         # mind using old values as long as the patient was old enough when they
         # were taken.
-        height_date_condition = make_date_filter(
+        height_date_condition, height_date_joins = self.get_date_condition(
+            OBSERVATION_TABLE,
             "effective_date",
             remove_lower_date_bound(between),
         )
@@ -506,6 +557,7 @@ class EMISBackend:
             SELECT registration_id, "value_pq_1" AS height, effective_date,
             ROW_NUMBER() OVER (PARTITION BY registration_id ORDER BY effective_date DESC) AS rownum
             FROM {OBSERVATION_TABLE}
+            {height_date_joins}
             WHERE snomed_concept_id IN ({height_codes_sql}) AND {height_date_condition}
           ) t
           WHERE t.rownum = 1
@@ -547,7 +599,9 @@ class EMISBackend:
     ):
         # We only support this option for now
         assert on_most_recent_day_of_measurement
-        date_condition = make_date_filter("effective_date", between)
+        date_condition, date_joins = self.get_date_condition(
+            OBSERVATION_TABLE, "effective_date", between
+        )
         codelist_sql = codelist_to_sql(codelist)
         # The subquery finds, for each patient, the most recent day on which
         # they've had a measurement. The outer query selects, for each patient,
@@ -562,12 +616,13 @@ class EMISBackend:
           days.date_measured AS date
         FROM (
             SELECT
-                registration_id,
-                hashed_organisation,
+                {OBSERVATION_TABLE}.registration_id,
+                {OBSERVATION_TABLE}.hashed_organisation,
                 CAST(MAX(effective_date) AS date) AS date_measured
             FROM {OBSERVATION_TABLE}
+            {date_joins}
             WHERE snomed_concept_id IN ({codelist_sql}) AND {date_condition}
-            GROUP BY registration_id, hashed_organisation
+            GROUP BY {OBSERVATION_TABLE}.registration_id, {OBSERVATION_TABLE}.hashed_organisation
         ) AS days
         LEFT JOIN {OBSERVATION_TABLE}
         ON (
@@ -672,7 +727,9 @@ class EMISBackend:
         ignore_missing_values=False,
     ):
         codelist_table, codelist_queries = self.create_codelist_table(codelist)
-        date_condition = make_date_filter("effective_date", between)
+        date_condition, date_joins = self.get_date_condition(
+            from_table, "effective_date", between
+        )
         ignored_day_condition, extra_queries = self._these_codes_occur_on_same_day(
             from_table, ignore_days_where_these_codes_occur
         )
@@ -729,16 +786,18 @@ class EMISBackend:
               DATE(effective_date) AS date
             FROM (
               SELECT
-                registration_id,
+                {from_table}.registration_id,
                 {from_table}.hashed_organisation,
                 {query_column},
                 effective_date,
                 ROW_NUMBER() OVER (
-                  PARTITION BY registration_id ORDER BY effective_date {ordering}
+                  PARTITION BY {from_table}.registration_id
+                  ORDER BY effective_date {ordering}
                 ) AS rownum
               FROM {from_table}{additional_join}
               INNER JOIN {codelist_table}
               ON {code_column} = {codelist_table}.code
+              {date_joins}
               WHERE {date_condition}
                 AND NOT {ignored_day_condition}
                 AND {missing_value_condition}
@@ -748,17 +807,18 @@ class EMISBackend:
         else:
             sql = f"""
             SELECT
-              registration_id AS patient_id,
+              {from_table}.registration_id AS patient_id,
               {from_table}.hashed_organisation,
               {column_definition} AS {column_name},
               {date_aggregate}(DATE(effective_date)) AS date
             FROM {from_table}{additional_join}
             INNER JOIN {codelist_table}
             ON {code_column} = {codelist_table}.code
+            {date_joins}
             WHERE {date_condition}
               AND NOT {ignored_day_condition}
               AND {missing_value_condition}
-            GROUP BY registration_id, {from_table}.hashed_organisation
+            GROUP BY {from_table}.registration_id, {from_table}.hashed_organisation
             """
 
         return codelist_queries + extra_queries + [sql]
@@ -772,7 +832,9 @@ class EMISBackend:
         episode_defined_as=None,
     ):
         codelist_table, codelist_queries = self.create_codelist_table(codelist)
-        date_condition = make_date_filter("effective_date", between)
+        date_condition, date_joins = self.get_date_condition(
+            MEDICATION_TABLE, "effective_date", between
+        )
         ignored_day_condition, extra_queries = self._these_codes_occur_on_same_day(
             MEDICATION_TABLE, ignore_days_where_these_codes_occur
         )
@@ -794,13 +856,15 @@ class EMISBackend:
           SUM(is_new_episode) AS number_of_episodes
         FROM (
             SELECT
-              registration_id,
+              {MEDICATION_TABLE}.registration_id,
               {MEDICATION_TABLE}.hashed_organisation,
               CASE
                 WHEN
                   date_diff(
                     'day',
-                    LAG(effective_date) OVER (PARTITION BY registration_id ORDER BY effective_date),
+                    LAG(effective_date) OVER (
+                      PARTITION BY {MEDICATION_TABLE}.registration_id ORDER BY effective_date
+                    ),
                     effective_date
                   ) <= {washout_period}
                 THEN 0
@@ -809,6 +873,7 @@ class EMISBackend:
             FROM {MEDICATION_TABLE}
             INNER JOIN {codelist_table}
             ON snomed_concept_id = {codelist_table}.code
+            {date_joins}
             WHERE {date_condition} AND NOT {ignored_day_condition}
         ) t
         GROUP BY registration_id, hashed_organisation
@@ -825,7 +890,9 @@ class EMISBackend:
         ignore_missing_values=False,
     ):
         codelist_table, codelist_queries = self.create_codelist_table(codelist)
-        date_condition = make_date_filter("effective_date", between)
+        date_condition, date_joins = self.get_date_condition(
+            OBSERVATION_TABLE, "effective_date", between
+        )
         ignored_day_condition, extra_queries = self._these_codes_occur_on_same_day(
             OBSERVATION_TABLE, ignore_days_where_these_codes_occur
         )
@@ -853,13 +920,15 @@ class EMISBackend:
           SUM(is_new_episode) AS number_of_episodes
         FROM (
             SELECT
-              registration_id,
+              {OBSERVATION_TABLE}.registration_id,
               {OBSERVATION_TABLE}.hashed_organisation,
               CASE
                 WHEN
                   date_diff(
                     'day',
-                    LAG(effective_date) OVER (PARTITION BY registration_id ORDER BY effective_date),
+                    LAG(effective_date) OVER (
+                      PARTITION BY {OBSERVATION_TABLE}.registration_id ORDER BY effective_date
+                    ),
                     effective_date
                   ) <= {washout_period}
                 THEN 0
@@ -868,6 +937,7 @@ class EMISBackend:
             FROM {OBSERVATION_TABLE}
             INNER JOIN {codelist_table}
             ON snomed_concept_id = {codelist_table}.code
+            {date_joins}
             WHERE {date_condition}
               AND NOT {ignored_day_condition}
               AND {missing_value_condition}
@@ -974,7 +1044,9 @@ class EMISBackend:
         if returning not in ("binary_flag", "date"):
             raise ValueError(f"Unsupported `returning` value: {returning}")
 
-        date_condition = make_date_filter("effective_date", between)
+        date_condition, date_joins = self.get_date_condition(
+            "s", "effective_date", between
+        )
         if find_first_match_in_period:
             date_aggregate = "MIN"
             date_comparator = "<"
@@ -995,13 +1067,7 @@ class EMISBackend:
             codelist_queries.extend(codelist_query)
 
         if procedure_codes and product_codes:
-            sql = f"""
-            SELECT
-                patient_id,
-                hashed_organisation,
-                1 AS binary_flag,
-                {date_aggregate}(DATE(date)) AS date
-            FROM (
+            subquery = f"""
                 SELECT
                     m.registration_id AS patient_id,
                     m.hashed_organisation AS hashed_organisation,
@@ -1018,44 +1084,51 @@ class EMISBackend:
                 INNER JOIN {procedure_codes_table}
                     ON i.snomed_concept_id = {procedure_codes_table}.code
                 WHERE {date_condition}
-            )
-            GROUP BY patient_id, hashed_organisation
             """
 
         elif procedure_codes:
             assert not product_codes
-            sql = f"""
-            SELECT
-                registration_id AS patient_id,
-                i.hashed_organisation AS hashed_organisation,
-                1 AS has_event,
-                {date_aggregate}(DATE(effective_date)) AS date
-            FROM {IMMUNISATIONS_TABLE} AS i
-            INNER JOIN {procedure_codes_table}
-                ON i.snomed_concept_id = {procedure_codes_table}.code
-            WHERE {date_condition}
-            GROUP BY registration_id, i.hashed_organisation
+            subquery = f"""
+                SELECT
+                    registration_id AS patient_id,
+                    i.hashed_organisation AS hashed_organisation,
+                    1 AS has_event,
+                    DATE(effective_date) AS date
+                FROM {IMMUNISATIONS_TABLE} AS i
+                INNER JOIN {procedure_codes_table}
+                    ON i.snomed_concept_id = {procedure_codes_table}.code
+                WHERE {date_condition}
             """
 
         elif product_codes:
             assert not procedure_codes
-            sql = f"""
-            SELECT
-                registration_id AS patient_id,
-                m.hashed_organisation AS hashed_organisation,
-                1 AS has_event,
-                {date_aggregate}(DATE(effective_date)) AS date
-            FROM {MEDICATION_TABLE} AS m
-            INNER JOIN {product_codes_table}
-                ON m.snomed_concept_id = {product_codes_table}.code
-            WHERE {date_condition}
-            GROUP BY registration_id, m.hashed_organisation
+            subquery = f"""
+                SELECT
+                    registration_id AS patient_id,
+                    m.hashed_organisation AS hashed_organisation,
+                    1 AS has_event,
+                    DATE(effective_date) AS date
+                FROM {MEDICATION_TABLE} AS m
+                INNER JOIN {product_codes_table}
+                    ON m.snomed_concept_id = {product_codes_table}.code
+                WHERE {date_condition}
             """
 
         else:
             raise ValueError(
                 "Provide at least one of `product_codes` or `procedure_codes`"
             )
+
+        sql = f"""
+        SELECT
+            s.patient_id,
+            s.hashed_organisation,
+            1 AS binary_flag,
+            {date_aggregate}(DATE(s.date)) AS date
+        FROM ({subquery}) s
+        {date_joins}
+        GROUP BY s.patient_id, s.hashed_organisation
+        """
 
         return codelist_queries + [sql]
 
@@ -1103,7 +1176,9 @@ class EMISBackend:
         ELSE
           DATE(originalicuadmissiondate)
         END)"""
-        date_condition = make_date_filter(date_expression, between)
+        date_condition, date_joins = self.get_date_condition(
+            ICNARC_TABLE, date_expression, between
+        )
 
         if returning == "date_admitted":
             column_definition = date_expression
@@ -1119,6 +1194,7 @@ class EMISBackend:
               MAX(Ventilator) AS ventilated -- apparently can be 0, 1 or NULL
             FROM
               {ICNARC_TABLE}
+            {date_joins}
             GROUP BY registration_id, hashed_organisation
             HAVING
               {date_condition} AND SUM(basicdays_respiratorysupport) + SUM(advanceddays_respiratorysupport) >= 1
@@ -1134,8 +1210,8 @@ class EMISBackend:
         # Set return type
         returning="binary_flag",
     ):
-        date_condition = make_date_filter(
-            "date_parse(CAST(o.reg_stat_dod AS VARCHAR), '%Y%m%d')", between
+        date_condition, date_joins = self.get_date_condition(
+            "o", "date_parse(CAST(o.reg_stat_dod AS VARCHAR), '%Y%m%d')", between
         )
         if codelist is not None:
             assert codelist.system == "icd10"
@@ -1168,6 +1244,7 @@ class EMISBackend:
                 {column_definition} AS {returning}
             FROM {ONS_TABLE} o
             JOIN {PATIENT_TABLE} p ON o.pseudonhsnumber = p.nhs_no
+            {date_joins}
             WHERE ({code_conditions})
                 AND {date_condition}
                 AND date_parse(o.upload_date, '%d/%m/%Y') = (
@@ -1195,7 +1272,9 @@ class EMISBackend:
         # Set return type
         returning="binary_flag",
     ):
-        date_condition = make_date_filter("dateofdeath", between)
+        date_condition, date_joins = self.get_date_condition(
+            CPNS_TABLE, "dateofdeath", between
+        )
         if returning == "binary_flag":
             column_definition = "1"
         elif returning == "date_of_death":
@@ -1204,14 +1283,15 @@ class EMISBackend:
             raise ValueError(f"Unsupported `returning` value: {returning}")
         return f"""
             SELECT
-              registration_id as patient_id,
-              hashed_organisation,
+              {CPNS_TABLE}.registration_id as patient_id,
+              {CPNS_TABLE}.hashed_organisation,
               {column_definition} AS {returning},
               -- Crude error check so we blow up in the case of inconsistent dates
               1 / CASE WHEN MAX(dateofdeath) = MIN(dateofdeath) THEN 1 ELSE 0 END AS _e
             FROM {CPNS_TABLE}
+            {date_joins}
             WHERE {date_condition}
-            GROUP BY registration_id, hashed_organisation
+            GROUP BY {CPNS_TABLE}.registration_id, {CPNS_TABLE}.hashed_organisation
             """
 
     def get_db_connection(self):
@@ -1261,20 +1341,6 @@ def quote(value):
     if not SAFE_CHARS_RE.match(value) and value != "":
         raise ValueError(f"Value contains disallowed characters: {value}")
     return f"'{value}'"
-
-
-def make_date_filter(column, between):
-    if between is None:
-        between = (None, None)
-    min_date, max_date = between
-    if min_date is not None and max_date is not None:
-        return f"{column} BETWEEN {quote(min_date)} AND {quote(max_date)}"
-    elif min_date is not None:
-        return f"{column} >= {quote(min_date)}"
-    elif max_date is not None:
-        return f"{column} <= {quote(max_date)}"
-    else:
-        return "1=1"
 
 
 def remove_lower_date_bound(between):
