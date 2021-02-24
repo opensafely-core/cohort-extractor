@@ -71,7 +71,7 @@ class EMISBackend:
         output = [dict(zip(keys, map(str, row))) for row in result]
         unique_check = UniqueCheck()
         for item in output:
-            unique_check.add(item["patient_id"])
+            unique_check.add(item["registration_id"])
         unique_check.assert_unique_ids()
         return output
 
@@ -140,12 +140,12 @@ class EMISBackend:
         # else against that. Otherwise, we use the `patient` table.
         if "population" in table_queries:
             primary_table = self.add_table_prefix("population")
-            patient_id_expr = ColumnExpression(f"{primary_table}.patient_id")
+            patient_id_expr = ColumnExpression(f"{primary_table}.registration_id")
         else:
             primary_table = PATIENT_TABLE
             patient_id_expr = ColumnExpression(f"{PATIENT_TABLE}.registration_id")
-        # Insert `patient_id` as the first column
-        output_columns = dict(patient_id=patient_id_expr, **output_columns)
+        # Insert `registration_id` as the first column
+        output_columns = dict(registration_id=patient_id_expr, **output_columns)
         output_columns_str = ",\n          ".join(
             f"{expr} AS {name}"
             for (name, expr) in output_columns.items()
@@ -158,7 +158,7 @@ class EMISBackend:
                 continue
             table_name = self.add_table_prefix(name)
             joins.append(
-                f"LEFT JOIN {table_name} ON {table_name}.patient_id = {patient_id_expr}"
+                f"LEFT JOIN {table_name} ON {table_name}.registration_id = {patient_id_expr}"
             )
         joins_str = "\n          ".join(joins)
         joined_output_query = f"""
@@ -427,7 +427,7 @@ class EMISBackend:
         max_date_expr, join_tables2 = self.date_ref_to_sql_expr(max_date)
         joins = [
             f"LEFT JOIN {join_table}\n"
-            f"ON {join_table}.patient_id = {table}.patient_id"
+            f"ON {join_table}.registration_id = {table}.registration_id"
             for join_table in set(join_tables1 + join_tables2)
         ]
         join_str = "\n".join(joins)
@@ -458,7 +458,7 @@ class EMISBackend:
             all_join_tables.update(join_tables)
         joins = [
             f"LEFT JOIN {join_table}\n"
-            f"ON {join_table}.patient_id = {table}.patient_id"
+            f"ON {join_table}.registration_id = {table}.registration_id"
             for join_table in all_join_tables
         ]
         join_str = "\n".join(joins)
@@ -487,7 +487,7 @@ class EMISBackend:
         date_expr, date_joins = self.get_date_sql(PATIENT_TABLE, reference_date)
         return f"""
             SELECT
-              registration_id AS patient_id,
+              registration_id,
               hashed_organisation,
               CASE WHEN
                  date_add('year', date_diff('year', date_of_birth, {date_expr}), date_of_birth) > {date_expr}
@@ -503,7 +503,7 @@ class EMISBackend:
     def patients_sex(self):
         return f"""
           SELECT
-            registration_id AS patient_id,
+            registration_id,
             hashed_organisation,
             CASE gender
               -- See https://www.datadictionary.nhs.uk/data_dictionary/attributes/p/person/person_gender_code_de.asp?shownav=1
@@ -518,7 +518,7 @@ class EMISBackend:
         All patients
         """
         return f"""
-            SELECT registration_id AS patient_id, hashed_organisation, 1 AS value
+            SELECT registration_id, hashed_organisation, 1 AS value
             FROM {PATIENT_TABLE}
             """
 
@@ -625,7 +625,7 @@ class EMISBackend:
 
         return f"""
         SELECT
-          patients.registration_id AS patient_id,
+          patients.registration_id,
           hashed_organisation,
           CASE
             WHEN height = 0 THEN NULL
@@ -668,7 +668,7 @@ class EMISBackend:
         # use an index for this. See: https://stackoverflow.com/a/25564539
         sql = f"""
         SELECT
-          days.registration_id AS patient_id,
+          days.registration_id,
           days.hashed_organisation,
           AVG({OBSERVATION_TABLE}."value_pq_1") AS value,
           days.date_measured AS date
@@ -709,7 +709,7 @@ class EMISBackend:
         )
         return f"""
             SELECT
-                {PATIENT_TABLE}.registration_id AS patient_id,
+                {PATIENT_TABLE}.registration_id,
                 hashed_organisation,
                 1 AS value
             FROM {PATIENT_TABLE}
@@ -842,7 +842,7 @@ class EMISBackend:
         if use_partition_query:
             sql = f"""
             SELECT
-              registration_id AS patient_id,
+              registration_id,
               hashed_organisation,
               {column_definition} AS {column_name},
               DATE(effective_date) AS date
@@ -869,7 +869,7 @@ class EMISBackend:
         else:
             sql = f"""
             SELECT
-              {from_table}.registration_id AS patient_id,
+              {from_table}.registration_id,
               {from_table}.hashed_organisation,
               {column_definition} AS {column_name},
               {date_aggregate}(DATE(effective_date)) AS date
@@ -913,7 +913,7 @@ class EMISBackend:
 
         sql = f"""
         SELECT
-          registration_id AS patient_id,
+          registration_id,
           hashed_organisation,
           SUM(is_new_episode) AS number_of_episodes
         FROM (
@@ -977,7 +977,7 @@ class EMISBackend:
 
         sql = f"""
         SELECT
-          registration_id AS patient_id,
+          registration_id,
           hashed_organisation,
           SUM(is_new_episode) AS number_of_episodes
         FROM (
@@ -1050,7 +1050,7 @@ class EMISBackend:
 
         return f"""
             SELECT
-              registration_id AS patient_id,
+              registration_id,
               hashed_organisation,
               {column} AS {returning}
             FROM
@@ -1079,7 +1079,7 @@ class EMISBackend:
             min_date = "1900-01-01"  # Far enough in the path to catch everyone
         return f"""
         SELECT
-          registration_id AS patient_id,
+          registration_id,
           hashed_organisation,
           {column} AS {returning}
         FROM
@@ -1131,7 +1131,7 @@ class EMISBackend:
         if procedure_codes and product_codes:
             subquery = f"""
                 SELECT
-                    m.registration_id AS patient_id,
+                    m.registration_id,
                     m.hashed_organisation AS hashed_organisation,
                     1 AS has_event,
                     CASE
@@ -1152,7 +1152,7 @@ class EMISBackend:
             assert not product_codes
             subquery = f"""
                 SELECT
-                    registration_id AS patient_id,
+                    registration_id,
                     i.hashed_organisation AS hashed_organisation,
                     1 AS has_event,
                     DATE(effective_date) AS date
@@ -1166,7 +1166,7 @@ class EMISBackend:
             assert not procedure_codes
             subquery = f"""
                 SELECT
-                    registration_id AS patient_id,
+                    registration_id,
                     m.hashed_organisation AS hashed_organisation,
                     1 AS has_event,
                     DATE(effective_date) AS date
@@ -1183,13 +1183,13 @@ class EMISBackend:
 
         sql = f"""
         SELECT
-            s.patient_id,
+            s.registration_id,
             s.hashed_organisation,
             1 AS binary_flag,
             {date_aggregate}(DATE(s.date)) AS date
         FROM ({subquery}) s
         {date_joins}
-        GROUP BY s.patient_id, s.hashed_organisation
+        GROUP BY s.registration_id, s.hashed_organisation
         """
 
         return codelist_queries + [sql]
@@ -1209,7 +1209,7 @@ class EMISBackend:
 
         return f"""
             SELECT
-              registration_id AS patient_id,
+              registration_id,
               hashed_organisation,
               {column} AS {returning}
             FROM
@@ -1250,7 +1250,7 @@ class EMISBackend:
             assert False, "`returning` must be one of `binary_flag` or `date_admitted`"
         return f"""
             SELECT
-              registration_id AS patient_id,
+              registration_id,
               hashed_organisation,
               {column_definition} AS {returning},
               MAX(Ventilator) AS ventilated -- apparently can be 0, 1 or NULL
@@ -1301,7 +1301,7 @@ class EMISBackend:
         # filter for just the records which match the most recent upload_date
         return f"""
             SELECT
-                p.registration_id as patient_id,
+                p.registration_id,
                 p.hashed_organisation as hashed_organisation,
                 {column_definition} AS {returning}
             FROM {ONS_TABLE} o
@@ -1345,7 +1345,7 @@ class EMISBackend:
             raise ValueError(f"Unsupported `returning` value: {returning}")
         return f"""
             SELECT
-              {CPNS_TABLE}.registration_id as patient_id,
+              {CPNS_TABLE}.registration_id,
               {CPNS_TABLE}.hashed_organisation,
               {column_definition} AS {returning},
               -- Crude error check so we blow up in the case of inconsistent dates

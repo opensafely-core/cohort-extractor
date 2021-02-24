@@ -72,12 +72,12 @@ def test_minimal_study_to_csv():
         results = list(csv.DictReader(f))
         assert results == [
             {
-                "patient_id": str(patient_1.registration_id),
+                "registration_id": str(patient_1.registration_id),
                 "sex": "M",
                 "hashed_organisation": "abc",
             },
             {
-                "patient_id": str(patient_2.registration_id),
+                "registration_id": str(patient_2.registration_id),
                 "sex": "F",
                 "hashed_organisation": "abc",
             },
@@ -637,7 +637,7 @@ def test_patient_registered_as_of():
     # No date criteria
     study = StudyDefinition(population=patients.registered_as_of("2002-03-02"))
     results = study.to_dicts()
-    assert [x["patient_id"] for x in results] == [
+    assert [x["registration_id"] for x in results] == [
         str(patient_registered_in_2001.registration_id),
         str(patient_registered_in_2002.registration_id),
     ]
@@ -667,7 +667,7 @@ def test_patients_registered_with_one_practice_between():
         )
     )
     results = study.to_dicts()
-    assert [x["patient_id"] for x in results] == [
+    assert [x["registration_id"] for x in results] == [
         str(patient_registered_in_2001.registration_id)
     ]
 
@@ -1526,7 +1526,7 @@ def test_duplicate_id_checking():
                 (2,2),
                 (3,3),
                 (1,4)
-            ) t (patient_id, foo)
+            ) t (registration_id, foo)
             """,
         )
     ]
@@ -1597,7 +1597,7 @@ def test_using_expression_in_population_definition():
         age=patients.age_as_of("2020-01-01"),
     )
     results = study.to_dicts()
-    assert results[0].keys() == {"patient_id", "age", "hashed_organisation"}
+    assert results[0].keys() == {"registration_id", "age", "hashed_organisation"}
     assert [i["age"] for i in results] == ["50"]
 
 
