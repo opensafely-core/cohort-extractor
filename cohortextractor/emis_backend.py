@@ -127,7 +127,7 @@ class EMISBackend:
             else:
                 date_format_args = pop_keys_from_dict(query_args, ["date_format"])
                 cols, sql, setup_sql = self.get_query(name, query_type, query_args)
-                table_name = self.make_temp_table_name(name)
+                table_name = self.add_table_prefix(name)
                 table_queries[
                     name
                 ] = f"CREATE TABLE IF NOT EXISTS {table_name} AS {sql}"
@@ -141,7 +141,7 @@ class EMISBackend:
         # that as the primary table to query against and left join everything
         # else against that. Otherwise, we use the `patient` table.
         if "population" in table_queries:
-            primary_table = self.make_temp_table_name("population")
+            primary_table = self.add_table_prefix("population")
             patient_id_expr = f"{primary_table}.patient_id"
         else:
             primary_table = PATIENT_TABLE
@@ -158,7 +158,7 @@ class EMISBackend:
         for name in table_queries:
             if name == "population":
                 continue
-            table_name = self.make_temp_table_name(name)
+            table_name = self.add_table_prefix(name)
             joins.append(
                 f"LEFT JOIN {table_name} ON {table_name}.patient_id = {patient_id_expr}"
             )
@@ -181,7 +181,7 @@ class EMISBackend:
 
     def get_column_expression(self, column_type, source, returning, date_format=None):
         default_value = self.get_default_value_for_type(column_type)
-        table_name = self.make_temp_table_name(source)
+        table_name = self.add_table_prefix(source)
         column_expr = f"{table_name}.{returning}"
         if column_type == "date":
             column_expr = truncate_date(column_expr, date_format)
@@ -242,7 +242,7 @@ class EMISBackend:
         )
         return f"_{timestamp}_{uuid.uuid4().hex[:4]}"
 
-    def make_temp_table_name(self, name):
+    def add_table_prefix(self, name):
         return f"{self.temp_table_prefix}_{name}"
 
     def get_query(self, column_name, query_type, query_args):
@@ -265,7 +265,7 @@ class EMISBackend:
         column_name = self._current_column_name or "unknown"
         # The underscore prefix is our convention to indicate a temporary table
         # but has no significance for the database
-        table_name = self.make_temp_table_name(f"{table_number}_{column_name}")
+        table_name = self.add_table_prefix(f"{table_number}_{column_name}")
         cast = int if codelist.system in ("snomed", "snomedct", "dmd") else str
         organisation_hash = quote(get_organisation_hash())
         if codelist.has_categories:
