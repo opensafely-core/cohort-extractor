@@ -127,12 +127,12 @@ class EMISBackend:
                 )
             else:
                 date_format_args = pop_keys_from_dict(query_args, ["date_format"])
-                cols, sql, setup_sql = self.get_query(name, query_type, query_args)
+                cols, sql, setup_queries = self.get_query(name, query_type, query_args)
                 table_name = self.add_table_prefix(name)
                 table_queries[
                     name
                 ] = f"CREATE TABLE IF NOT EXISTS {table_name} AS {sql}"
-                table_setup_queries[name] = setup_sql
+                table_setup_queries[name] = setup_queries
                 # The first column should always be patient_id so we can join on it
                 assert cols[0] == "patient_id"
                 output_columns[name] = self.get_column_expression(
