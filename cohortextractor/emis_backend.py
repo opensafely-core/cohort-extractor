@@ -200,6 +200,91 @@ class EMISBackend:
         else:
             raise ValueError(f"Unhandled column type: {column_type}")
 
+    def get_case_expression(
+        self, column_types, column_definitions, category_definitions
+    ):
+        category_definitions = category_definitions.copy()
+        defaults = [k for (k, v) in category_definitions.items() if v == "DEFAULT"]
+        if len(defaults) > 1:
+            raise ValueError("At most one default category can be defined")
+        if len(defaults) == 1:
+            default_value = defaults[0]
+            category_definitions.pop(default_value)
+        else:
+            raise ValueError(
+                "At least one category must be given the definition 'DEFAULT'"
+            )
+        # For each column already defined, determine its corresponding "empty"
+        # value (i.e. the default value for that column's type). This allows us
+        # to support implicit boolean conversion because we know what the
+        # "falsey" value for each column should be.
+        empty_value_map = {
+            name: self.get_default_value_for_type(column_type)
+            for name, column_type in column_types.items()
+        }
+        clauses = []
+        for category, expression in category_definitions.items():
+            # The column references in the supplied expression need to be
+            # rewritten to ensure they refer to the correct CTE. The formatting
+            # function also ensures that the expression matches the very
+            # limited subset of SQL we support here.
+            formatted_expression, _ = format_expression(
+                expression, column_definitions, empty_value_map=empty_value_map
+            )
+            clauses.append(f"WHEN ({formatted_expression}) THEN {quote(category)}")
+        return f"CASE {' '.join(clauses)} ELSE {quote(default_value)} END"
+
+    def get_aggregate_expression(
+        self, column_type, column_definitions, column_names, aggregate_function
+    ):
+        """Return an expression that is used to find the maximum or minimum value across
+        a number of other given columns.
+
+        We cannot use Table Value Constructors as in the TPP backend (this gives a
+        cryptic error message: "Given correlated subquery is not supported").
+
+        Instead, we use GREATEST() or LEAST(), but we have to be careful to handle
+        correctly any arguments to GREATEST/LEAST that have replaced NULLs.  To do this,
+        we replace any occurences of the default value for the given column_type with
+        the most extreme value possible for the column_type.  (So when finding the
+        maximum, we replace the default value with a small value, and when finding the
+        minimum, with a large value.)
+
+        If all the arguments to GREATEST/LEAST have replaced NULLs, GREATEST/LEAST will
+        return the extreme value, so when that happens, we have to replace this with the
+        default value for the column type.
+
+        This gives us the result we want but it does mean we can't distinguish e.g. a
+        recorded value of 0.0 from a missing value.  This, however, is a general problem
+        with the way we handle NULLs in our system, and so we're not introducing any new
+        difficulty here.  (It's also unlikely to be a problem in practice.)
+        """
+
+        default_value = quote(self.get_default_value_for_type(column_type))
+        function = {"MAX": "GREATEST", "MIN": "LEAST"}[aggregate_function]
+
+        if column_type in ["int", "float"]:
+            extreme_value_lookup = {"MAX": -(2 ** 63), "MIN": 2 ** (63 - 1)}
+            extreme_value = [aggregate_function]
+        elif column_type == "date":
+            extreme_value_lookup = {"MAX": "'0001-01-01'", "MIN": "'9999-12-31'"}
+        else:
+            assert False, column_type
+        extreme_value = extreme_value_lookup[aggregate_function]
+
+        components = ", ".join(
+            f"""
+            CASE WHEN {column_definitions[name]} = {default_value}
+                THEN {extreme_value}
+            ELSE {column_definitions[name]} END"""
+            for name in column_names
+        )
+
+        return f"""
+        CASE WHEN {function}({components}) = {extreme_value}
+            THEN {default_value}
+        ELSE {function}({components}) END"""
+
     def execute_query(self):
         cursor = self.get_db_connection().cursor()
         logger.info("Uploading codelists into temporary tables")
@@ -1129,40 +1214,6 @@ class EMISBackend:
             GROUP BY registration_id, hashed_organisation
             """
 
-    def get_case_expression(
-        self, column_types, column_definitions, category_definitions
-    ):
-        category_definitions = category_definitions.copy()
-        defaults = [k for (k, v) in category_definitions.items() if v == "DEFAULT"]
-        if len(defaults) > 1:
-            raise ValueError("At most one default category can be defined")
-        if len(defaults) == 1:
-            default_value = defaults[0]
-            category_definitions.pop(default_value)
-        else:
-            raise ValueError(
-                "At least one category must be given the definition 'DEFAULT'"
-            )
-        # For each column already defined, determine its corresponding "empty"
-        # value (i.e. the default value for that column's type). This allows us
-        # to support implicit boolean conversion because we know what the
-        # "falsey" value for each column should be.
-        empty_value_map = {
-            name: self.get_default_value_for_type(column_type)
-            for name, column_type in column_types.items()
-        }
-        clauses = []
-        for category, expression in category_definitions.items():
-            # The column references in the supplied expression need to be
-            # rewritten to ensure they refer to the correct CTE. The formatting
-            # function also ensures that the expression matches the very
-            # limited subset of SQL we support here.
-            formatted_expression, _ = format_expression(
-                expression, column_definitions, empty_value_map=empty_value_map
-            )
-            clauses.append(f"WHEN ({formatted_expression}) THEN {quote(category)}")
-        return f"CASE {' '.join(clauses)} ELSE {quote(default_value)} END"
-
     def get_db_connection(self):
         if self._db_connection:
             return self._db_connection
@@ -1181,57 +1232,6 @@ class EMISBackend:
         if delta.days > max_delta_days:
             msg = f"{self._current_column_name} should be passed a date more recent than {max_delta_days} days in the past"
             warnings.warn(msg)
-
-    def get_aggregate_expression(
-        self, column_type, column_definitions, column_names, aggregate_function
-    ):
-        """Return an expression that is used to find the maximum or minimum value across
-        a number of other given columns.
-
-        We cannot use Table Value Constructors as in the TPP backend (this gives a
-        cryptic error message: "Given correlated subquery is not supported").
-
-        Instead, we use GREATEST() or LEAST(), but we have to be careful to handle
-        correctly any arguments to GREATEST/LEAST that have replaced NULLs.  To do this,
-        we replace any occurences of the default value for the given column_type with
-        the most extreme value possible for the column_type.  (So when finding the
-        maximum, we replace the default value with a small value, and when finding the
-        minimum, with a large value.)
-
-        If all the arguments to GREATEST/LEAST have replaced NULLs, GREATEST/LEAST will
-        return the extreme value, so when that happens, we have to replace this with the
-        default value for the column type.
-
-        This gives us the result we want but it does mean we can't distinguish e.g. a
-        recorded value of 0.0 from a missing value.  This, however, is a general problem
-        with the way we handle NULLs in our system, and so we're not introducing any new
-        difficulty here.  (It's also unlikely to be a problem in practice.)
-        """
-
-        default_value = quote(self.get_default_value_for_type(column_type))
-        function = {"MAX": "GREATEST", "MIN": "LEAST"}[aggregate_function]
-
-        if column_type in ["int", "float"]:
-            extreme_value_lookup = {"MAX": -(2 ** 63), "MIN": 2 ** (63 - 1)}
-            extreme_value = [aggregate_function]
-        elif column_type == "date":
-            extreme_value_lookup = {"MAX": "'0001-01-01'", "MIN": "'9999-12-31'"}
-        else:
-            assert False, column_type
-        extreme_value = extreme_value_lookup[aggregate_function]
-
-        components = ", ".join(
-            f"""
-            CASE WHEN {column_definitions[name]} = {default_value}
-                THEN {extreme_value}
-            ELSE {column_definitions[name]} END"""
-            for name in column_names
-        )
-
-        return f"""
-        CASE WHEN {function}({components}) = {extreme_value}
-            THEN {default_value}
-        ELSE {function}({components}) END"""
 
 
 def codelist_to_sql(codelist):
