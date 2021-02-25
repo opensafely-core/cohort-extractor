@@ -253,12 +253,15 @@ class StudyDefinition:
         # Now we can optionally pass in an array which has already had
         # its incidence calculated as a mask
         for colname, dtype in self.pandas_csv_args["dtype"].items():
-            if not self.pandas_csv_args["args"][colname].get("return_expectations"):
-                raise ValueError(f"No `return_expectations` defined for {colname}")
+            definition_args = self.pandas_csv_args["args"][colname]
+            return_expectations = definition_args["return_expectations"] or {}
+            if not self.default_expectations and not return_expectations:
+                raise ValueError(
+                    f"No `return_expectations` defined for {colname} "
+                    "and no `default_expectations` defined for the study"
+                )
             kwargs = self.default_expectations.copy()
-            kwargs = merge(
-                kwargs, self.pandas_csv_args["args"][colname]["return_expectations"]
-            )
+            kwargs = merge(kwargs, return_expectations)
             self.check_date_expectations_defined(colname, kwargs)
 
             if dtype == "category":
