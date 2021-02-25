@@ -1923,5 +1923,28 @@ def with_high_cost_drugs(
     return "with_high_cost_drugs", locals()
 
 
-def ethnicity_from_sus(*, setting, on_conflict):
-    pass
+def with_ethnicity_from_sus(
+    returning=None,
+    use_most_frequent_code=None,
+    return_expectations=None,
+):
+    """
+    Returns ethnicity data from the SUS Datasets
+
+    Args:
+        returning: a string indicating what type of value whould be returned.
+        Options are:
+            code: don't group ethnicities at all, return the recorded code
+            group_6: group ethnicities into 6 groups
+            group_16: group ethnicities into 16 groups
+        use_most_frequent_code: when multiple codes are present, pick the most
+        frequent one
+        return_expectations: a dictionary describing what dummy data should
+        look like
+
+    Example:
+        ethnicity_by_16_grouping=patients.with_ethnicity_from_sus(
+            returning="group_16"
+        )
+    """
+    return "with_ethnicity_from_sus", locals()

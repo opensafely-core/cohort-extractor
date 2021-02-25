@@ -2032,6 +2032,129 @@ class TPPBackend:
         GROUP BY t.Patient_ID
         """
 
+    def patients_with_ethnicity_from_sus(
+        self,
+        returning="code",
+        use_most_frequent_code=None,
+    ):
+        returning_options = ["code", "group_6", "group_16"]
+        if returning not in returning_options:
+            options = ", ".join(returning_options)
+            raise ValueError(
+                f"Unknown value for 'returning' ({returning}), valid options are: {options}"
+            )
+
+        if not use_most_frequent_code:
+            raise ValueError("use_most_frequent_code must be set to 'True'")
+
+        if returning == "code":
+            column_definition = "ethnicity_code"
+        elif returning == "group_6":
+            # built from the Grouping_16 -> Group_6 mapping in our ethnicity codelist:
+            #  https://codelists.opensafely.org/codelist/opensafely/ethnicity/2020-04-27/#full-list
+            group_6_lut = {
+                "A": "1",
+                "B": "1",
+                "C": "1",
+                "D": "2",
+                "E": "2",
+                "F": "2",
+                "G": "2",
+                "H": "3",
+                "J": "3",
+                "K": "3",
+                "L": "3",
+                "M": "4",
+                "N": "4",
+                "P": "4",
+                "R": "5",
+                "S": "5",
+            }
+            whens = "\n".join(
+                [
+                    f"WHEN ethnicity_code LIKE '{raw}%' THEN {mapped}"
+                    for raw, mapped in group_6_lut.items()
+                ]
+            )
+            column_definition = f"""
+            CASE
+                {whens}
+                ELSE 0
+            END
+            """
+        elif returning == "group_16":
+            group_16_lut = {
+                "A": "1",
+                "B": "2",
+                "C": "3",
+                "D": "4",
+                "E": "5",
+                "F": "6",
+                "G": "7",
+                "H": "8",
+                "J": "9",
+                "K": "10",
+                "L": "11",
+                "M": "12",
+                "N": "13",
+                "P": "14",
+                "R": "15",
+                "S": "16",
+            }
+            whens = "\n".join(
+                [
+                    f"WHEN ethnicity_code LIKE '{raw}%' THEN {mapped}"
+                    for raw, mapped in group_16_lut.items()
+                ]
+            )
+            column_definition = f"""
+            CASE
+                {whens}
+                ELSE 0
+            END
+            """
+        else:
+            column_definition = "1"
+
+        sql = f"""
+        SELECT
+          Patient_ID,
+          {column_definition} AS {returning}
+        FROM (
+          SELECT
+            Patient_ID,
+            ethnicity_code,
+            ROW_NUMBER() OVER (
+                PARTITION BY Patient_ID ORDER BY COUNT(ethnicity_code) DESC
+            ) AS row_num
+          FROM (
+            SELECT
+              Patient_ID,
+              Ethnic_group AS ethnicity_code
+            FROM
+              APCS
+            UNION ALL
+            SELECT
+              Patient_ID,
+              Ethnic_Category AS ethnicity_code
+            FROM
+              EC
+            UNION ALL
+            SELECT
+              Patient_ID,
+              Ethnic_Category AS ethnicity_code
+            FROM
+              OPA
+          ) t
+          WHERE ethnicity_code IS NOT NULL
+            AND ethnicity_code != '99'
+            AND CHARINDEX('Z', ethnicity_code) != 1
+          GROUP BY Patient_ID, ethnicity_code
+        ) t
+        WHERE row_num = 1
+        """
+        return sql
+
 
 class ColumnExpression:
     def __init__(

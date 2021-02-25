@@ -316,6 +316,9 @@ class GetColumnType:
     def type_of_with_high_cost_drugs(self, returning, **kwargs):
         return self._type_from_return_value(returning)
 
+    def type_of_with_ethnicity_from_sus(self, returning, **kwargs):
+        return self._type_from_return_value(returning)
+
     def _type_from_return_value(self, returning):
         if returning == "nhse_region_name":
             raise ValueError(
@@ -353,6 +356,8 @@ class GetColumnType:
             "msoa": "str",
             "s_gene_target_failure": "str",
             "case_category": "str",
+            "group_6": "str",
+            "group_16": "str",
         }
         try:
             return mapping[returning]
