@@ -1,5 +1,6 @@
 import os
 import readline  # noqa -- importing this adds readline behaviour to input()
+import tempfile
 import time
 from urllib.parse import unquote, urlparse
 
@@ -9,7 +10,6 @@ import structlog
 
 # TODO remove this when certificate verification reinstated
 import urllib3
-from requests_pkcs12 import Pkcs12Adapter
 from retry import retry
 from tabulate import tabulate
 
@@ -23,7 +23,7 @@ def presto_connection_from_url(url):
 
     conn_params = presto_connection_params_from_url(url)
     conn = prestodb.dbapi.connect(**conn_params)
-    if "PFX_PATH" in os.environ:
+    if "PFX_PATH" in os.environ or "PRESTO_TLS_CERT" in os.environ:
         adapt_connection(conn, conn_params)
 
     conn._http_session.verify = False
@@ -38,23 +38,52 @@ def presto_connection_from_url(url):
     return ConnectionProxy(conn)
 
 
-def adapt_connection(conn, conn_params):
+def write_to_temp_file(contents, **kwargs):
+    fp, path = tempfile.mkstemp(**kwargs)
+    # fp is already opened file number
+    os.write(fp, contents.encode("utf8"))
+    os.close(fp)
+    return path
+
+
+def adapt_connection(conn, conn_params, env=os.environ):
     """Adapt connection to use passphrase-protected PKCS#12 certificate.
 
     For instructions for getting a certificate, see
     https://ebmdatalab.github.io/datalab-team-manual/opensafely/accessing-emis-data/
     """
 
-    with open(os.environ["PFX_PASSWORD_PATH"], "rb") as f:
-        pkcs12_password = f.read().strip()
-
     session = requests.Session()
-    mount_prefix = "{http_scheme}://{host}:{port}".format(**conn_params)
-    mount_adaptor = Pkcs12Adapter(
-        pkcs12_filename=os.environ["PFX_PATH"],
-        pkcs12_password=pkcs12_password,
-    )
-    session.mount(mount_prefix, mount_adaptor)
+    crt = env.get("PRESTO_TLS_CERT")
+    key = env.get("PRESTO_TLS_KEY")
+    pfx_pass = env.get("PFX_PASSWORD_PATH")
+    pfx_path = env.get("PFX_PATH")
+
+    # unencrypted cert in env
+    if crt and key:
+        session.cert = (
+            write_to_temp_file(crt, prefix="presto_cert"),
+            write_to_temp_file(key, prefix="presto_key"),
+        )
+
+    # support encyrpted cert
+    elif pfx_pass and pfx_path:
+        from requests_pkcs12 import Pkcs12Adapter
+
+        with open(pfx_pass, "rb") as f:
+            pkcs12_password = f.read().strip()
+
+        mount_prefix = "{http_scheme}://{host}:{port}".format(**conn_params)
+        mount_adaptor = Pkcs12Adapter(
+            pkcs12_filename=pfx_path,
+            pkcs12_password=pkcs12_password,
+        )
+        session.mount(mount_prefix, mount_adaptor)
+    else:
+        raise Exception(
+            "Could not load certificate for presto connection from environment"
+        )
+
     conn._http_session = session
 
 

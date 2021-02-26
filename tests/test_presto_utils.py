@@ -1,4 +1,11 @@
-from cohortextractor.presto_utils import presto_connection_params_from_url
+from pathlib import Path
+
+import pytest
+
+from cohortextractor.presto_utils import (
+    adapt_connection,
+    presto_connection_params_from_url,
+)
 
 
 def test_presto_connection_params_from_url_with_auth():
@@ -41,3 +48,27 @@ def test_presto_connection_params_from_url_with_no_port():
         "catalog": "catalog",
         "schema": "schema",
     }
+
+
+class MockConn:
+    pass
+
+
+def test_adapt_connection_plain_keypair():
+    conn = MockConn()
+    env = {
+        "PRESTO_TLS_KEY": "key",
+        "PRESTO_TLS_CERT": "cert",
+    }
+    adapt_connection(conn, {}, env)
+
+    cert_path, key_path = conn._http_session.cert
+    assert Path(cert_path).read_text() == "cert"
+    assert Path(key_path).read_text() == "key"
+
+
+def test_adapt_connection_no_cert_configured():
+    conn = MockConn()
+
+    with pytest.raises(Exception):
+        adapt_connection(conn, {}, {})
