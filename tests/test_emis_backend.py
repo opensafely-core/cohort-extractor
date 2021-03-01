@@ -1515,18 +1515,15 @@ def test_duplicate_id_checking():
     # A bit of a hack: overwrite the queries we're going to run with a query which
     # deliberately returns duplicate values
     study.backend.queries = [
-        (
-            "dummy_query",
-            """
-            SELECT * FROM (
-              VALUES
-                (1,1),
-                (2,2),
-                (3,3),
-                (1,4)
-            ) t (patient_id, foo)
-            """,
-        )
+        """
+        SELECT * FROM (
+          VALUES
+            (1,1),
+            (2,2),
+            (3,3),
+            (1,4)
+        ) t (patient_id, foo)
+        """,
     ]
     with pytest.raises(RuntimeError):
         study.to_dicts()
