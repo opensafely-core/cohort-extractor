@@ -20,7 +20,26 @@ safe_punctation = r" _.-+/()"
 SAFE_CHARS_RE = re.compile(f"^[a-zA-Z0-9{re.escape(safe_punctation)}]+$")
 
 
-PATIENT_TABLE = "patient_all_orgs_v2"
+# patient_all_orgs_v2 contains a handful of duplicate registration IDs.  This causes
+# problems: because of the way we build our final query with a series of N LEFT JOINs, a
+# registration ID appearing twice in the patient table can appear up to 2^N times.
+#
+# EMIS have not yet fixed this, so for now I have created a table called
+# patient_no_duplicates which removes these duplicate registration IDs.
+#
+# WE MUST REMEMBER TO RECREATE THIS TABLE EACH TIME THE DATA IS REFRESHED!
+#
+# CREATE TABLE patient_no_duplicates AS (
+#     SELECT *
+#     FROM patient_all_orgs_v2
+#     WHERE registration_id NOT IN (
+#         SELECT registration_id
+#         FROM patient_all_orgs_v2
+#         GROUP BY registration_id
+#         HAVING COUNT(*) > 1
+#     )
+# )
+PATIENT_TABLE = "patient_no_duplicates"
 MEDICATION_TABLE = "medication_all_orgs_v2"
 OBSERVATION_TABLE = "observation_all_orgs_v2"
 IMMUNISATIONS_TABLE = "immunisation_all_orgs_v2"
