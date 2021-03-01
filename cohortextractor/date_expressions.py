@@ -58,10 +58,6 @@ def evaluate_date_expressions_in_expectations_definition(
 
 
 def validate_date(date_str):
-    if re.match(r"^\w+ \+ interval '\d+' (day|month|year)$", date_str):
-        # This expression contains presto's date arithmetic syntax
-        return date_str
-
     try:
         datetime.date.fromisoformat(date_str)
     except ValueError:
@@ -236,7 +232,7 @@ def date_replace(date, **kwargs):
     raise InvalidDateError(f"No such date {target_date}")
 
 
-class MSSQLDateFormatter:
+class DateFormatter:
 
     regex = create_regex()
 
@@ -279,6 +275,19 @@ class MSSQLDateFormatter:
             date_expr = add_units(date_expr, value)
         return date_expr, name
 
+    def get_method(self, method_type, name):
+        prefix = f"date_{method_type}_"
+        try:
+            return getattr(self, f"{prefix}{name}")
+        except AttributeError:
+            methods = [n[len(prefix) :] for n in dir(self) if n.startswith(prefix)]
+            raise InvalidExpressionError(
+                f"Unknown date {method_type} '{name}' "
+                f"(allowed are {', '.join(methods)})"
+            )
+
+
+class MSSQLDateFormatter(DateFormatter):
     def get_date_expression(self, date_column):
         """
         In order to use a date column in a query we need to cast it to an
@@ -305,18 +314,7 @@ class MSSQLDateFormatter:
             else:
                 raise RuntimeError("Should never get here")
         else:
-            return f"TRY_PARSE({date_column} AS date USING 'en-GB')"
-
-    def get_method(self, method_type, name):
-        prefix = f"date_{method_type}_"
-        try:
-            return getattr(self, f"{prefix}{name}")
-        except AttributeError:
-            methods = [n[len(prefix) :] for n in dir(self) if n.startswith(prefix)]
-            raise InvalidExpressionError(
-                f"Unknown date {method_type} '{name}' "
-                f"(allowed are {', '.join(methods)})"
-            )
+            return f"try(date_parse({date_column}, '%Y-%m-%d'))"
 
     def date_function_first_day_of_month(self, date):
         return f"DATEADD(DAY, 1, EOMONTH({date}, -1))"
@@ -338,6 +336,64 @@ class MSSQLDateFormatter:
 
     def date_unit_days(self, date, value):
         return f"DATEADD(DAY, {value}, {date})"
+
+    # Define the singular units as aliases to the plural
+    date_unit_year = date_unit_years
+    date_unit_month = date_unit_months
+    date_unit_day = date_unit_days
+
+
+class PrestoDateFormatter(DateFormatter):
+    def get_date_expression(self, date_column):
+        """
+        In order to use a date column in a query we need to cast it to an
+        actual date, not the string representation of a date which it currently
+        is. In the general case we can do that using `TRY_PARSE` (which, unlike
+        `PARSE`, will give us NULL on an empty string as we want). However,
+        this often ends up producing some convoluted SQL in which we transform
+        a date into a string and do some null handling only to immediately
+        parse it back into a date and reverse the null handling. So we try to
+        pattern match the most obvious cases of this and rewrite them, but fall
+        back to using TRY_PARSE otherwise.
+        """
+        date_format = date_column.date_format
+        date_sql = re.sub(r"\s", "", str(date_column))
+        match = re.match(
+            r"COALESCE\(date_format\(([\w\.]+),'%Y-%m-%d'\),''\)", date_sql
+        )
+        if match:
+            column_ref = match.group(1)
+            if date_format == "YYYY-MM-DD":
+                return column_ref
+            elif date_format == "YYYY-MM":
+                return self.date_function_first_day_of_month(column_ref)
+            else:
+                raise RuntimeError("Should never get here")
+        else:
+            return f"TRY_PARSE({date_column} AS date USING 'en-GB')"
+        return date_column
+
+    def date_function_first_day_of_month(self, date):
+        return f"date_trunc('month', {date})"
+
+    def date_function_last_day_of_month(self, date):
+        return f"last_day_of_month({date})"
+
+    def date_function_first_day_of_year(self, date):
+        return f"date_trunc('year', {date})"
+
+    def date_function_last_day_of_year(self, date):
+        # :(
+        return f"from_iso8601_date(cast(year({date}) as varchar(4)) || '-12-31')"
+
+    def date_unit_years(self, date, value):
+        return f"date_add('year', {value}, {date})"
+
+    def date_unit_months(self, date, value):
+        return f"date_add('month', {value}, {date})"
+
+    def date_unit_days(self, date, value):
+        return f"date_add('day', {value}, {date})"
 
     # Define the singular units as aliases to the plural
     date_unit_year = date_unit_years

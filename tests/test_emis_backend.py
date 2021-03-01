@@ -5,6 +5,7 @@ import tempfile
 import pytest
 
 from cohortextractor import StudyDefinition, codelist, patients
+from cohortextractor.date_expressions import InvalidExpressionError
 from cohortextractor.emis_backend import quote
 from tests.emis_backend_setup import (
     CPNS,
@@ -71,16 +72,8 @@ def test_minimal_study_to_csv():
         study.to_csv(f.name)
         results = list(csv.DictReader(f))
         assert results == [
-            {
-                "patient_id": str(patient_1.registration_id),
-                "sex": "M",
-                "hashed_organisation": "abc",
-            },
-            {
-                "patient_id": str(patient_2.registration_id),
-                "sex": "F",
-                "hashed_organisation": "abc",
-            },
+            {"patient_id": "0", "sex": "M"},
+            {"patient_id": "1", "sex": "F"},
         ]
 
 
@@ -637,10 +630,7 @@ def test_patient_registered_as_of():
     # No date criteria
     study = StudyDefinition(population=patients.registered_as_of("2002-03-02"))
     results = study.to_dicts()
-    assert [x["patient_id"] for x in results] == [
-        str(patient_registered_in_2001.registration_id),
-        str(patient_registered_in_2002.registration_id),
-    ]
+    assert len(results) == 2
 
 
 def test_patients_registered_with_one_practice_between():
@@ -667,9 +657,7 @@ def test_patients_registered_with_one_practice_between():
         )
     )
     results = study.to_dicts()
-    assert [x["patient_id"] for x in results] == [
-        str(patient_registered_in_2001.registration_id)
-    ]
+    assert len(results) == 1
 
 
 @pytest.mark.parametrize("include_dates", ["none", "year", "month", "day"])
@@ -1511,24 +1499,20 @@ def test_patients_with_death_recorded_in_cpns_raises_error_on_bad_data():
         study.to_dicts()
 
 
-@pytest.mark.xfail
 def test_duplicate_id_checking():
     study = StudyDefinition(population=patients.all())
     # A bit of a hack: overwrite the queries we're going to run with a query which
     # deliberately returns duplicate values
     study.backend.queries = [
-        (
-            "dummy_query",
-            """
-            SELECT * FROM (
-              VALUES
-                (1,1),
-                (2,2),
-                (3,3),
-                (1,4)
-            ) t (patient_id, foo)
-            """,
-        )
+        """
+        SELECT * FROM (
+          VALUES
+            (1,1),
+            (2,2),
+            (3,3),
+            (1,4)
+        ) t (patient_id, foo)
+        """,
     ]
     with pytest.raises(RuntimeError):
         study.to_dicts()
@@ -1597,7 +1581,7 @@ def test_using_expression_in_population_definition():
         age=patients.age_as_of("2020-01-01"),
     )
     results = study.to_dicts()
-    assert results[0].keys() == {"patient_id", "age", "hashed_organisation"}
+    assert results[0].keys() == {"patient_id", "age"}
     assert [i["age"] for i in results] == ["50"]
 
 
@@ -1963,3 +1947,67 @@ def test_patients_aggregate_value_of():
     results = study_with_hidden_columns.to_dicts()
     assert [x["max_value"] for x in results] == ["23.0", "18.0", "10.0", "8.0", "0.0"]
     assert "abc_value" not in results[0].keys()
+
+
+def test_dynamic_index_dates():
+    session = make_session()
+    session.add_all(
+        [
+            Patient(
+                observations=[
+                    Observation(effective_date="2020-01-01", snomed_concept_id=123),
+                    Observation(effective_date="2020-02-01", snomed_concept_id=123),
+                    Observation(effective_date="2020-03-01", snomed_concept_id=456),
+                    Observation(effective_date="2020-04-20", snomed_concept_id=123),
+                    Observation(effective_date="2020-05-01", snomed_concept_id=123),
+                    Observation(effective_date="2020-06-01", snomed_concept_id=456),
+                ],
+            ),
+        ]
+    )
+    session.commit()
+    study = StudyDefinition(
+        population=patients.all(),
+        earliest_456=patients.with_these_clinical_events(
+            codelist(["456"], system="snomed"),
+            returning="date",
+            date_format="YYYY-MM-DD",
+            find_first_match_in_period=True,
+        ),
+        latest_123_before_456=patients.with_these_clinical_events(
+            codelist(["123"], system="snomed"),
+            returning="date",
+            date_format="YYYY-MM-DD",
+            find_last_match_in_period=True,
+            on_or_before="earliest_456",
+        ),
+        latest_123_in_month_after_456=patients.with_these_clinical_events(
+            codelist(["123"], system="snomed"),
+            returning="date",
+            date_format="YYYY-MM-DD",
+            find_last_match_in_period=True,
+            on_or_before="last_day_of_month(earliest_456) + 1 month",
+        ),
+    )
+    assert_results(
+        study.to_dicts(),
+        earliest_456=["2020-03-01"],
+        latest_123_before_456=["2020-02-01"],
+        latest_123_in_month_after_456=["2020-04-20"],
+    )
+
+
+def test_dynamic_index_dates_with_invalid_expression():
+    with pytest.raises(InvalidExpressionError):
+        StudyDefinition(
+            population=patients.all(),
+            earliest_123=patients.with_these_clinical_events(
+                codelist([123], system="snomed"),
+                returning="date",
+                date_format="YYYY-MM-DD",
+            ),
+            latest_456_in_month_after_bar=patients.with_these_clinical_events(
+                codelist([456], system="snomed"),
+                on_or_before="last_day_of_month(earliest_bar) + 1 mnth",
+            ),
+        )
