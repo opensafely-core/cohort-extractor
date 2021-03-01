@@ -11,10 +11,13 @@ def codelist_from_csv(filename, system, column="code", category_column=None):
     codes = []
     with open(filename, "r") as f:
         for row in csv.DictReader(f):
+            # We strip whitespace below. Longer term we expect this to be done
+            # automatically by OpenCodelists but for now we want to avoid the
+            # problems it creates
             if category_column:
-                codes.append((row[column], row[category_column]))
+                codes.append((row[column].strip(), row[category_column].strip()))
             else:
-                codes.append(row[column])
+                codes.append(row[column].strip())
     codes = Codelist(codes)
     codes.system = system
     codes.has_categories = bool(category_column)
@@ -38,6 +41,8 @@ def filter_codes_by_category(codes, include):
     for code, category in codes:
         if category in include:
             new_codes.append((code, category))
+    if not len(new_codes):
+        raise ValueError(f"codelist has no codes matching categories: {include}")
     return new_codes
 
 
