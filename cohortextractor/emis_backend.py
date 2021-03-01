@@ -81,11 +81,7 @@ class EMISBackend:
 
         Useful for debugging, optimising, etc.
         """
-        prepared_sql = ["-- Create codelist tables"]
-        for name, query in self.queries:
-            prepared_sql.append(f"-- Query for {name}")
-            prepared_sql.append(f"{query};\n\n")
-        return "\n".join(prepared_sql)
+        return "\n\n\n".join(f"{query};" for query in self.queries)
 
     def get_queries(self, covariate_definitions):
         output_columns = {}
