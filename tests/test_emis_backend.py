@@ -1510,7 +1510,6 @@ def test_patients_with_death_recorded_in_cpns_raises_error_on_bad_data():
         study.to_dicts()
 
 
-@pytest.mark.xfail
 def test_duplicate_id_checking():
     study = StudyDefinition(population=patients.all())
     # A bit of a hack: overwrite the queries we're going to run with a query which

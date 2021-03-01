@@ -1476,9 +1476,7 @@ class UniqueCheck:
     def assert_unique_ids(self):
         duplicates = self.count - len(self.ids)
         if duplicates != 0:
-            print("-" * 80)
-            print(f"Duplicate IDs found ({duplicates} rows)")
-            print("-" * 80)
+            raise RuntimeError(f"Duplicate IDs found ({duplicates} rows)")
 
 
 def pop_keys_from_dict(dictionary, keys):
