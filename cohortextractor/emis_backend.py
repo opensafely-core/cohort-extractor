@@ -78,8 +78,9 @@ class EMISBackend:
         with open(filename, "w", newline="") as csvfile:
             writer = csv.writer(csvfile)
             writer.writerow([x[0] for x in result.description])
-            for row in result:
+            for ix, row in enumerate(result):
                 unique_check.add(row[0])
+                row[0] = ix
                 writer.writerow(row)
         unique_check.assert_unique_ids()
 
@@ -92,6 +93,8 @@ class EMISBackend:
         for item in output:
             unique_check.add(item["patient_id"])
         unique_check.assert_unique_ids()
+        for ix, row in enumerate(output):
+            row["patient_id"] = ix
         return output
 
     def to_sql(self):
