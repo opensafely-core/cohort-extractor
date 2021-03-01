@@ -27,7 +27,7 @@ SAFE_CHARS_RE = re.compile(f"^[a-zA-Z0-9{re.escape(safe_punctation)}]+$")
 # EMIS have not yet fixed this, so for now I have created a table called
 # patient_no_duplicates which removes these duplicate registration IDs.
 #
-# WE MUST REMEMBER TO RECREATE THIS TABLE EACH TIME THE DATA IS REFRESHED!
+# WE MUST REMEMBER TO RECREATE THIS TABLE EACH TIME THE DATA IS REFRESHED!!
 #
 # CREATE TABLE patient_no_duplicates AS (
 #     SELECT *
