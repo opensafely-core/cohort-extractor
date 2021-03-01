@@ -25,7 +25,10 @@ SAFE_CHARS_RE = re.compile(f"^[a-zA-Z0-9{re.escape(safe_punctation)}]+$")
 # registration ID appearing twice in the patient table can appear up to 2^N times.
 #
 # EMIS have not yet fixed this, so for now I have created a table called
-# patient_no_duplicates which removes these duplicate registration IDs.
+# patient_no_duplicates which removes these duplicate registration IDs.  The number of
+# duplicates is small enough that it doesn't matter that it causes us to lose a few
+# patients, and in any case there is no way to choose between patients with duplicate
+# registration IDs.
 #
 # WE MUST REMEMBER TO RECREATE THIS TABLE EACH TIME THE DATA IS REFRESHED!!
 #
