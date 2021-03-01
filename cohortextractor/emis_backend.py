@@ -71,7 +71,7 @@ class EMISBackend:
         output = [dict(zip(keys, map(str, row))) for row in result]
         unique_check = UniqueCheck()
         for item in output:
-            unique_check.add(item["registration_id"])
+            unique_check.add(item["patient_id"])
         unique_check.assert_unique_ids()
         return output
 
@@ -144,8 +144,8 @@ class EMISBackend:
         else:
             primary_table = PATIENT_TABLE
             patient_id_expr = ColumnExpression(f"{PATIENT_TABLE}.registration_id")
-        # Insert `registration_id` as the first column
-        output_columns = dict(registration_id=patient_id_expr, **output_columns)
+        # Insert `patient_id` as the first column
+        output_columns = dict(patient_id=patient_id_expr, **output_columns)
         output_columns_str = ",\n          ".join(
             f"{expr} AS {name}"
             for (name, expr) in output_columns.items()
