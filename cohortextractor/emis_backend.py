@@ -147,7 +147,6 @@ class EMISBackend:
             for (name, expr) in output_columns.items()
             if not expr.is_hidden and name != "population"
         )
-        output_columns_str += f",\n          {primary_table}.hashed_organisation"
         joins = []
         for name in table_queries:
             if name == "population":

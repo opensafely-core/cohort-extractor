@@ -75,12 +75,10 @@ def test_minimal_study_to_csv():
             {
                 "patient_id": str(patient_1.registration_id),
                 "sex": "M",
-                "hashed_organisation": "abc",
             },
             {
                 "patient_id": str(patient_2.registration_id),
                 "sex": "F",
-                "hashed_organisation": "abc",
             },
         ]
 
@@ -1598,7 +1596,7 @@ def test_using_expression_in_population_definition():
         age=patients.age_as_of("2020-01-01"),
     )
     results = study.to_dicts()
-    assert results[0].keys() == {"patient_id", "age", "hashed_organisation"}
+    assert results[0].keys() == {"patient_id", "age"}
     assert [i["age"] for i in results] == ["50"]
 
 
