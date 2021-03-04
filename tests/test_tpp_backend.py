@@ -21,6 +21,7 @@ from tests.tpp_backend_setup import (
     CPNS,
     EC,
     ICNARC,
+    OPA,
     APCS_Der,
     Appointment,
     CodedEvent,
@@ -88,6 +89,7 @@ def setup_function(function):
     session.query(EC).delete()
     session.query(APCS_Der).delete()
     session.query(APCS).delete()
+    session.query(OPA).delete()
     session.query(HighCostDrugs).delete()
     session.query(Patient).delete()
     session.commit()
@@ -3256,4 +3258,66 @@ def test_high_cost_drugs():
         latest_drug_date=["2020-01"],
         first_bar_date=["2019-09"],
         latest_drug_before_bar=["2019-05"],
+    )
+
+
+def test_ethnicity_from_sus():
+    session = make_session()
+    session.add_all(
+        [
+            # B0 by most recent record
+            # D0 by most common record
+            Patient(
+                APCSEpisodes=[
+                    APCS(Ethnic_Group="D0"),
+                    APCS(Ethnic_Group="D0"),
+                    APCS(Ethnic_Group="D0"),
+                    APCS(Ethnic_Group="B0"),
+                ],
+                ECEpisodes=[
+                    EC(Ethnic_Category="D"),
+                    EC(Ethnic_Category="D"),
+                ],
+                OPAEpisodes=[
+                    OPA(Ethnic_Category="D*"),
+                ],
+            ),
+            # G by most recent and most common
+            Patient(
+                APCSEpisodes=[
+                    APCS(Ethnic_Group="GC"),
+                ],
+                ECEpisodes=[
+                    EC(Ethnic_Category="G"),
+                    EC(Ethnic_Category="G"),
+                ],
+                OPAEpisodes=[
+                    OPA(Ethnic_Category="GF"),
+                ],
+            ),
+        ]
+    )
+    session.commit()
+
+    study = StudyDefinition(
+        population=patients.all(),
+        ethnicity_by_code=patients.with_ethnicity_from_sus(
+            returning="code",
+            use_most_frequent_code=True,
+        ),
+        ethnicity_by_group_6=patients.with_ethnicity_from_sus(
+            returning="group_6",
+            use_most_frequent_code=True,
+        ),
+        ethnicity_by_group_16=patients.with_ethnicity_from_sus(
+            returning="group_16",
+            use_most_frequent_code=True,
+        ),
+    )
+
+    assert_results(
+        study.to_dicts(),
+        ethnicity_by_code=["D0", "G"],
+        ethnicity_by_group_6=["2", "2"],
+        ethnicity_by_group_16=["4", "7"],
     )

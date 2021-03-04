@@ -228,6 +228,11 @@ class Patient(Base):
         back_populates="Patient",
         cascade="all, delete, delete-orphan",
     )
+    OPAEpisodes = relationship(
+        "OPA",
+        back_populates="Patient",
+        cascade="all, delete, delete-orphan",
+    )
 
 
 class RegistrationHistory(Base):
@@ -595,6 +600,7 @@ class EC(Base):
     Diagnoses = relationship(
         "EC_Diagnosis", back_populates="EC", cascade="all, delete, delete-orphan"
     )
+    Ethnic_Category = Column(String)
 
 
 class EC_Diagnosis(Base):
@@ -648,6 +654,7 @@ class APCS(Base):
     Discharge_Date = Column(Date)
     Der_Diagnosis_All = Column(String)
     Der_Procedure_All = Column(String)
+    Ethnic_Group = Column(String)
 
 
 class APCS_Der(Base):
@@ -700,3 +707,14 @@ class HighCostDrugs(Base):
     FinancialYear = Column(String)
     # April = "1", May="2", ... March="12"
     FinancialMonth = Column(String)
+
+
+class OPA(Base):
+    __tablename__ = "OPA"
+    Patient_ID = Column(Integer, ForeignKey("Patient.Patient_ID"))
+    Patient = relationship(
+        "Patient", back_populates="OPAEpisodes", cascade="all, delete"
+    )
+    OPA_Ident = Column(Integer, primary_key=True)
+    Appointment_Date = Column(Date)
+    Ethnic_Category = Column(String)
