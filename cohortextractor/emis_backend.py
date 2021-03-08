@@ -13,6 +13,7 @@ from .expressions import format_expression
 from .presto_utils import presto_connection_from_url
 
 logger = structlog.get_logger()
+sql_logger = structlog.get_logger("cohortextractor.sql")
 
 # Characters that are safe to interpolate into SQL (see
 # `placeholders_and_params` below)
@@ -332,8 +333,14 @@ class EMISBackend:
         logger.info("Uploading codelists into temporary tables")
         queries = list(self.queries)
         final_query = queries.pop()
+        run_analyze = bool(os.environ.get("RUN_ANALYZE"))
         for sql in queries:
             cursor.execute(sql)
+            table_name = re.search(r"CREATE TABLE IF NOT EXISTS (\w+)", sql).groups()[0]
+            if run_analyze:
+                sql_logger.debug(f"ANALYZE {table_name}")
+                cursor.execute(f"ANALYZE {table_name}")
+
         output_table = self.get_output_table_name(os.environ.get("TEMP_DATABASE_NAME"))
         if output_table:
             logger.info(f"Running final query and writing output to '{output_table}'")
