@@ -1932,15 +1932,14 @@ def with_ethnicity_from_sus(
     Returns ethnicity data from the SUS Datasets
 
     Args:
-        returning: a string indicating what type of value whould be returned.
-        Options are:
+        returning: a string indicating what type of value whould be returned. Options are:
             code: don't group ethnicities at all, return the recorded code
             group_6: group ethnicities into 6 groups
             group_16: group ethnicities into 16 groups
         use_most_frequent_code: when multiple codes are present, pick the most
-        frequent one
+            frequent one
         return_expectations: a dictionary describing what dummy data should
-        look like
+            look like
 
     Example:
         ethnicity_by_16_grouping=patients.with_ethnicity_from_sus(
