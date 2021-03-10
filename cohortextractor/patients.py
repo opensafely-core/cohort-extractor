@@ -1942,8 +1942,11 @@ def with_ethnicity_from_sus(
             look like
 
     Example:
-        ethnicity_by_16_grouping=patients.with_ethnicity_from_sus(
-            returning="group_16"
-        )
+        Patients with ethnicity, grouped to our 16 categories:
+
+            ethnicity_by_16_grouping=patients.with_ethnicity_from_sus(
+                returning="group_16",
+                use_most_frequent_code=True,
+            )
     """
     return "with_ethnicity_from_sus", locals()
