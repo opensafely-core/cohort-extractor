@@ -1133,9 +1133,6 @@ class EMISBackend:
         if returning not in ("binary_flag", "date"):
             raise ValueError(f"Unsupported `returning` value: {returning}")
 
-        date_condition, date_joins = self.get_date_condition(
-            "s", "effective_date", between
-        )
         if find_first_match_in_period:
             date_aggregate = "MIN"
             date_comparator = "<"
@@ -1156,11 +1153,17 @@ class EMISBackend:
             codelist_queries.extend(codelist_query)
 
         if procedure_codes and product_codes:
+            date_condition, date_joins = self.get_date_condition("t", "t.date", between)
+
             subquery = f"""
+            SELECT
+                t.registration_id,
+                t.hashed_organisation,
+                t.date
+            FROM (
                 SELECT
                     m.registration_id,
-                    m.hashed_organisation AS hashed_organisation,
-                    1 AS has_event,
+                    m.hashed_organisation,
                     CASE
                         WHEN m.effective_date {date_comparator} i.effective_date THEN m.effective_date
                         ELSE i.effective_date
@@ -1172,34 +1175,48 @@ class EMISBackend:
                     ON m.snomed_concept_id = {product_codes_table}.code
                 INNER JOIN {procedure_codes_table}
                     ON i.snomed_concept_id = {procedure_codes_table}.code
-                WHERE {date_condition}
+            ) t
+            {date_joins}
+            WHERE {date_condition}
             """
 
         elif procedure_codes:
             assert not product_codes
+
+            date_condition, date_joins = self.get_date_condition(
+                "i", "effective_date", between
+            )
+
             subquery = f"""
                 SELECT
-                    registration_id,
+                    i.registration_id,
                     i.hashed_organisation AS hashed_organisation,
                     1 AS has_event,
-                    DATE(effective_date) AS date
+                    DATE(i.effective_date) AS date
                 FROM {IMMUNISATIONS_TABLE} AS i
                 INNER JOIN {procedure_codes_table}
                     ON i.snomed_concept_id = {procedure_codes_table}.code
+                {date_joins}
                 WHERE {date_condition}
             """
 
         elif product_codes:
             assert not procedure_codes
+
+            date_condition, date_joins = self.get_date_condition(
+                "m", "effective_date", between
+            )
+
             subquery = f"""
                 SELECT
-                    registration_id,
+                    m.registration_id,
                     m.hashed_organisation AS hashed_organisation,
                     1 AS has_event,
-                    DATE(effective_date) AS date
+                    DATE(m.effective_date) AS date
                 FROM {MEDICATION_TABLE} AS m
                 INNER JOIN {product_codes_table}
                     ON m.snomed_concept_id = {product_codes_table}.code
+                {date_joins}
                 WHERE {date_condition}
             """
 
@@ -1215,7 +1232,6 @@ class EMISBackend:
             1 AS binary_flag,
             {date_aggregate}(DATE(s.date)) AS date
         FROM ({subquery}) s
-        {date_joins}
         GROUP BY s.registration_id, s.hashed_organisation
         """
 

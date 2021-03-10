@@ -202,6 +202,17 @@ def test_patients_with_vaccination_record():
             returning="date",
             date_format="YYYY-MM-DD",
         ),
+        second_pf=patients.with_vaccination_record(
+            emis={
+                "procedure_codes": covid_codelist,
+                "product_codes": pf_codelist,
+            },
+            tpp={},
+            on_or_after="first_pf + 20 days",
+            find_first_match_in_period=True,
+            returning="date",
+            date_format="YYYY-MM-DD",
+        ),
         last_pf=patients.with_vaccination_record(
             emis={
                 "procedure_codes": covid_codelist,
@@ -218,6 +229,17 @@ def test_patients_with_vaccination_record():
                 "product_codes": az_codelist,
             },
             tpp={},
+            find_first_match_in_period=True,
+            returning="date",
+            date_format="YYYY-MM-DD",
+        ),
+        second_az=patients.with_vaccination_record(
+            emis={
+                "procedure_codes": covid_codelist,
+                "product_codes": az_codelist,
+            },
+            tpp={},
+            on_or_after="first_az + 20 days",
             find_first_match_in_period=True,
             returning="date",
             date_format="YYYY-MM-DD",
@@ -241,6 +263,16 @@ def test_patients_with_vaccination_record():
             returning="date",
             date_format="YYYY-MM-DD",
         ),
+        second_product=patients.with_vaccination_record(
+            emis={
+                "product_codes": vacc_codelist,
+            },
+            tpp={},
+            on_or_after="first_product + 20 days",
+            find_first_match_in_period=True,
+            returning="date",
+            date_format="YYYY-MM-DD",
+        ),
         last_product=patients.with_vaccination_record(
             emis={
                 "product_codes": vacc_codelist,
@@ -255,6 +287,16 @@ def test_patients_with_vaccination_record():
                 "procedure_codes": covid_codelist,
             },
             tpp={},
+            find_first_match_in_period=True,
+            returning="date",
+            date_format="YYYY-MM-DD",
+        ),
+        second_procedure=patients.with_vaccination_record(
+            emis={
+                "procedure_codes": covid_codelist,
+            },
+            tpp={},
+            on_or_after="first_procedure + 20 days",
             find_first_match_in_period=True,
             returning="date",
             date_format="YYYY-MM-DD",
@@ -275,12 +317,16 @@ def test_patients_with_vaccination_record():
         had_pf=["0", "1", "0"],
         had_az=["0", "0", "1"],
         first_pf=["", pf_date_1, ""],
+        second_pf=["", pf_date_2, ""],
         last_pf=["", pf_date_2, ""],
         first_az=["", "", az_date_1],
+        second_az=["", "", ""],
         last_az=["", "", az_date_2],
         first_product=["", pf_date_1, az_date_1],
+        second_product=["", pf_date_2, ""],
         last_product=["", pf_date_2, az_date_1],
         first_procedure=["", pf_date_1, az_date_2],
+        second_procedure=["", pf_date_2, ""],
         last_procedure=["", pf_date_2, az_date_2],
     )
 
