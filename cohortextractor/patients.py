@@ -1812,6 +1812,12 @@ def admitted_to_hospital(
     with_these_diagnoses=None,
     with_these_primary_diagnoses=None,
     with_these_procedures=None,
+    with_admission_method=None,
+    with_source_of_admission=None,
+    with_discharge_destination=None,
+    with_patient_classification=None,
+    with_admission_treatment_function_code=None,
+    with_administrative_category=None,
     return_expectations=None,
 ):
     """
@@ -1832,6 +1838,14 @@ def admitted_to_hospital(
             date_discharged: date patient discharged from hospital
             number_of_matches_in_period: number of times patient was admitted in time period specified
             primary_diagnosis: primary diagnosis code for admission
+            admission_method:
+            source_of_admission:
+            discharge_destination:
+            patient_classification:
+            admission_treatment_function_code:
+            days_in_critical_care:
+            administrative_category:
+            duration_of_elective_wait:
         find_first_match_in_period: a boolean that indicates if the data returned is first event
             if there are multiple matches within the time period
         find_last_match_in_period: a boolean that indicates if the data returned is last event
@@ -1842,6 +1856,12 @@ def admitted_to_hospital(
         with_these_diagnoses: icd10 codes to match against any diagnosis
         with_these_primary_diagnoses: icd10 codes to match against the primary diagnosis
         with_these_procedures: opcs4 codes to match against the procedure
+        with_admission_method: string or list of strings to match against
+        with_source_of_admission: string or list of strings to match against
+        with_discharge_destination: string or list of strings to match against
+        with_patient_classification: string or list of strings to match against
+        with_admission_treatment_function_code: string or list of strings to match against
+        with_administrative_category: string or list of strings to match against
         return_expectations: a dictionary defining the incidence and distribution of expected value
             within the population in question.
 

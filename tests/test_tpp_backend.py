@@ -2698,7 +2698,14 @@ def test_patients_admitted_to_hospital():
                         Discharge_Date="2020-03-01",
                         Der_Diagnosis_All="||AAAA ,XXXA, XXXB",
                         Der_Procedure_All="||AAAA ,YYYA, YYYB",
-                        APCS_Der=APCS_Der(Patient_ID=2, Spell_Primary_Diagnosis="AAAA"),
+                        Discharge_Destination="11",
+                        Source_of_Admission="2A",
+                        Admission_Method="11",
+                        APCS_Der=APCS_Der(
+                            Patient_ID=2,
+                            Spell_Primary_Diagnosis="AAAA",
+                            Spell_PbR_CC_Day="3",
+                        ),
                     )
                 ],
             ),
@@ -2712,7 +2719,14 @@ def test_patients_admitted_to_hospital():
                         Discharge_Date="2020-02-01",
                         Der_Diagnosis_All="||BBBB ,XXXB, XXXC",
                         Der_Procedure_All="||BBBB ,YYYB, YYYC",
-                        APCS_Der=APCS_Der(Patient_ID=3, Spell_Primary_Diagnosis="BBBB"),
+                        Discharge_Destination="99",
+                        Source_of_Admission="2A",
+                        Admission_Method="50",
+                        APCS_Der=APCS_Der(
+                            Patient_ID=3,
+                            Spell_Primary_Diagnosis="BBBB",
+                            Spell_PbR_CC_Day="4",
+                        ),
                     ),
                     APCS(
                         APCS_Ident=3,
@@ -2734,7 +2748,14 @@ def test_patients_admitted_to_hospital():
                         Discharge_Date="2020-04-01",
                         Der_Diagnosis_All="||DDDD ,XXXD, XXXE",
                         Der_Procedure_All="||DDDD ,YYYD, YYYE",
-                        APCS_Der=APCS_Der(Patient_ID=4, Spell_Primary_Diagnosis="DDDD"),
+                        Discharge_Destination="11",
+                        Source_of_Admission="3B",
+                        Admission_Method="99",
+                        APCS_Der=APCS_Der(
+                            Patient_ID=4,
+                            Spell_Primary_Diagnosis="DDDD",
+                            Spell_PbR_CC_Day="5",
+                        ),
                     ),
                     APCS(
                         APCS_Ident=5,
@@ -2831,6 +2852,14 @@ def test_patients_admitted_to_hospital():
             returning="primary_diagnosis",
             find_last_match_in_period=True,
         ),
+        discharge_dest=patients.admitted_to_hospital(
+            with_source_of_admission="2A",
+            returning="discharge_destination",
+        ),
+        critical_care_days=patients.admitted_to_hospital(
+            with_admission_method=["11", "99"],
+            returning="days_in_critical_care",
+        ),
     )
 
     assert_results(
@@ -2849,6 +2878,8 @@ def test_patients_admitted_to_hospital():
         with_particular_procedures=["0", "0", "1", "2"],
         first_primary_diagnosis=["", "", "CCCC", "DDDD"],
         last_primary_diagnosis=["", "", "CCCC", "FFFF"],
+        discharge_dest=["", "11", "99", ""],
+        critical_care_days=["", "3", "", "5"],
     )
 
 

@@ -1877,7 +1877,27 @@ class TPPBackend:
         with_these_primary_diagnoses=None,
         with_these_diagnoses=None,
         with_these_procedures=None,
+        **kwargs,
     ):
+        supported_columns = {
+            "admission_method": "Admission_Method",
+            "source_of_admission": "Source_of_Admission",
+            "discharge_destination": "Discharge_Destination",
+            "patient_classification": "Patient_Classification",
+            "admission_treatment_function_code": "Der_Admit_Treatment_Function_Code",
+            "days_in_critical_care": "APCS_Der.Spell_PbR_CC_Day",
+            "administrative_category": "Administrative_Category",
+            "duration_of_elective_wait": "Duration_of_Elective_Wait",
+        }
+        column_conditions = {}
+        for column in supported_columns.keys():
+            keyword = f"with_{column}"
+            value = kwargs.pop(keyword, None)
+            if value is not None:
+                column_conditions[column] = value
+        if kwargs:
+            raise TypeError(f"Unexpected keyword argument {list(kwargs)[0]!r}")
+
         if find_first_match_in_period:
             ordering = "ASC"
             date_aggregate = "MIN"
@@ -1886,19 +1906,22 @@ class TPPBackend:
             date_aggregate = "MAX"
 
         if returning == "binary_flag":
-            column = "1"
+            returning_column = "1"
             use_partition_query = False
         elif returning == "date_admitted":
-            column = f"{date_aggregate}(Admission_Date)"
+            returning_column = f"{date_aggregate}(Admission_Date)"
             use_partition_query = False
         elif returning == "date_discharged":
-            column = f"{date_aggregate}(Discharge_Date)"
+            returning_column = f"{date_aggregate}(Discharge_Date)"
             use_partition_query = False
         elif returning == "number_of_matches_in_period":
-            column = "COUNT(*)"
+            returning_column = "COUNT(*)"
             use_partition_query = False
         elif returning == "primary_diagnosis":
-            column = "Spell_Primary_Diagnosis"
+            returning_column = "Spell_Primary_Diagnosis"
+            use_partition_query = True
+        elif returning in supported_columns:
+            returning_column = supported_columns[returning]
             use_partition_query = True
         else:
             raise ValueError(f"Unsupported `returning` value: {returning}")
@@ -1907,6 +1930,10 @@ class TPPBackend:
             "APCS", "Admission_Date", between
         )
         conditions = [date_condition]
+
+        for column_name, column_value in column_conditions.items():
+            value_sql = ", ".join(map(quote, to_list(column_value)))
+            conditions.append(f"{column_name} IN ({value_sql})")
 
         if with_these_primary_diagnoses:
             assert with_these_primary_diagnoses.system == "icd10"
@@ -1947,9 +1974,9 @@ class TPPBackend:
             sql = f"""
             SELECT
               t.Patient_ID AS patient_id,
-              {column} AS {returning}
+              t.{returning} AS {returning}
             FROM (
-              SELECT APCS.Patient_ID, {column},
+              SELECT APCS.Patient_ID, {returning_column} AS {returning},
               ROW_NUMBER() OVER (
                 PARTITION BY APCS.Patient_ID
                 ORDER BY Admission_Date {ordering}, APCS.APCS_Ident
@@ -1966,7 +1993,7 @@ class TPPBackend:
             sql = f"""
             SELECT
               APCS.Patient_ID AS patient_id,
-              {column} AS {returning}
+              {returning_column} AS {returning}
             FROM APCS
             INNER JOIN APCS_Der
               ON APCS.APCS_Ident = APCS_Der.APCS_Ident
