@@ -358,6 +358,14 @@ class GetColumnType:
             "case_category": "str",
             "group_6": "str",
             "group_16": "str",
+            "admission_method": "str",
+            "source_of_admission": "str",
+            "dischage_destination": "str",
+            "patient_classification": "str",
+            "admission_treatment_function_code": "str",
+            "days_in_critical_care": "str",
+            "administrative_category": "str",
+            "duration_of_elective_wait": "str",
         }
         try:
             return mapping[returning]

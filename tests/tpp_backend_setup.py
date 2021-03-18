@@ -655,6 +655,13 @@ class APCS(Base):
     Der_Diagnosis_All = Column(String)
     Der_Procedure_All = Column(String)
     Ethnic_Group = Column(String)
+    Admission_Method = Column(String)
+    Source_of_Admission = Column(String)
+    Discharge_Destination = Column(String)
+    Patient_Classification = Column(String)
+    Der_Admit_Treatment_Function_Code = Column(String)
+    Administrative_Category = Column(String)
+    Duration_of_Elective_Wait = Column(String)
 
 
 class APCS_Der(Base):
@@ -667,6 +674,7 @@ class APCS_Der(Base):
     APCS = relationship("APCS", back_populates="APCS_Der")
     Spell_Primary_Diagnosis = Column(String)
     Spell_Secondary_Diagnosis = Column(String)
+    Spell_PbR_CC_Day = Column(String)
 
 
 class HighCostDrugs(Base):
