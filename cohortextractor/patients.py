@@ -747,7 +747,7 @@ def address_as_of(
 
     Args:
         date: date of interest as a string with the format `YYYY-MM-DD`. Filters results to the given date.
-        returning: a str defining the type of data to be returned. options include `index_of_multiple_deprivation`
+        returning: a str defining the type of data to be returned. Options include `index_of_multiple_deprivation`
             `rural_urban_classification`, and `msoa`. The default value is `None`.
         round_to_nearest: an integer that represents how `index_of_multiple_deprivation` value are rounded.
             Only use when returning is `index_of_multiple_deprivation`
@@ -872,11 +872,11 @@ def admitted_to_icu(
         find_last_match_in_period: a boolean that indicates if the data returned is last admission to icu if
             there are multiple admissions within the time period
         returning:
-            binary_flag: Whether patient attended A&E
-            date_admitted: Date patient arrived in A&E
-            had_respiratory_support: Whether patient received any form of respiratory support
-            had_basic_respiratory_support: Whether patient received "basic" respiratory support
-            had_advanced_respiratory_support: Whether patient received "advanced" respiratory support
+            `binary_flag`: Whether patient attended ICU,
+            `date_admitted`: Date patient arrived in ICU,
+            `had_respiratory_support`: Whether patient received any form of respiratory support,
+            `had_basic_respiratory_support`: Whether patient received "basic" respiratory support,
+            `had_advanced_respiratory_support`: Whether patient received "advanced" respiratory support
             (Note that the terms "basic" and "advanced" are derived from the underlying ICNARC data.)
         date_format: a string detailing the format of the dates to be returned. It can be `YYYY-MM-DD`,
             `YYYY-MM` or `YYYY` and wherever possible the least disclosive data should be returned. i.e returning
@@ -953,9 +953,9 @@ def with_these_codes_on_death_certificate(
             Filters results between the two dates provided. The default value is `None`.
         match_only_underlying_cause: boolean for indicating if filters results to only specified cause of death.
         returning: a string indicating what type of value should be returned. The options are:
-            date_of_death: Date of death
-            binary_flag: If they died or not
-            underlying_cause_of_death: The icd10 code corresponding to the underlying cause of death
+            `date_of_death`: Date of death,
+            `binary_flag`: If they died or not,
+            `underlying_cause_of_death`: The icd10 code corresponding to the underlying cause of death
         date_format: a string detailing the format of the dates to be returned. It can be `YYYY-MM-DD`,
             `YYYY-MM` or `YYYY` and wherever possible the least disclosive data should be returned. i.e returning
             only year is less disclosive than a date with day, month and year.
@@ -1013,8 +1013,8 @@ def died_from_any_cause(
         between: two dates of interest as a list with each date as a string with the format `YYYY-MM-DD`.
             Filters results to between the two dates provided. The default value is `None`.
         returning: a string indicating what type of value should be returned. The options are:
-            date_of_death: Date of death
-            binary_flag: If they died or not
+            `date_of_death`: Date of death, 
+            `binary_flag`: If they died or not
         date_format: a string detailing the format of the dates to be returned. It can be `YYYY-MM-DD`,
             `YYYY-MM` or `YYYY` and wherever possible the least disclosive data should be returned. i.e returning
             only year is less disclosive than a date with day, month and year.
@@ -1072,8 +1072,8 @@ def with_death_recorded_in_cpns(
         between: two dates of interest as a list with each date as a string with the format `YYYY-MM-DD`.
             Filters results to between the two dates provided. The default value is `None`.
         returning: a string indicating what type of value should be returned. The options are:
-            date_of_death: Date of death
-            binary_flag: If they died or not
+            `date_of_death`: Date of death,
+            `binary_flag`: If they died or not
         date_format: a string detailing the format of the dates to be returned. It can be `YYYY-MM-DD`,
             `YYYY-MM` or `YYYY` and wherever possible the least disclosive data should be returned. i.e returning
             only year is less disclosive than a date with day, month and year.
@@ -1133,8 +1133,8 @@ def with_death_recorded_in_primary_care(
         between: two dates of interest as a list with each date as a string with the format `YYYY-MM-DD`.
             Filters results to  between the two dates provided. The default value is `None`.
         returning: a string indicating what type of value should be returned. The options are:
-            date_of_death: Date of death
-            binary_flag: If they died or not
+            `date_of_death`: Date of death,
+            `binary_flag`: If they died or not
         date_format: a string detailing the format of the dates to be returned. It can be `YYYY-MM-DD`,
             `YYYY-MM` or `YYYY` and wherever possible the least disclosive data should be returned. i.e returning
             only year is less disclosive than a date with day, month and year.
@@ -1209,8 +1209,8 @@ def with_vaccination_record(
             on or after the given date. The default value is `None`.
         between: two dates of interest as a list with each date as a string with the format `YYYY-MM-DD`.
             Filters results to between the two dates provided. The default value is `None`.
-        returning: a string indicating what type of value should be returned. The options are limited to binary_flag
-            (which indicates if they have had the vaccination or not) or a date of vaccination
+        returning: a string indicating what type of value should be returned. The options are limited to `binary_flag`
+            (which indicates if they have had the vaccination or not) or `date` of vaccination
         date_format: a string detailing the format of the dates to be returned. It can be `YYYY-MM-DD`,
             `YYYY-MM` or `YYYY` and wherever possible the least disclosive data should be returned. i.e returning
             only year is less disclosive than a date with day, month and year.
@@ -1286,8 +1286,8 @@ def with_tpp_vaccination_record(
             on or after the given date. The default value is `None`.
         between: two dates of interest as a list with each date as a string with the format `YYYY-MM-DD`.
             Filters results to between the two dates provided. The default value is `None`.
-        returning: a string indicating what type of value should be returned. The options are limited to binary_flag
-            (which indicates if they have had the vaccination or not) or a date of vaccination
+        returning: a string indicating what type of value should be returned. The options are limited to `binary_flag`
+            (which indicates if they have had the vaccination or not) or `date` of vaccination
         date_format: a string detailing the format of the dates to be returned. It can be `YYYY-MM-DD`,
             `YYYY-MM` or `YYYY` and wherever possible the least disclosive data should be returned. i.e returning
             only year is less disclosive than a date with day, month and year.
@@ -1352,9 +1352,9 @@ def with_gp_consultations(
             if there are multiple matches within the time period
         find_last_match_in_period: a boolean that indicates if the data returned is last event
             if there are multiple matches within the time period
-        returning: a string indicating what type of value should be returned. The options are limited to binary_flag
-            (which indicates if they have had the an event or not), date (which indicate date of event and used
-            with either find_first_match_in_period or find_last_match_in_period), or number_of_matches_in_period
+        returning: a string indicating what type of value should be returned. The options are: `binary_flag`
+            (which indicates if they have had the an event or not), `date` (which indicate date of event and used
+            with either find_first_match_in_period or find_last_match_in_period), or `number_of_matches_in_period`
             (which counts the events in the period)
         date_format: a string detailing the format of the dates to be returned. It can be `YYYY-MM-DD`,
             `YYYY-MM` or `YYYY` and wherever possible the least disclosive data should be returned. i.e returning
@@ -1540,7 +1540,7 @@ def with_test_result_in_sgss(
             the "earliest specimen" or "all tests" dataset (see above). True by
             default, meaning that the "earliest specimen" dataset is used.
         returning: a string indicating what type of value should be returned.
-            The options are limited to `binary_flag` (which indicates if they
+            The options are: `binary_flag` (which indicates if they
             have had the an event or not), `date` (which indicate date of event
             and used with either find_first_match_in_period or
             find_last_match_in_period), `s_gene_target_failure` which returns
@@ -1639,36 +1639,37 @@ def minimum_of(*column_names, **extra_columns):
 def household_as_of(reference_date, returning=None, return_expectations=None):
     # noinspection PyPackageRequirements
     """
-        Return information about the household to which the patient belonged as of
-        the reference date. This is inferred from address data using an algorithm
-        developed by TPP (to be documented soon) so the results are not 100%
-        reliable but are apparently pretty good.
+    Return information about the household to which the patient belonged as of
+    the reference date. This is inferred from address data using an algorithm
+    developed by TPP (to be documented soon) so the results are not 100%
+    reliable but are apparently pretty good.
 
-        Args:
-            reference_date: date of interest as a string with the format `YYYY-MM-DD`. Filters results to a particular
-            set date
-            returning: a string indicating what type of value should be returned. The options for `returning` are:
-                pseudo_id: An integer identifier for the household which has no meaning
-                           other than to identify individual members of the same
-                           household (0 if no household information available)
-                household_size: the number of individuals in the household (0 if no
-                                household information available)
-                is_prison: Boolean indicating whether household is a prison.  See
-                           https://github.com/opensafely/cohort-extractor/issues/271#issuecomment-679069981
-                           for details of how this is determined.
-                has_members_in_other_ehr_systems: Boolean indicating whether some household
-                                                  members are registered with GPs using a
-                                                  different EHR system, meaning that our
-                                                  coverage of the household is incomplete.
-                percentage_of_members_with_data_in_this_backend: Integer giving the (estimated)
-                                                                 percentage of household members
-                                                                 where we have EHR data available
-                                                                 in this backend (i.e. not in other
-                                                                 systems as above)
-                msoa: Returns the MSOA (Middle Super Output Area) in which the household is
-                  situated
-            return_expectations: a dictionary defining the incidence and distribution of expected value
-            within the population in question.
+    Args:
+        reference_date: date of interest as a string with the format `YYYY-MM-DD`. Filters results to a particular
+        set date.
+            
+        returning: a string indicating what type of value should be returned. The options for `returning` are:
+            `pseudo_id`: An integer identifier for the household which has no meaning
+                       other than to identify individual members of the same
+                       household (0 if no household information available). 
+            `household_size`: the number of individuals in the household (0 if no
+                            household information available). 
+            `is_prison`: Boolean indicating whether household is a prison.  See
+                       https://github.com/opensafely/cohort-extractor/issues/271#issuecomment-679069981
+                       for details of how this is determined.
+            `has_members_in_other_ehr_systems`: Boolean indicating whether some household
+                                              members are registered with GPs using a
+                                              different EHR system, meaning that our
+                                              coverage of the household is incomplete.
+            `percentage_of_members_with_data_in_this_backend`: Integer giving the (estimated)
+                                                             percentage of household members
+                                                             where we have EHR data available
+                                                             in this backend (i.e. not in other
+                                                             systems as above).
+            `msoa`: Returns the MSOA (Middle Super Output Area) in which the household is
+              situated
+        return_expectations: a dictionary defining the incidence and distribution of expected value
+        within the population in question.
 
     Returns:
         list: of integers if `returning` argument is set to `pseudo_id`, `household_size` or
@@ -1713,10 +1714,10 @@ def attended_emergency_care(
         between: two dates of interest as a list with each date as a string with the format `YYYY-MM-DD`.
             Filters results to between the two dates provided. The default value is `None`.
         returning: a string indicating what type of value should be returned. Options for `returning` are:
-            binary_flag: Whether patient attended A&E
-            date_arrived: date patient arrived in A&E
-            number_of_matches_in_period: number of times patient attended A&E
-            discharge_destination: SNOMED CT code of discharge destination.  This
+            `binary_flag`: Whether patient attended A&E,
+            `date_arrived`: date patient arrived in A&E,
+            `number_of_matches_in_period`: number of times patient attended A&E,
+            `discharge_destination`: SNOMED CT code of discharge destination.  This
                                    will be a member of refset 999003011000000105.
         find_first_match_in_period: a boolean that indicates if the data returned is first event
             if there are multiple matches within the time period
@@ -1726,7 +1727,7 @@ def attended_emergency_care(
             `YYYY-MM` or `YYYY` and wherever possible the least disclosive data should be returned. i.e returning
             only year is less disclosive than a date with day, month and year.
         with_these_diagnoses: a list of SNOMED CT codes
-        discharged_to:a list of members of refset 999003011000000105.
+        discharged_to: a list of members of refset 999003011000000105.
         return_expectations: a dictionary defining the incidence and distribution of expected value
             within the population in question.
 
@@ -1833,19 +1834,26 @@ def admitted_to_hospital(
         between: two dates of interest as a list with each date as a string with the format `YYYY-MM-DD`.
             Filters results to between the two dates provided. The default value is `None`.
         returning: a string indicating what type of value should be returned. Options for `returning` are:
-            binary_flag: if they were admitted at all
-            date_admitted: date patient admitted to hospital
-            date_discharged: date patient discharged from hospital
-            number_of_matches_in_period: number of times patient was admitted in time period specified
-            primary_diagnosis: primary diagnosis code for admission
-            admission_method:
-            source_of_admission:
-            discharge_destination:
-            patient_classification:
-            admission_treatment_function_code:
-            days_in_critical_care:
-            administrative_category:
-            duration_of_elective_wait:
+            `binary_flag`: if they were admitted at all,
+            `date_admitted`: date patient admitted to hospital,
+            `date_discharged`: date patient discharged from hospital,
+            `number_of_matches_in_period`: number of times patient was admitted in time period specified,
+            `primary_diagnosis`: primary diagnosis code for admission,
+            `admission_method`: 2-digit code identifying method of admission: planned (booked/planned/waiting list), 
+                emergency (various types), transfer from another provider, or birth/maternity.
+            `source_of_admission`: 2-digit code identifying source of admission: most commonly = `19` `usual place of residence`. 
+                Also useful for identifying admissions from care homes ('54', '65', '85', '88'). 
+                Somewhat useful for identifying birth spells and admissions via transfer (but `method_of_admission` usually preferable)
+            `discharge_destination`: ,
+            `patient_classification`: single-digit numeric code: 
+                `1` ordinary admission; 
+                `2` day case; 
+                `3`/`4` regular admissions (e.g. patient admitted weekly for chemotherapy or dialysis);
+                `5` mother and baby using delivery facilities only.
+            `admission_treatment_function_code`: specialty of patient admission (use with caution for emergency admissions),
+            `days_in_critical_care`: number of days in critical care during spell,
+            `administrative_category`: private vs NHS funded treatment,
+            `duration_of_elective_wait`: days on waiting list for planned procedures (use with caution).
         find_first_match_in_period: a boolean that indicates if the data returned is first event
             if there are multiple matches within the time period
         find_last_match_in_period: a boolean that indicates if the data returned is last event
@@ -1866,10 +1874,13 @@ def admitted_to_hospital(
             within the population in question.
 
     Returns:
-        list: of integers of `1` or `0` if `returning` argument is set to `binary_flag`; list of strings with a
-            date format returned if `returning` argument is set to `date_admitted` or `date_discharged`; of
-            integers if `returning` argument is set to `number_of_matches_in_period`. list of strings with
-            alphanumerical code format for ICD10 code if `returning` argument is set to `primary_diagnosis`
+        list: of integers of `1` or `0` if `returning` argument is set to `binary_flag`; 
+            of strings with a date format returned if `returning` argument is set to `date_admitted` or `date_discharged`; 
+            of integers if `returning` argument is set to `number_of_matches_in_period`, `days_in_critical_care` or `duration_of_elective_wait`; 
+            of strings with alphanumerical code format for ICD10 code if `returning` argument is set to `primary_diagnosis`;
+            of 1-2-digit numeric or alphanumeric codes if `returning` argument is `admission_method`, `source_of_admission`, 
+            `discharge_destination`, `patient_classification`, or `administrative_category`;
+            of 3-digit numeric specialty codes  if `returning` argument is `admission_treatment_function_code`
 
     Example:
         The day of each patient's first hospital admission for Covid19:
@@ -1953,9 +1964,9 @@ def with_ethnicity_from_sus(
 
     Args:
         returning: a string indicating what type of value whould be returned. Options are:
-            code: don't group ethnicities at all, return the recorded code
-            group_6: group ethnicities into 6 groups
-            group_16: group ethnicities into 16 groups
+            `code`: don't group ethnicities at all, return the recorded code,
+            `group_6`: group ethnicities into 6 groups,
+            `group_16`: group ethnicities into 16 groups
         use_most_frequent_code: when multiple codes are present, pick the most
             frequent one
         return_expectations: a dictionary describing what dummy data should
