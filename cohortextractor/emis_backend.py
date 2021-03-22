@@ -84,8 +84,11 @@ class EMISBackend:
             writer.writerow([x[0] for x in result.description])
             for ix, row in enumerate(result):
                 unique_check.add(row[0])
+                if unique_check.count % 1000000 == 0:
+                    logger.info(f"Downloaded {unique_check.count} results")
                 row[0] = ix
                 writer.writerow(row)
+        logger.info(f"Downloaded {unique_check.count} results")
         unique_check.assert_unique_ids()
 
     def to_dicts(self):
