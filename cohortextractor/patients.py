@@ -1013,7 +1013,7 @@ def died_from_any_cause(
         between: two dates of interest as a list with each date as a string with the format `YYYY-MM-DD`.
             Filters results to between the two dates provided. The default value is `None`.
         returning: a string indicating what type of value should be returned. The options are:
-            `date_of_death`: Date of death, 
+            `date_of_death`: Date of death,
             `binary_flag`: If they died or not
         date_format: a string detailing the format of the dates to be returned. It can be `YYYY-MM-DD`,
             `YYYY-MM` or `YYYY` and wherever possible the least disclosive data should be returned. i.e returning
@@ -1647,13 +1647,13 @@ def household_as_of(reference_date, returning=None, return_expectations=None):
     Args:
         reference_date: date of interest as a string with the format `YYYY-MM-DD`. Filters results to a particular
         set date.
-            
+
         returning: a string indicating what type of value should be returned. The options for `returning` are:
             `pseudo_id`: An integer identifier for the household which has no meaning
                        other than to identify individual members of the same
-                       household (0 if no household information available). 
+                       household (0 if no household information available).
             `household_size`: the number of individuals in the household (0 if no
-                            household information available). 
+                            household information available).
             `is_prison`: Boolean indicating whether household is a prison.  See
                        https://github.com/opensafely/cohort-extractor/issues/271#issuecomment-679069981
                        for details of how this is determined.
@@ -1874,11 +1874,11 @@ def admitted_to_hospital(
             within the population in question.
 
     Returns:
-        list: of integers of `1` or `0` if `returning` argument is set to `binary_flag`; 
-            of strings with a date format returned if `returning` argument is set to `date_admitted` or `date_discharged`; 
-            of integers if `returning` argument is set to `number_of_matches_in_period`, `days_in_critical_care` or `duration_of_elective_wait`; 
+        list: of integers of `1` or `0` if `returning` argument is set to `binary_flag`;
+            of strings with a date format returned if `returning` argument is set to `date_admitted` or `date_discharged`;
+            of integers if `returning` argument is set to `number_of_matches_in_period`, `days_in_critical_care` or `duration_of_elective_wait`;
             of strings with alphanumerical code format for ICD10 code if `returning` argument is set to `primary_diagnosis`;
-            of 1-2-digit numeric or alphanumeric codes if `returning` argument is `admission_method`, `source_of_admission`, 
+            of 1-2-digit numeric or alphanumeric codes if `returning` argument is `admission_method`, `source_of_admission`,
             `discharge_destination`, `patient_classification`, or `administrative_category`;
             of 3-digit numeric specialty codes  if `returning` argument is `admission_treatment_function_code`
 
