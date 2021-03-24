@@ -333,7 +333,6 @@ class EMISBackend:
 
     def execute_query(self):
         cursor = self.get_db_connection().cursor()
-        logger.info("Uploading codelists into temporary tables")
         queries = list(self.queries)
         final_query = queries.pop()
         run_analyze = bool(os.environ.get("RUN_ANALYZE"))
