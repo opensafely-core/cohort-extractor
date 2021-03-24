@@ -340,7 +340,6 @@ class EMISBackend:
             cursor.execute(sql)
             table_name = re.search(r"CREATE TABLE IF NOT EXISTS (\w+)", sql).groups()[0]
             if run_analyze:
-                sql_logger.debug(f"ANALYZE {table_name}")
                 cursor.execute(f"ANALYZE {table_name}")
 
         output_table = self.get_output_table_name(os.environ.get("TEMP_DATABASE_NAME"))
