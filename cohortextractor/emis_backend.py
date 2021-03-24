@@ -20,30 +20,7 @@ sql_logger = structlog.get_logger("cohortextractor.sql")
 safe_punctation = r" _.-+/()"
 SAFE_CHARS_RE = re.compile(f"^[a-zA-Z0-9{re.escape(safe_punctation)}]+$")
 
-
-# patient_all_orgs_v2 contains a handful of duplicate registration IDs.  This causes
-# problems: because of the way we build our final query with a series of N LEFT JOINs, a
-# registration ID appearing twice in the patient table can appear up to 2^N times.
-#
-# EMIS have not yet fixed this, so for now I have created a table called
-# patient_no_duplicates which removes these duplicate registration IDs.  The number of
-# duplicates is small enough that it doesn't matter that it causes us to lose a few
-# patients, and in any case there is no way to choose between patients with duplicate
-# registration IDs.
-#
-# WE MUST REMEMBER TO RECREATE THIS TABLE EACH TIME THE DATA IS REFRESHED!!
-#
-# CREATE TABLE patient_no_duplicates AS (
-#     SELECT *
-#     FROM patient_all_orgs_v2
-#     WHERE registration_id NOT IN (
-#         SELECT registration_id
-#         FROM patient_all_orgs_v2
-#         GROUP BY registration_id
-#         HAVING COUNT(*) > 1
-#     )
-# )
-PATIENT_TABLE = "patient_no_duplicates"
+PATIENT_TABLE = "patient_all_orgs_v2"
 MEDICATION_TABLE = "medication_all_orgs_v2"
 OBSERVATION_TABLE = "observation_all_orgs_v2"
 IMMUNISATIONS_TABLE = "immunisation_all_orgs_v2"
@@ -62,6 +39,7 @@ class EMISBackend:
         self.postprocess_covariate_definitions()
         self.next_table_id = 1
         self.temp_table_prefix = self.get_temp_table_prefix()
+        self.patient_no_duplicates_table = self.add_table_prefix("patient")
         self.queries = self.get_queries(self.covariate_definitions)
         logger.info(
             "Initialising EMISBackend", temp_table_prefix=self.temp_table_prefix
@@ -167,8 +145,10 @@ class EMISBackend:
             primary_table = self.add_table_prefix("population")
             patient_id_expr = ColumnExpression(f"{primary_table}.registration_id")
         else:
-            primary_table = PATIENT_TABLE
-            patient_id_expr = ColumnExpression(f"{PATIENT_TABLE}.registration_id")
+            primary_table = self.patient_no_duplicates_table
+            patient_id_expr = ColumnExpression(
+                f"{self.patient_no_duplicates_table}.registration_id"
+            )
         # Insert `patient_id` as the first column
         output_columns = dict(patient_id=patient_id_expr, **output_columns)
         output_columns_str = ",\n          ".join(
@@ -193,7 +173,31 @@ class EMISBackend:
           {joins_str}
         WHERE {output_columns["population"]} = 1
         """
-        all_queries = []
+
+        # patient_all_orgs_v2 contains a handful of duplicate registration IDs.  This
+        # causes problems: because of the way we build our final query with a series of
+        # N LEFT JOINs, a registration ID appearing twice in the patient table can
+        # appear up to 2^N times.
+        #
+        # EMIS have not yet fixed this, so our first query creates a temporary table
+        # which removes these duplicate registration IDs.  The number of duplicates is
+        # small enough that it doesn't matter that it causes us to lose a few patients,
+        # and in any case there is no way to choose between patients with duplicate
+        # registration IDs.
+        patient_no_duplicates_query = f"""
+        CREATE TABLE IF NOT EXISTS {self.patient_no_duplicates_table} AS (
+            SELECT *
+            FROM {PATIENT_TABLE}
+            WHERE registration_id NOT IN (
+                SELECT registration_id
+                FROM {PATIENT_TABLE}
+                GROUP BY registration_id
+                HAVING COUNT(*) > 1
+            )
+        )
+        """
+        all_queries = [patient_no_duplicates_query]
+
         for sql_list in table_queries.values():
             all_queries.extend(sql_list)
         all_queries.append(joined_output_query)
@@ -512,7 +516,9 @@ class EMISBackend:
         return date_expr, tables
 
     def patients_age_as_of(self, reference_date):
-        date_expr, date_joins = self.get_date_sql(PATIENT_TABLE, reference_date)
+        date_expr, date_joins = self.get_date_sql(
+            self.patient_no_duplicates_table, reference_date
+        )
         return f"""
             SELECT
               registration_id,
@@ -524,7 +530,7 @@ class EMISBackend:
               ELSE
                  date_diff('year', date_of_birth, {date_expr})
               END AS value
-            FROM {PATIENT_TABLE}
+            FROM {self.patient_no_duplicates_table}
             {date_joins}
             """
 
@@ -539,7 +545,7 @@ class EMISBackend:
               WHEN 2 THEN 'F'
               ELSE ''
             END AS value
-          FROM {PATIENT_TABLE}"""
+          FROM {self.patient_no_duplicates_table}"""
 
     def patients_all(self):
         """
@@ -547,7 +553,7 @@ class EMISBackend:
         """
         return f"""
             SELECT registration_id, hashed_organisation, 1 AS value
-            FROM {PATIENT_TABLE}
+            FROM {self.patient_no_duplicates_table}
             """
 
     def patients_most_recent_bmi(
@@ -614,7 +620,7 @@ class EMISBackend:
 
         patients_cte = f"""
            SELECT registration_id, hashed_organisation, date_of_birth
-           FROM {PATIENT_TABLE}
+           FROM {self.patient_no_duplicates_table}
         """
         weight_codes_sql = codelist_to_sql(weight_codes)
         weights_cte = f"""
@@ -733,14 +739,14 @@ class EMISBackend:
         All patients registered with the same practice through the given period
         """
         start_date_sql, end_date_sql, date_joins = self.get_date_sql(
-            PATIENT_TABLE, start_date, end_date
+            self.patient_no_duplicates_table, start_date, end_date
         )
         return f"""
             SELECT
-                {PATIENT_TABLE}.registration_id,
+                {self.patient_no_duplicates_table}.registration_id,
                 hashed_organisation,
                 1 AS value
-            FROM {PATIENT_TABLE}
+            FROM {self.patient_no_duplicates_table}
             {date_joins}
             WHERE registered_date <= {start_date_sql}
               AND (registration_end_date > {end_date_sql} OR registration_end_date IS NULL)
@@ -1082,7 +1088,7 @@ class EMISBackend:
               hashed_organisation,
               {column} AS {returning}
             FROM
-              {PATIENT_TABLE}
+              {self.patient_no_duplicates_table}
             """
 
     def patients_with_death_recorded_in_primary_care(
@@ -1111,7 +1117,7 @@ class EMISBackend:
           hashed_organisation,
           {column} AS {returning}
         FROM
-          {PATIENT_TABLE}
+          {self.patient_no_duplicates_table}
         WHERE
           date_of_death BETWEEN {quote(min_date)} AND {quote(max_date)}
         """
@@ -1257,7 +1263,7 @@ class EMISBackend:
               hashed_organisation,
               {column} AS {returning}
             FROM
-              {PATIENT_TABLE}
+              {self.patient_no_duplicates_table}
             """
 
     # https://github.com/ebmdatalab/tpp-sql-notebook/issues/72
@@ -1349,7 +1355,7 @@ class EMISBackend:
                 p.hashed_organisation as hashed_organisation,
                 {column_definition} AS {returning}
             FROM {ONS_TABLE} o
-            JOIN {PATIENT_TABLE} p ON o.pseudonhsnumber = p.nhs_no
+            JOIN {self.patient_no_duplicates_table} p ON o.pseudonhsnumber = p.nhs_no
             {date_joins}
             WHERE ({code_conditions})
                 AND {date_condition}
