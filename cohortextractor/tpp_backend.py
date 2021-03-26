@@ -15,6 +15,7 @@ from .mssql_utils import (
     mssql_dbapi_connection_from_url,
     mssql_fetch_table,
 )
+from .pandas_utils import dataframe_from_rows, dataframe_to_file
 
 logger = structlog.get_logger()
 
@@ -31,7 +32,6 @@ class TPPBackend:
         self.queries = self.get_queries(self.covariate_definitions)
 
     def to_file(self, filename):
-        assert str(filename).endswith(".csv")
         queries = list(self.queries)
         # If we have a temporary database available we write results to a table
         # there, download them, and then delete the table. This allows us to
@@ -81,10 +81,17 @@ class TPPBackend:
         results = check_ids_and_log(results)
 
         temp_filename = self._get_temp_filename(filename)
-        with open(temp_filename, "w", newline="") as csvfile:
-            writer = csv.writer(csvfile)
-            for row in results:
-                writer.writerow(row)
+
+        # Special handling for CSV as we can stream this directly to disk
+        # without building a dataframe in memory
+        if str(temp_filename).endswith(".csv"):
+            with open(temp_filename, "w", newline="") as csvfile:
+                writer = csv.writer(csvfile)
+                for row in results:
+                    writer.writerow(row)
+        else:
+            df = dataframe_from_rows(self.covariate_definitions, results)
+            dataframe_to_file(df, temp_filename)
 
         self.execute_queries(
             [f"-- Deleting '{output_table}'\nDROP TABLE {output_table}"]

@@ -41,7 +41,7 @@ notebook_tag = "opencorona-research"
 target_dir = "/home/app/notebook"
 
 
-SUPPORTED_FILE_FORMATS = ["csv"]
+SUPPORTED_FILE_FORMATS = ["csv", "feather", "dta"]
 
 
 def show_exception_timestamp(*args):
@@ -374,6 +374,10 @@ def _load_dataframe_for_measures(file, measures):
         df = pandas.read_csv(
             file, dtype=dtype, usecols=list(dtype.keys()), keep_default_na=False
         )
+    elif extension == "feather":
+        df = pandas.read_feather(file, columns=list(dtype.keys()))
+    elif extension == "dta":
+        df = pandas.read_stata(file, columns=list(dtype.keys()))
     else:
         raise RuntimeError(f"Unsupported extension: {extension}")
     df["population"] = 1

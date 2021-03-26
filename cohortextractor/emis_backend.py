@@ -10,6 +10,7 @@ import structlog
 from .codelistlib import codelist
 from .date_expressions import PrestoDateFormatter
 from .expressions import format_expression
+from .pandas_utils import dataframe_from_rows, dataframe_to_file
 from .presto_utils import presto_connection_from_url
 
 logger = structlog.get_logger()
@@ -55,7 +56,6 @@ class EMISBackend:
                 query_args["column_type"] = "str"
 
     def to_file(self, filename):
-        assert str(filename).endswith(".csv")
         result = self.execute_query()
 
         # Wrap the results stream in a function which captures unique IDs,
@@ -80,10 +80,16 @@ class EMISBackend:
 
         results = replace_ids_and_log(result)
 
-        with open(filename, "w", newline="") as csvfile:
-            writer = csv.writer(csvfile)
-            for row in results:
-                writer.writerow(row)
+        # Special handling for CSV as we can stream this directly to disk
+        # without building a dataframe in memory
+        if str(filename).endswith(".csv"):
+            with open(filename, "w", newline="") as csvfile:
+                writer = csv.writer(csvfile)
+                for row in results:
+                    writer.writerow(row)
+        else:
+            df = dataframe_from_rows(self.covariate_definitions, results)
+            dataframe_to_file(df, filename)
 
         duplicates = total_rows - len(unique_ids)
         if duplicates != 0:
