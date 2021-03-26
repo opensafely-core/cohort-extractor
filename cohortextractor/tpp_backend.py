@@ -1,3 +1,4 @@
+import csv
 import datetime
 import enum
 import hashlib
@@ -12,7 +13,7 @@ from .expressions import format_expression
 from .mssql_utils import (
     mssql_connection_params_from_url,
     mssql_dbapi_connection_from_url,
-    mssql_table_to_csv,
+    mssql_fetch_table,
 )
 
 logger = structlog.get_logger()
@@ -45,27 +46,32 @@ class TPPBackend:
             )
             queries.append(f"CREATE INDEX ix_patient_id ON {output_table} (patient_id)")
             self.execute_queries(queries)
-        temp_filename = self._get_temp_filename(filename)
-        unique_check = UniqueCheck()
-
-        def record_patient_id_and_log(row):
-            unique_check.add(row[0])
-            if unique_check.count % 1000000 == 0:
-                logger.info(f"Downloaded {unique_check.count} results")
 
         # `batch_size` here was chosen through a bit of unscientific
         # trial-and-error and some guesswork. It may well need changing in
         # future.
-        mssql_table_to_csv(
-            temp_filename,
+        results = mssql_fetch_table(
             cursor=self.get_db_connection().cursor(),
             table=output_table,
             key_column="patient_id",
             batch_size=32000,
-            row_callback=record_patient_id_and_log,
             retries=2,
             sleep=0.5,
         )
+
+        temp_filename = self._get_temp_filename(filename)
+        unique_check = UniqueCheck()
+
+        with open(temp_filename, "w", newline="") as csvfile:
+            writer = csv.writer(csvfile)
+            headers = next(results)
+            writer.writerow(headers)
+            for row in results:
+                writer.writerow(row)
+                unique_check.add(row[0])
+                if unique_check.count % 1000000 == 0:
+                    logger.info(f"Downloaded {unique_check.count} results")
+
         logger.info(f"Downloaded {unique_check.count} results")
 
         self.execute_queries(

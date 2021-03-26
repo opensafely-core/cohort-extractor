@@ -2928,8 +2928,8 @@ def test_temporary_database_with_failure(tmp_path, monkeypatch):
     study = StudyDefinition(**study_args)
     initial_temporary_tables = _list_table_in_db(session, temporary_database)
     # Trigger error during data download process
-    with patch("cohortextractor.mssql_utils.csv") as csv_module:
-        csv_module.writer.side_effect = ValueError("deliberate error")
+    with patch("cohortextractor.tpp_backend.mssql_fetch_table") as mssql_fetch_table:
+        mssql_fetch_table.side_effect = ValueError("deliberate error")
         with pytest.raises(ValueError, match="deliberate error"):
             study.to_csv(tmp_path / "fail.csv")
     # Check that we've created one extra temporary table
