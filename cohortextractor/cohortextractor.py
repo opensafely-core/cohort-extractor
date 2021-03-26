@@ -41,6 +41,9 @@ notebook_tag = "opencorona-research"
 target_dir = "/home/app/notebook"
 
 
+SUPPORTED_FILE_FORMATS = ["csv"]
+
+
 def show_exception_timestamp(*args):
     """
     Output a timestamp before any exception traceback which can be useful when
@@ -133,6 +136,7 @@ def generate_cohort(
     selected_study_name=None,
     index_date_range=None,
     skip_existing=False,
+    output_format=SUPPORTED_FILE_FORMATS[0],
 ):
     preflight_generation_check()
     study_definitions = list_study_definitions()
@@ -149,6 +153,7 @@ def generate_cohort(
             expectations_population,
             index_date_range=index_date_range,
             skip_existing=skip_existing,
+            output_format=output_format,
         )
 
 
@@ -159,6 +164,7 @@ def _generate_cohort(
     expectations_population,
     index_date_range=None,
     skip_existing=False,
+    output_format=SUPPORTED_FILE_FORMATS[0],
 ):
     logger.info(
         f"Generating cohort for {study_name} in {output_dir}",
@@ -169,6 +175,7 @@ def _generate_cohort(
         expectations_population=expectations_population,
         index_date_range=index_date_range,
         skip_existing=skip_existing,
+        output_format=output_format,
     )
 
     study = load_study_definition(study_name)
@@ -183,7 +190,7 @@ def _generate_cohort(
             date_suffix = ""
         # If this is changed then the glob pattern in `_generate_measures()`
         # must be updated
-        output_file = f"{output_dir}/input{suffix}{date_suffix}.csv"
+        output_file = f"{output_dir}/input{suffix}{date_suffix}.{output_format}"
         if skip_existing and os.path.exists(output_file):
             logger.info(f"Not regenerating pre-existing file at {output_file}")
         else:
@@ -255,7 +262,12 @@ def _increment_date(date, period):
         raise ValueError(f"Unknown time period '{period}'")
 
 
-def generate_measures(output_dir, selected_study_name=None, skip_existing=False):
+def generate_measures(
+    output_dir,
+    selected_study_name=None,
+    skip_existing=False,
+    output_format=SUPPORTED_FILE_FORMATS[0],
+):
     preflight_generation_check()
     study_definitions = list_study_definitions()
     if selected_study_name and selected_study_name != "all":
@@ -264,18 +276,32 @@ def generate_measures(output_dir, selected_study_name=None, skip_existing=False)
                 study_definitions = [(study_name, suffix)]
                 break
     for study_name, suffix in study_definitions:
-        _generate_measures(output_dir, study_name, suffix, skip_existing=skip_existing)
+        _generate_measures(
+            output_dir,
+            study_name,
+            suffix,
+            skip_existing=skip_existing,
+            output_format=output_format,
+        )
 
 
-def _generate_measures(output_dir, study_name, suffix, skip_existing=False):
+def _generate_measures(
+    output_dir,
+    study_name,
+    suffix,
+    skip_existing=False,
+    output_format=SUPPORTED_FILE_FORMATS[0],
+):
     logger.info(
         "Generating measure for {study_name} in {output_dir}",
     )
-    logger.debug("args", suffix=suffix, skip_existing=skip_existing)
+    logger.debug(
+        "args", suffix=suffix, skip_existing=skip_existing, output_format=output_format
+    )
     measures = load_study_definition(study_name, value="measures")
     measure_outputs = defaultdict(list)
-    for file in glob.glob(f"{output_dir}/input{suffix}*.csv"):
-        date = _get_date_from_filename(file)
+    for file in glob.glob(f"{output_dir}/input{suffix}*.{output_format}"):
+        date = _get_date_from_filename(file, output_format)
         if date is None:
             continue
         patient_df = None
@@ -288,7 +314,7 @@ def _generate_measures(output_dir, study_name, suffix, skip_existing=False):
             # We do this lazily so that if all corresponding output files
             # already exist we can avoid loading the patient data entirely
             if patient_df is None:
-                patient_df = _load_csv_for_measures(file, measures)
+                patient_df = _load_dataframe_for_measures(file, measures)
             measure_df = _calculate_measure_df(patient_df, measure)
             measure_df.to_csv(output_file, index=False)
             logger.info(f"Created measure output at {output_file}")
@@ -320,16 +346,18 @@ def _calculate_measure_df(patient_df, measure):
     return measure_df
 
 
-def _get_date_from_filename(filename):
-    match = re.search(r"_(\d\d\d\d\-\d\d\-\d\d)\.csv$", filename)
+def _get_date_from_filename(filename, output_format):
+    extension = re.escape(output_format)
+    match = re.search(fr"_(\d\d\d\d\-\d\d\-\d\d)\.{extension}$", filename)
     return datetime.date.fromisoformat(match.group(1)) if match else None
 
 
-def _load_csv_for_measures(file, measures):
+def _load_dataframe_for_measures(file, measures):
     """
-    Given a CSV file name and a list of measures, load the file into a Pandas
+    Given a file name and a list of measures, load the file into a Pandas
     dataframe with types as appropriate for the supplied measures
     """
+    extension = os.path.splitext(file)[1].lstrip(".")
     numeric_columns = set()
     group_by_columns = set()
     for measure in measures:
@@ -342,9 +370,12 @@ def _load_csv_for_measures(file, measures):
     dtype = {col: "category" for col in group_by_columns}
     for col in numeric_columns:
         dtype[col] = "float64"
-    df = pandas.read_csv(
-        file, dtype=dtype, usecols=list(dtype.keys()), keep_default_na=False
-    )
+    if extension == "csv":
+        df = pandas.read_csv(
+            file, dtype=dtype, usecols=list(dtype.keys()), keep_default_na=False
+        )
+    else:
+        raise RuntimeError(f"Unsupported extension: {extension}")
     df["population"] = 1
     return df
 
@@ -363,7 +394,7 @@ def _combine_csv_files_with_dates(filename, input_files):
         writer = csv.writer(csvfile)
         writer.writerow(headers + ["date"])
         for file in input_files:
-            date = _get_date_from_filename(file)
+            date = _get_date_from_filename(file, "csv")
             with open(file) as input_csvfile:
                 reader = csv.reader(input_csvfile)
                 if next(reader) != headers:
@@ -612,9 +643,19 @@ def main():
     # Cohort parser options
     generate_cohort_parser.add_argument(
         "--output-dir",
-        help="Location to store output CSVs",
+        help="Location to store output files",
         type=str,
         default="output",
+    )
+    generate_cohort_parser.add_argument(
+        "--output-format",
+        help=(
+            f"Output file format: {SUPPORTED_FILE_FORMATS[0]} (default),"
+            f" {', '.join(SUPPORTED_FILE_FORMATS[1:])}"
+        ),
+        type=str,
+        choices=SUPPORTED_FILE_FORMATS,
+        default=SUPPORTED_FILE_FORMATS[0],
     )
     generate_cohort_parser.add_argument(
         "--study-definition",
@@ -656,9 +697,20 @@ def main():
     # Measure generator parser options
     generate_measures_parser.add_argument(
         "--output-dir",
-        help="Location to store output CSVs",
+        help="Location to store output files",
         type=str,
         default="output",
+    )
+    generate_measures_parser.add_argument(
+        "--output-format",
+        help=(
+            f"File format for extracted cohorts (note measures files themselves will"
+            f" always be CSV): {SUPPORTED_FILE_FORMATS[0]} (default),"
+            f" {', '.join(SUPPORTED_FILE_FORMATS[1:])}"
+        ),
+        type=str,
+        choices=SUPPORTED_FILE_FORMATS,
+        default=SUPPORTED_FILE_FORMATS[0],
     )
     generate_measures_parser.add_argument(
         "--study-definition",
@@ -698,12 +750,14 @@ def main():
             selected_study_name=options.study_definition,
             index_date_range=options.index_date_range,
             skip_existing=options.skip_existing,
+            output_format=options.output_format,
         )
     elif options.which == "generate_measures":
         generate_measures(
             options.output_dir,
             selected_study_name=options.study_definition,
             skip_existing=options.skip_existing,
+            output_format=options.output_format,
         )
     elif options.which == "run":
         log_level = options.verbose and logging.DEBUG or logging.ERROR
