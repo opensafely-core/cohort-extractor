@@ -29,8 +29,6 @@ def test_smoketest(tmp_path, format):
         "generate_measures",
         "--output-dir",
         tmp_path,
-        "--output-format",
-        format,
     )
     # liver_disease_by_stp
     with open(tmp_path / "measure_liver_disease_by_stp.csv") as f:

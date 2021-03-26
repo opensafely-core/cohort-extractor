@@ -188,7 +188,7 @@ def _generate_cohort(
             date_suffix = f"_{index_date}"
         else:
             date_suffix = ""
-        # If this is changed then the glob pattern in `_generate_measures()`
+        # If this is changed then the regex in `_generate_measures()`
         # must be updated
         output_file = f"{output_dir}/input{suffix}{date_suffix}.{output_format}"
         if skip_existing and os.path.exists(output_file):
@@ -266,7 +266,6 @@ def generate_measures(
     output_dir,
     selected_study_name=None,
     skip_existing=False,
-    output_format=SUPPORTED_FILE_FORMATS[0],
 ):
     preflight_generation_check()
     study_definitions = list_study_definitions()
@@ -281,7 +280,6 @@ def generate_measures(
             study_name,
             suffix,
             skip_existing=skip_existing,
-            output_format=output_format,
         )
 
 
@@ -290,20 +288,23 @@ def _generate_measures(
     study_name,
     suffix,
     skip_existing=False,
-    output_format=SUPPORTED_FILE_FORMATS[0],
 ):
     logger.info(
         "Generating measure for {study_name} in {output_dir}",
     )
-    logger.debug(
-        "args", suffix=suffix, skip_existing=skip_existing, output_format=output_format
-    )
+    logger.debug("args", suffix=suffix, skip_existing=skip_existing)
     measures = load_study_definition(study_name, value="measures")
     measure_outputs = defaultdict(list)
-    for file in glob.glob(f"{output_dir}/input{suffix}*.{output_format}"):
-        date = _get_date_from_filename(file, output_format)
+    filename_re = re.compile(
+        fr"^input{re.escape(suffix)}.+\.({'|'.join(SUPPORTED_FILE_FORMATS)})$"
+    )
+    for file in os.listdir(output_dir):
+        if not filename_re.match(file):
+            continue
+        date = _get_date_from_filename(file)
         if date is None:
             continue
+        filepath = os.path.join(output_dir, file)
         patient_df = None
         for measure in measures:
             output_file = f"{output_dir}/measure_{measure.id}_{date}.csv"
@@ -314,7 +315,7 @@ def _generate_measures(
             # We do this lazily so that if all corresponding output files
             # already exist we can avoid loading the patient data entirely
             if patient_df is None:
-                patient_df = _load_dataframe_for_measures(file, measures)
+                patient_df = _load_dataframe_for_measures(filepath, measures)
             measure_df = _calculate_measure_df(patient_df, measure)
             measure_df.to_csv(output_file, index=False)
             logger.info(f"Created measure output at {output_file}")
@@ -346,9 +347,10 @@ def _calculate_measure_df(patient_df, measure):
     return measure_df
 
 
-def _get_date_from_filename(filename, output_format):
-    extension = re.escape(output_format)
-    match = re.search(fr"_(\d\d\d\d\-\d\d\-\d\d)\.{extension}$", filename)
+def _get_date_from_filename(filename):
+    match = re.search(
+        fr"_(\d\d\d\d\-\d\d\-\d\d)\.({'|'.join(SUPPORTED_FILE_FORMATS)})$", filename
+    )
     return datetime.date.fromisoformat(match.group(1)) if match else None
 
 
@@ -398,7 +400,7 @@ def _combine_csv_files_with_dates(filename, input_files):
         writer = csv.writer(csvfile)
         writer.writerow(headers + ["date"])
         for file in input_files:
-            date = _get_date_from_filename(file, "csv")
+            date = _get_date_from_filename(file)
             with open(file) as input_csvfile:
                 reader = csv.reader(input_csvfile)
                 if next(reader) != headers:
@@ -706,17 +708,6 @@ def main():
         default="output",
     )
     generate_measures_parser.add_argument(
-        "--output-format",
-        help=(
-            f"File format for extracted cohorts (note measures files themselves will"
-            f" always be CSV): {SUPPORTED_FILE_FORMATS[0]} (default),"
-            f" {', '.join(SUPPORTED_FILE_FORMATS[1:])}"
-        ),
-        type=str,
-        choices=SUPPORTED_FILE_FORMATS,
-        default=SUPPORTED_FILE_FORMATS[0],
-    )
-    generate_measures_parser.add_argument(
         "--study-definition",
         help="Study definition file containing measure definitions to use",
         type=str,
@@ -761,7 +752,6 @@ def main():
             options.output_dir,
             selected_study_name=options.study_definition,
             skip_existing=options.skip_existing,
-            output_format=options.output_format,
         )
     elif options.which == "run":
         log_level = options.verbose and logging.DEBUG or logging.ERROR
