@@ -30,7 +30,7 @@ def test_create_dummy_data_works_without_database_url(tmp_path, monkeypatch):
         ),
     )
     filename = tmp_path / "dummy_data.csv"
-    study.to_csv(filename, expectations_population=10)
+    study.to_file(filename, expectations_population=10)
     with open(filename) as f:
         results = list(csv.DictReader(f))
     assert len(results) == 10
@@ -49,7 +49,7 @@ def test_export_data_without_database_url_raises_error(tmp_path, monkeypatch):
         ),
     )
     with pytest.raises(RuntimeError):
-        study.to_csv(tmp_path / "dummy_data.csv")
+        study.to_file(tmp_path / "dummy_data.csv")
 
 
 def test_unrecognised_database_url_raises_error(monkeypatch):
@@ -94,7 +94,7 @@ def test_drivers_not_accidentally_imported(tmp_path):
                 }
             ),
         )
-        study.to_csv("/dev/null", expectations_population=10)
+        study.to_file("TMP_PATH/dummy.csv", expectations_population=10)
         pyodbc = "yes" if "pyodbc" in sys.modules else "no"
         ctds = "yes" if "ctds" in sys.modules else "no"
         print(f"pyodbc: {pyodbc}, ctds: {ctds}")
@@ -103,6 +103,7 @@ def test_drivers_not_accidentally_imported(tmp_path):
     # function definition line and stripping the indentation
     source = inspect.getsource(test_script).splitlines()[1:]
     source = textwrap.dedent("\n".join(source))
+    source = source.replace("TMP_PATH", str(tmp_path))
     result = subprocess.check_output([sys.executable, "-c", source]).strip()
     assert result == b"pyodbc: no, ctds: no"
 

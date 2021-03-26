@@ -187,7 +187,7 @@ def _generate_cohort(
         if skip_existing and os.path.exists(output_file):
             logger.info(f"Not regenerating pre-existing file at {output_file}")
         else:
-            study.to_csv(
+            study.to_file(
                 output_file,
                 expectations_population=expectations_population,
             )

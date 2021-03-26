@@ -54,7 +54,8 @@ class EMISBackend:
             if query_args.get("returning") == "pseudo_id":
                 query_args["column_type"] = "str"
 
-    def to_csv(self, filename):
+    def to_file(self, filename):
+        assert str(filename).endswith(".csv")
         result = self.execute_query()
 
         # Wrap the results stream in a function which captures unique IDs,

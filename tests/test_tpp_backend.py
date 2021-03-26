@@ -102,7 +102,7 @@ def test_minimal_study_to_csv(tmp_path):
     session.add_all([patient_1, patient_2])
     session.commit()
     study = StudyDefinition(population=patients.all(), sex=patients.sex())
-    study.to_csv(tmp_path / "test.csv")
+    study.to_file(tmp_path / "test.csv")
     with open(tmp_path / "test.csv") as f:
         results = list(csv.DictReader(f))
     assert results == [
@@ -117,7 +117,7 @@ def test_sql_error_propagates(tmp_path):
     # at the end
     study.backend.queries[-1] = "SELECT Foo FROM Bar"
     with pytest.raises(Exception) as excinfo:
-        study.to_csv(tmp_path / "test.csv")
+        study.to_file(tmp_path / "test.csv")
     assert "Invalid object name 'Bar'" in str(excinfo.value)
 
 
@@ -1601,7 +1601,7 @@ def test_duplicate_id_checking(tmp_path):
     with pytest.raises(RuntimeError):
         study.to_dicts()
     with pytest.raises(RuntimeError):
-        study.to_csv(tmp_path / "test.csv")
+        study.to_file(tmp_path / "test.csv")
     # Check that we don't produce a normal output file but we do leave a
     # partial file
     assert not os.path.exists(tmp_path / "test.csv")
@@ -2900,7 +2900,7 @@ def test_temporary_database_happy_path(tmp_path, monkeypatch):
         age=patients.age_as_of("1990-01-01"),
     )
     initial_temporary_tables = _list_table_in_db(session, temporary_database)
-    study.to_csv(tmp_path / "test.csv")
+    study.to_file(tmp_path / "test.csv")
     with open(tmp_path / "test.csv") as f:
         results = list(csv.DictReader(f))
     assert_results(results, sex=["M", "F"], age=["30", "10"])
@@ -2931,7 +2931,7 @@ def test_temporary_database_with_failure(tmp_path, monkeypatch):
     with patch("cohortextractor.tpp_backend.mssql_fetch_table") as mssql_fetch_table:
         mssql_fetch_table.side_effect = ValueError("deliberate error")
         with pytest.raises(ValueError, match="deliberate error"):
-            study.to_csv(tmp_path / "fail.csv")
+            study.to_file(tmp_path / "fail.csv")
     # Check that we've created one extra temporary table
     temporary_tables = _list_table_in_db(session, temporary_database)
     assert len(set(temporary_tables) - set(initial_temporary_tables)) == 1
@@ -2942,7 +2942,7 @@ def test_temporary_database_with_failure(tmp_path, monkeypatch):
     # Now try making a new study with the same definition, downloading again
     # and check we have correct results
     new_study = StudyDefinition(**study_args)
-    new_study.to_csv(tmp_path / "test.csv")
+    new_study.to_file(tmp_path / "test.csv")
     with open(tmp_path / "test.csv") as f:
         results = list(csv.DictReader(f))
     assert_results(results, sex=["M", "F"], age=["40", "20"])

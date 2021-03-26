@@ -30,7 +30,8 @@ class TPPBackend:
         self.next_temp_table_id = 1
         self.queries = self.get_queries(self.covariate_definitions)
 
-    def to_csv(self, filename):
+    def to_file(self, filename):
+        assert str(filename).endswith(".csv")
         queries = list(self.queries)
         # If we have a temporary database available we write results to a table
         # there, download them, and then delete the table. This allows us to

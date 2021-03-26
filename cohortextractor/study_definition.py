@@ -67,7 +67,8 @@ class StudyDefinition:
                 temporary_database=self.temporary_database,
             )
 
-    def to_csv(self, filename, expectations_population=False, **kwargs):
+    def to_file(self, filename, expectations_population=False, **kwargs):
+        assert str(filename).endswith(".csv")
         if expectations_population:
             df = self.make_df_from_expectations(expectations_population)
             # Add a patient ID - a randomly generated integer from an
@@ -78,7 +79,7 @@ class StudyDefinition:
             df.to_csv(filename, index=False)
         else:
             self.assert_backend_is_configured()
-            self.backend.to_csv(filename, **kwargs)
+            self.backend.to_file(filename, **kwargs)
 
     def csv_to_df(self, csv_name):
         return pd.read_csv(

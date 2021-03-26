@@ -68,8 +68,8 @@ def test_minimal_study_to_csv():
     session.add_all([patient_1, patient_2])
     session.commit()
     study = StudyDefinition(population=patients.all(), sex=patients.sex())
-    with tempfile.NamedTemporaryFile(mode="w+") as f:
-        study.to_csv(f.name)
+    with tempfile.NamedTemporaryFile(mode="w+", suffix=".csv") as f:
+        study.to_file(f.name)
         results = list(csv.DictReader(f))
         assert results == [
             {"patient_id": "0", "sex": "M"},
@@ -1563,8 +1563,8 @@ def test_duplicate_id_checking():
     with pytest.raises(RuntimeError):
         study.to_dicts()
     with pytest.raises(RuntimeError):
-        with tempfile.NamedTemporaryFile(mode="w+") as f:
-            study.to_csv(f.name)
+        with tempfile.NamedTemporaryFile(mode="w+", suffix=".csv") as f:
+            study.to_file(f.name)
 
 
 def test_column_name_clashes_produce_errors():
