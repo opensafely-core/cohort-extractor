@@ -7,10 +7,13 @@ import os
 import subprocess
 import sys
 
+import pytest
+
 import cohortextractor
 
 
-def test_smoketest(tmp_path):
+@pytest.mark.parametrize("format", ["csv", "feather", "dta"])
+def test_smoketest(tmp_path, format):
     _cohortextractor(
         "generate_cohort",
         "--expectations-population",
@@ -19,11 +22,15 @@ def test_smoketest(tmp_path):
         "2020-01-01 to 2020-04-01 by month",
         "--output-dir",
         tmp_path,
+        "--output-format",
+        format,
     )
     _cohortextractor(
         "generate_measures",
         "--output-dir",
         tmp_path,
+        "--output-format",
+        format,
     )
     # liver_disease_by_stp
     with open(tmp_path / "measure_liver_disease_by_stp.csv") as f:

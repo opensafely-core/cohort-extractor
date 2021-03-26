@@ -2,6 +2,7 @@ import csv
 import os
 import tempfile
 
+import pandas
 import pytest
 
 from cohortextractor import StudyDefinition, codelist, patients
@@ -61,20 +62,29 @@ def delete_temporary_tables():
             conn.execute(f"DROP TABLE {table}")
 
 
-def test_minimal_study_to_csv():
+@pytest.mark.parametrize("format", ["csv", "feather", "dta"])
+def test_minimal_study_to_file(tmp_path, format):
     session = make_session()
     patient_1 = Patient(date_of_birth="1900-01-01", gender=1, hashed_organisation="abc")
     patient_2 = Patient(date_of_birth="1900-01-01", gender=2, hashed_organisation="abc")
     session.add_all([patient_1, patient_2])
     session.commit()
     study = StudyDefinition(population=patients.all(), sex=patients.sex())
-    with tempfile.NamedTemporaryFile(mode="w+", suffix=".csv") as f:
-        study.to_file(f.name)
-        results = list(csv.DictReader(f))
-        assert results == [
-            {"patient_id": "0", "sex": "M"},
-            {"patient_id": "1", "sex": "F"},
-        ]
+    filename = tmp_path / f"test.{format}"
+    study.to_file(filename)
+    cast = lambda x: x  # noqa
+    if format == "csv":
+        cast = str
+        with open(filename) as f:
+            results = list(csv.DictReader(f))
+    elif format == "feather":
+        results = pandas.read_feather(filename).to_dict("records")
+    elif format == "dta":
+        results = pandas.read_stata(filename).to_dict("records")
+    assert results == [
+        {"patient_id": cast(0), "sex": "M"},
+        {"patient_id": cast(1), "sex": "F"},
+    ]
 
 
 def test_meds():

@@ -5,6 +5,7 @@ import os
 import subprocess
 from unittest.mock import patch
 
+import pandas
 import pytest
 
 from cohortextractor import StudyDefinition, codelist, patients
@@ -95,19 +96,28 @@ def setup_function(function):
     session.commit()
 
 
-def test_minimal_study_to_csv(tmp_path):
+@pytest.mark.parametrize("format", ["csv", "feather", "dta"])
+def test_minimal_study_to_file(tmp_path, format):
     session = make_session()
     patient_1 = Patient(DateOfBirth="1900-01-01", Sex="M")
     patient_2 = Patient(DateOfBirth="1900-01-01", Sex="F")
     session.add_all([patient_1, patient_2])
     session.commit()
     study = StudyDefinition(population=patients.all(), sex=patients.sex())
-    study.to_file(tmp_path / "test.csv")
-    with open(tmp_path / "test.csv") as f:
-        results = list(csv.DictReader(f))
+    filename = tmp_path / f"test.{format}"
+    study.to_file(filename)
+    cast = lambda x: x  # noqa
+    if format == "csv":
+        cast = str
+        with open(filename) as f:
+            results = list(csv.DictReader(f))
+    elif format == "feather":
+        results = pandas.read_feather(filename).to_dict("records")
+    elif format == "dta":
+        results = pandas.read_stata(filename).to_dict("records")
     assert results == [
-        {"patient_id": str(patient_1.Patient_ID), "sex": "M"},
-        {"patient_id": str(patient_2.Patient_ID), "sex": "F"},
+        {"patient_id": cast(patient_1.Patient_ID), "sex": "M"},
+        {"patient_id": cast(patient_2.Patient_ID), "sex": "F"},
     ]
 
 
