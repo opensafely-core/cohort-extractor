@@ -99,11 +99,15 @@ def setup_function(function):
 @pytest.mark.parametrize("format", ["csv", "feather", "dta"])
 def test_minimal_study_to_file(tmp_path, format):
     session = make_session()
-    patient_1 = Patient(DateOfBirth="1900-01-01", Sex="M")
-    patient_2 = Patient(DateOfBirth="1900-01-01", Sex="F")
+    patient_1 = Patient(DateOfBirth="1980-01-01", Sex="M")
+    patient_2 = Patient(DateOfBirth="1965-01-01", Sex="F")
     session.add_all([patient_1, patient_2])
     session.commit()
-    study = StudyDefinition(population=patients.all(), sex=patients.sex())
+    study = StudyDefinition(
+        population=patients.all(),
+        sex=patients.sex(),
+        age=patients.age_as_of("2020-01-01"),
+    )
     filename = tmp_path / f"test.{format}"
     study.to_file(filename)
     cast = lambda x: x  # noqa
@@ -116,8 +120,8 @@ def test_minimal_study_to_file(tmp_path, format):
     elif format == "dta":
         results = pandas.read_stata(filename).to_dict("records")
     assert results == [
-        {"patient_id": cast(patient_1.Patient_ID), "sex": "M"},
-        {"patient_id": cast(patient_2.Patient_ID), "sex": "F"},
+        {"patient_id": cast(patient_1.Patient_ID), "sex": "M", "age": cast(40)},
+        {"patient_id": cast(patient_2.Patient_ID), "sex": "F", "age": cast(55)},
     ]
 
 

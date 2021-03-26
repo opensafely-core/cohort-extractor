@@ -65,11 +65,15 @@ def delete_temporary_tables():
 @pytest.mark.parametrize("format", ["csv", "feather", "dta"])
 def test_minimal_study_to_file(tmp_path, format):
     session = make_session()
-    patient_1 = Patient(date_of_birth="1900-01-01", gender=1, hashed_organisation="abc")
-    patient_2 = Patient(date_of_birth="1900-01-01", gender=2, hashed_organisation="abc")
+    patient_1 = Patient(date_of_birth="1980-01-01", gender=1, hashed_organisation="abc")
+    patient_2 = Patient(date_of_birth="1965-01-01", gender=2, hashed_organisation="abc")
     session.add_all([patient_1, patient_2])
     session.commit()
-    study = StudyDefinition(population=patients.all(), sex=patients.sex())
+    study = StudyDefinition(
+        population=patients.all(),
+        sex=patients.sex(),
+        age=patients.age_as_of("2020-01-01"),
+    )
     filename = tmp_path / f"test.{format}"
     study.to_file(filename)
     cast = lambda x: x  # noqa
@@ -82,8 +86,8 @@ def test_minimal_study_to_file(tmp_path, format):
     elif format == "dta":
         results = pandas.read_stata(filename).to_dict("records")
     assert results == [
-        {"patient_id": cast(0), "sex": "M"},
-        {"patient_id": cast(1), "sex": "F"},
+        {"patient_id": cast(0), "sex": "M", "age": cast(40)},
+        {"patient_id": cast(1), "sex": "F", "age": cast(55)},
     ]
 
 
