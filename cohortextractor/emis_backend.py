@@ -56,28 +56,47 @@ class EMISBackend:
 
     def to_csv(self, filename):
         result = self.execute_query()
-        unique_check = UniqueCheck()
+
+        # Wrap the results stream in a function which captures unique IDs,
+        # replaces them with sequential IDs and logs progress
+        unique_ids = set()
+        total_rows = 0
+
+        def replace_ids_and_log(result):
+            nonlocal total_rows
+            headers = [x[0] for x in result.description]
+            id_column_index = headers.index("patient_id")
+            yield headers
+            for row in result:
+                unique_ids.add(row[id_column_index])
+                # Replace long hex ID with sequential int for space reasons
+                row[id_column_index] = total_rows
+                total_rows += 1
+                if total_rows % 1000000 == 0:
+                    logger.info(f"Downloaded {total_rows} results")
+                yield row
+            logger.info(f"Downloaded {total_rows} results")
+
+        results = replace_ids_and_log(result)
+
         with open(filename, "w", newline="") as csvfile:
             writer = csv.writer(csvfile)
-            writer.writerow([x[0] for x in result.description])
-            for ix, row in enumerate(result):
-                unique_check.add(row[0])
-                if unique_check.count % 1000000 == 0:
-                    logger.info(f"Downloaded {unique_check.count} results")
-                row[0] = ix
+            for row in results:
                 writer.writerow(row)
-        logger.info(f"Downloaded {unique_check.count} results")
-        unique_check.assert_unique_ids()
+
+        duplicates = total_rows - len(unique_ids)
+        if duplicates != 0:
+            raise RuntimeError(f"Duplicate IDs found ({duplicates} rows)")
 
     def to_dicts(self):
         result = self.execute_query()
         keys = [x[0] for x in result.description]
         # Convert all values to str as that's what will end in the CSV
         output = [dict(zip(keys, map(str, row))) for row in result]
-        unique_check = UniqueCheck()
-        for item in output:
-            unique_check.add(item["patient_id"])
-        unique_check.assert_unique_ids()
+        unique_ids = set(item["patient_id"] for item in output)
+        duplicates = len(output) - len(unique_ids)
+        if duplicates != 0:
+            raise RuntimeError(f"Duplicate IDs found ({duplicates} rows)")
         for ix, row in enumerate(output):
             row["patient_id"] = ix
         return output
@@ -1498,21 +1517,6 @@ def truncate_date(column, date_format):
     else:
         raise ValueError(f"Unhandled date format: {date_format}")
     return f"date_format({column}, '{date_format}')"
-
-
-class UniqueCheck:
-    def __init__(self):
-        self.count = 0
-        self.ids = set()
-
-    def add(self, item):
-        self.count += 1
-        self.ids.add(item)
-
-    def assert_unique_ids(self):
-        duplicates = self.count - len(self.ids)
-        if duplicates != 0:
-            raise RuntimeError(f"Duplicate IDs found ({duplicates} rows)")
 
 
 def pop_keys_from_dict(dictionary, keys):

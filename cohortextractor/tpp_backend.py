@@ -59,25 +59,40 @@ class TPPBackend:
             sleep=0.5,
         )
 
-        temp_filename = self._get_temp_filename(filename)
-        unique_check = UniqueCheck()
+        # Wrap the results stream in a function which captures unique IDs and
+        # logs progress
+        unique_ids = set()
+        total_rows = 0
 
+        def check_ids_and_log(results):
+            nonlocal total_rows
+            headers = next(results)
+            id_column_index = headers.index("patient_id")
+            yield headers
+            for row in results:
+                unique_ids.add(row[id_column_index])
+                total_rows += 1
+                if total_rows % 1000000 == 0:
+                    logger.info(f"Downloaded {total_rows} results")
+                yield row
+            logger.info(f"Downloaded {total_rows} results")
+
+        results = check_ids_and_log(results)
+
+        temp_filename = self._get_temp_filename(filename)
         with open(temp_filename, "w", newline="") as csvfile:
             writer = csv.writer(csvfile)
-            headers = next(results)
-            writer.writerow(headers)
             for row in results:
                 writer.writerow(row)
-                unique_check.add(row[0])
-                if unique_check.count % 1000000 == 0:
-                    logger.info(f"Downloaded {unique_check.count} results")
-
-        logger.info(f"Downloaded {unique_check.count} results")
 
         self.execute_queries(
             [f"-- Deleting '{output_table}'\nDROP TABLE {output_table}"]
         )
-        unique_check.assert_unique_ids()
+
+        duplicates = total_rows - len(unique_ids)
+        if duplicates != 0:
+            raise RuntimeError(f"Duplicate IDs found ({duplicates} rows)")
+
         # If the extraction doesn't complete successfully we still want to keep
         # the output file for debugging purposes, just under a name which makes
         # it clear that it's not complete
@@ -93,10 +108,10 @@ class TPPBackend:
         keys = [x[0] for x in result.description]
         # Convert all values to str as that's what will end in the CSV
         output = [dict(zip(keys, map(str, row))) for row in result]
-        unique_check = UniqueCheck()
-        for item in output:
-            unique_check.add(item["patient_id"])
-        unique_check.assert_unique_ids()
+        unique_ids = set(item["patient_id"] for item in output)
+        duplicates = len(output) - len(unique_ids)
+        if duplicates != 0:
+            raise RuntimeError(f"Duplicate IDs found ({duplicates} rows)")
         return output
 
     def to_sql(self):
@@ -2312,21 +2327,6 @@ def coded_event_table_column(codelist):
         return "CodedEvent_SNOMED", "ConceptID"
     else:
         assert False, codelist.system
-
-
-class UniqueCheck:
-    def __init__(self):
-        self.count = 0
-        self.ids = set()
-
-    def add(self, item):
-        self.count += 1
-        self.ids.add(item)
-
-    def assert_unique_ids(self):
-        duplicates = self.count - len(self.ids)
-        if duplicates != 0:
-            raise RuntimeError(f"Duplicate IDs found ({duplicates} rows)")
 
 
 def pop_keys_from_dict(dictionary, keys):
