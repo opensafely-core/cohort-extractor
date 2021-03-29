@@ -14,10 +14,12 @@ setup(
     author_email="tech@opensafely.org",
     python_requires=">=3.7",
     install_requires=[
+        "lz4",
         "opensafely-jobrunner>=2.0,<3.0",
         "pandas",
         "presto-python-client",
         "prettytable",
+        "pyarrow",
         "pyyaml",
         "requests",
         "requests-pkcs12",

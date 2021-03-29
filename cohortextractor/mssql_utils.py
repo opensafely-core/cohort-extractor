@@ -1,4 +1,3 @@
-import csv
 import re
 import time
 import warnings
@@ -91,19 +90,17 @@ def mssql_sqlalchemy_engine_from_url(url):
     return sqlalchemy.create_engine(URL(**params))
 
 
-def mssql_table_to_csv(
-    filename,
+def mssql_fetch_table(
     cursor,
     table,
     key_column,
     batch_size=2 ** 14,
     retries=2,
     sleep=0.5,
-    row_callback=None,
 ):
     """
-    Download the contents of a table to a CSV file, calling `row_callback` (if
-    defined) on each row as it does so.
+    Returns the contents of a table as an iterator of tuples, with the first
+    row being the column headers
 
     The table must have a unique integer `key_column` which can be used for
     paging the results. For performance reasons this column should be indexed.
@@ -111,29 +108,21 @@ def mssql_table_to_csv(
     Failed requests are automatically retried after a pause of `sleep`,
     assuming `retries` is greater than zero.
     """
-    if row_callback is None:
-        row_callback = lambda x: None  # noqa
 
     def fetch_batch(min_key=None):
         return _fetch_batch_with_retries(
             cursor, table, key_column, batch_size, min_key, retries, sleep
         )
 
-    with open(filename, "w", newline="") as csvfile:
-        writer = csv.writer(csvfile)
-        result_batch = fetch_batch()
-        headers = [x[0] for x in cursor.description]
-        writer.writerow(headers)
-        key_column_index = headers.index(key_column)
-        for row in result_batch:
-            writer.writerow(row)
-            row_callback(row)
-        while len(result_batch) == batch_size:
-            min_key = result_batch[-1][key_column_index]
-            result_batch = fetch_batch(min_key)
-            for row in result_batch:
-                writer.writerow(row)
-                row_callback(row)
+    result_batch = fetch_batch()
+    headers = [x[0] for x in cursor.description]
+    key_column_index = headers.index(key_column)
+    yield headers
+    yield from iter(result_batch)
+    while len(result_batch) == batch_size:
+        min_key = result_batch[-1][key_column_index]
+        result_batch = fetch_batch(min_key)
+        yield from iter(result_batch)
 
 
 def _fetch_batch_with_retries(

@@ -101,7 +101,8 @@ class VaccinationsStudyDefinition:
         )
         self.database_url = os.environ.get("DATABASE_URL")
 
-    def to_csv(self, filename, expectations_population=False):
+    def to_file(self, filename, expectations_population=False):
+        assert str(filename).endswith(".csv")
         if expectations_population:
             self.write_dummy_data(filename, expectations_population)
         else:

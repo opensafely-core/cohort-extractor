@@ -111,7 +111,7 @@ def test_study_definition(tmp_path):
             "mmr_2",
         ],
     )
-    study.to_csv(tmp_path / "test.csv")
+    study.to_file(tmp_path / "test.csv")
     with open(tmp_path / "test.csv", newline="") as f:
         reader = csv.DictReader(f)
         results = list(reader)
@@ -200,7 +200,7 @@ def test_study_definition_dummy_data(tmp_path):
             "mmr_2",
         ],
     )
-    study.to_csv(tmp_path / "dummy.csv", expectations_population=1000)
+    study.to_file(tmp_path / "dummy.csv", expectations_population=1000)
     with open(tmp_path / "dummy.csv", newline="") as f:
         reader = csv.DictReader(f)
         results = list(reader)

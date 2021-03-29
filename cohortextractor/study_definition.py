@@ -12,6 +12,7 @@ from .date_expressions import (
     validate_date,
 )
 from .expectation_generators import generate
+from .pandas_utils import dataframe_to_file
 from .process_covariate_definitions import process_covariate_definitions
 
 
@@ -67,7 +68,7 @@ class StudyDefinition:
                 temporary_database=self.temporary_database,
             )
 
-    def to_csv(self, filename, expectations_population=False, **kwargs):
+    def to_file(self, filename, expectations_population=False, **kwargs):
         if expectations_population:
             df = self.make_df_from_expectations(expectations_population)
             # Add a patient ID - a randomly generated integer from an
@@ -75,10 +76,10 @@ class StudyDefinition:
             df["patient_id"] = default_rng().choice(
                 (len(df) * 10), size=len(df), replace=False
             )
-            df.to_csv(filename, index=False)
+            dataframe_to_file(df, filename)
         else:
             self.assert_backend_is_configured()
-            self.backend.to_csv(filename, **kwargs)
+            self.backend.to_file(filename, **kwargs)
 
     def csv_to_df(self, csv_name):
         return pd.read_csv(

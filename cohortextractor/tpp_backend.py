@@ -1,5 +1,7 @@
+import csv
 import datetime
 import enum
+import gzip
 import hashlib
 import os
 import re
@@ -12,8 +14,9 @@ from .expressions import format_expression
 from .mssql_utils import (
     mssql_connection_params_from_url,
     mssql_dbapi_connection_from_url,
-    mssql_table_to_csv,
+    mssql_fetch_table,
 )
+from .pandas_utils import dataframe_from_rows, dataframe_to_file
 
 logger = structlog.get_logger()
 
@@ -29,7 +32,7 @@ class TPPBackend:
         self.next_temp_table_id = 1
         self.queries = self.get_queries(self.covariate_definitions)
 
-    def to_csv(self, filename):
+    def to_file(self, filename):
         queries = list(self.queries)
         # If we have a temporary database available we write results to a table
         # there, download them, and then delete the table. This allows us to
@@ -45,52 +48,88 @@ class TPPBackend:
             )
             queries.append(f"CREATE INDEX ix_patient_id ON {output_table} (patient_id)")
             self.execute_queries(queries)
-        temp_filename = self._get_temp_filename(filename)
-        unique_check = UniqueCheck()
-
-        def record_patient_id_and_log(row):
-            unique_check.add(row[0])
-            if unique_check.count % 1000000 == 0:
-                logger.info(f"Downloaded {unique_check.count} results")
 
         # `batch_size` here was chosen through a bit of unscientific
         # trial-and-error and some guesswork. It may well need changing in
         # future.
-        mssql_table_to_csv(
-            temp_filename,
+        results = mssql_fetch_table(
             cursor=self.get_db_connection().cursor(),
             table=output_table,
             key_column="patient_id",
             batch_size=32000,
-            row_callback=record_patient_id_and_log,
             retries=2,
             sleep=0.5,
         )
-        logger.info(f"Downloaded {unique_check.count} results")
+
+        # Wrap the results stream in a function which captures unique IDs and
+        # logs progress
+        unique_ids = set()
+        total_rows = 0
+
+        def check_ids_and_log(results):
+            nonlocal total_rows
+            headers = next(results)
+            id_column_index = headers.index("patient_id")
+            yield headers
+            for row in results:
+                unique_ids.add(row[id_column_index])
+                total_rows += 1
+                if total_rows % 1000000 == 0:
+                    logger.info(f"Downloaded {total_rows} results")
+                yield row
+            logger.info(f"Downloaded {total_rows} results")
+
+        results = check_ids_and_log(results)
+
+        temp_filename = self._get_temp_filename(filename)
+
+        # Special handling for CSV as we can stream this directly to disk
+        # without building a dataframe in memory
+        if temp_filename.endswith(".csv"):
+            with open(temp_filename, "w", newline="") as csvfile:
+                writer = csv.writer(csvfile)
+                for row in results:
+                    writer.writerow(row)
+        elif temp_filename.endswith(".csv.gz"):
+            # `gzip.open` defaults to 9 (max compression) whereas the default
+            # speed/compression tradeoff in the command line tool is 6
+            with gzip.open(temp_filename, "wt", newline="", compresslevel=6) as gzfile:
+                writer = csv.writer(gzfile)
+                for row in results:
+                    writer.writerow(row)
+        else:
+            df = dataframe_from_rows(self.covariate_definitions, results)
+            dataframe_to_file(df, temp_filename)
 
         self.execute_queries(
             [f"-- Deleting '{output_table}'\nDROP TABLE {output_table}"]
         )
-        unique_check.assert_unique_ids()
+
+        duplicates = total_rows - len(unique_ids)
+        if duplicates != 0:
+            raise RuntimeError(f"Duplicate IDs found ({duplicates} rows)")
+
         # If the extraction doesn't complete successfully we still want to keep
         # the output file for debugging purposes, just under a name which makes
         # it clear that it's not complete
         os.rename(temp_filename, filename)
 
     def _get_temp_filename(self, filename):
-        root, extension = os.path.splitext(filename)
+        root, name = os.path.split(filename)
+        # Need to handle multiple extensions e.g. csv.gz to can't use `splitext`
+        base, sep, extensions = name.partition(".")
         timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-        return f"{root}.partial.{timestamp}{extension}"
+        return os.path.join(root, f"{base}.partial.{timestamp}{sep}{extensions}")
 
     def to_dicts(self):
         result = self.execute_queries(self.queries)
         keys = [x[0] for x in result.description]
         # Convert all values to str as that's what will end in the CSV
         output = [dict(zip(keys, map(str, row))) for row in result]
-        unique_check = UniqueCheck()
-        for item in output:
-            unique_check.add(item["patient_id"])
-        unique_check.assert_unique_ids()
+        unique_ids = set(item["patient_id"] for item in output)
+        duplicates = len(output) - len(unique_ids)
+        if duplicates != 0:
+            raise RuntimeError(f"Duplicate IDs found ({duplicates} rows)")
         return output
 
     def to_sql(self):
@@ -2306,21 +2345,6 @@ def coded_event_table_column(codelist):
         return "CodedEvent_SNOMED", "ConceptID"
     else:
         assert False, codelist.system
-
-
-class UniqueCheck:
-    def __init__(self):
-        self.count = 0
-        self.ids = set()
-
-    def add(self, item):
-        self.count += 1
-        self.ids.add(item)
-
-    def assert_unique_ids(self):
-        duplicates = self.count - len(self.ids)
-        if duplicates != 0:
-            raise RuntimeError(f"Duplicate IDs found ({duplicates} rows)")
 
 
 def pop_keys_from_dict(dictionary, keys):

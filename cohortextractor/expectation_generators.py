@@ -103,9 +103,6 @@ def generate(population, **kwargs):
         category_labels = dict(zip(category_ids, ratios.keys()))
         df = df.replace({"category": category_labels})
         df["category"] = df["category"].astype("category")
-        # Add empty string as a category to support missing values
-        if "" not in df["category"].cat.categories:
-            df["category"].cat.add_categories(new_categories=[""], inplace=True)
 
     int_ = kwargs.pop("int", None)
     if int_:
@@ -159,7 +156,7 @@ def set_empty_values(df, row_selection):
         # get converted to strings during the CSV generation, the nulls become
         # empty strings as expected.
         "date": None,
-        "category": "",
+        "category": None,
     }
     for column in df.columns:
         df.loc[row_selection, column] = empty_values.get(column, "")

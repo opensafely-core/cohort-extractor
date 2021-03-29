@@ -1,10 +1,12 @@
 # -*- coding: utf-8 -*-
 import csv
 import glob
+import gzip
 import os
 import subprocess
 from unittest.mock import patch
 
+import pandas
 import pytest
 
 from cohortextractor import StudyDefinition, codelist, patients
@@ -95,19 +97,36 @@ def setup_function(function):
     session.commit()
 
 
-def test_minimal_study_to_csv(tmp_path):
+@pytest.mark.parametrize("format", ["csv", "csv.gz", "feather", "dta", "dta.gz"])
+def test_minimal_study_to_file(tmp_path, format):
     session = make_session()
-    patient_1 = Patient(DateOfBirth="1900-01-01", Sex="M")
-    patient_2 = Patient(DateOfBirth="1900-01-01", Sex="F")
+    patient_1 = Patient(DateOfBirth="1980-01-01", Sex="M")
+    patient_2 = Patient(DateOfBirth="1965-01-01", Sex="F")
     session.add_all([patient_1, patient_2])
     session.commit()
-    study = StudyDefinition(population=patients.all(), sex=patients.sex())
-    study.to_csv(tmp_path / "test.csv")
-    with open(tmp_path / "test.csv") as f:
-        results = list(csv.DictReader(f))
+    study = StudyDefinition(
+        population=patients.all(),
+        sex=patients.sex(),
+        age=patients.age_as_of("2020-01-01"),
+    )
+    filename = tmp_path / f"test.{format}"
+    study.to_file(filename)
+    cast = lambda x: x  # noqa
+    if format == "csv":
+        cast = str
+        with open(filename) as f:
+            results = list(csv.DictReader(f))
+    if format == "csv.gz":
+        cast = str
+        with gzip.open(filename, "rt") as f:
+            results = list(csv.DictReader(f))
+    elif format == "feather":
+        results = pandas.read_feather(filename).to_dict("records")
+    elif format in ("dta", "dta.gz"):
+        results = pandas.read_stata(filename).to_dict("records")
     assert results == [
-        {"patient_id": str(patient_1.Patient_ID), "sex": "M"},
-        {"patient_id": str(patient_2.Patient_ID), "sex": "F"},
+        {"patient_id": cast(patient_1.Patient_ID), "sex": "M", "age": cast(40)},
+        {"patient_id": cast(patient_2.Patient_ID), "sex": "F", "age": cast(55)},
     ]
 
 
@@ -117,7 +136,7 @@ def test_sql_error_propagates(tmp_path):
     # at the end
     study.backend.queries[-1] = "SELECT Foo FROM Bar"
     with pytest.raises(Exception) as excinfo:
-        study.to_csv(tmp_path / "test.csv")
+        study.to_file(tmp_path / "test.csv")
     assert "Invalid object name 'Bar'" in str(excinfo.value)
 
 
@@ -1601,7 +1620,7 @@ def test_duplicate_id_checking(tmp_path):
     with pytest.raises(RuntimeError):
         study.to_dicts()
     with pytest.raises(RuntimeError):
-        study.to_csv(tmp_path / "test.csv")
+        study.to_file(tmp_path / "test.csv")
     # Check that we don't produce a normal output file but we do leave a
     # partial file
     assert not os.path.exists(tmp_path / "test.csv")
@@ -2900,7 +2919,7 @@ def test_temporary_database_happy_path(tmp_path, monkeypatch):
         age=patients.age_as_of("1990-01-01"),
     )
     initial_temporary_tables = _list_table_in_db(session, temporary_database)
-    study.to_csv(tmp_path / "test.csv")
+    study.to_file(tmp_path / "test.csv")
     with open(tmp_path / "test.csv") as f:
         results = list(csv.DictReader(f))
     assert_results(results, sex=["M", "F"], age=["30", "10"])
@@ -2928,10 +2947,10 @@ def test_temporary_database_with_failure(tmp_path, monkeypatch):
     study = StudyDefinition(**study_args)
     initial_temporary_tables = _list_table_in_db(session, temporary_database)
     # Trigger error during data download process
-    with patch("cohortextractor.mssql_utils.csv") as csv_module:
-        csv_module.writer.side_effect = ValueError("deliberate error")
+    with patch("cohortextractor.tpp_backend.mssql_fetch_table") as mssql_fetch_table:
+        mssql_fetch_table.side_effect = ValueError("deliberate error")
         with pytest.raises(ValueError, match="deliberate error"):
-            study.to_csv(tmp_path / "fail.csv")
+            study.to_file(tmp_path / "fail.csv")
     # Check that we've created one extra temporary table
     temporary_tables = _list_table_in_db(session, temporary_database)
     assert len(set(temporary_tables) - set(initial_temporary_tables)) == 1
@@ -2942,7 +2961,7 @@ def test_temporary_database_with_failure(tmp_path, monkeypatch):
     # Now try making a new study with the same definition, downloading again
     # and check we have correct results
     new_study = StudyDefinition(**study_args)
-    new_study.to_csv(tmp_path / "test.csv")
+    new_study.to_file(tmp_path / "test.csv")
     with open(tmp_path / "test.csv") as f:
         results = list(csv.DictReader(f))
     assert_results(results, sex=["M", "F"], age=["40", "20"])

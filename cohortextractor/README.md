@@ -33,7 +33,7 @@ is developing. The `Codelist` object it returns is just a list of codes
 with an additional `system` attribute.
 
 The [generate_cohort.py](../generate_cohort.py) file just imports the
-study definition object and calls `to_csv` on it.
+study definition object and calls `to_file` on it.
 
 Each keyword argument to `StudyDefinition` generates a column in the
 resulting CSV. The exception is `population` which defines the list of
