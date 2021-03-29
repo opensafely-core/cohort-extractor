@@ -68,11 +68,18 @@ class EMISBackend:
             nonlocal total_rows
             headers = [x[0] for x in result.description]
             id_column_index = headers.index("patient_id")
+            # In production "patient_id" is a string (hex-encoded hash) but in
+            # test it's an int so we need to handle that correctly
+            if result.description[id_column_index][1] == "integer":
+                truncate_patient_id = lambda x: x  # noqa
+
             yield headers
+
             for row in result:
-                unique_ids.add(row[id_column_index])
-                # Replace long hex ID with sequential int for space reasons
-                row[id_column_index] = total_rows
+                # Reduce long EMIS patient IDs (see docstring)
+                patient_id = truncate_patient_id(row[id_column_index])
+                row[id_column_index] = patient_id
+                unique_ids.add(patient_id)
                 total_rows += 1
                 if total_rows % 1000000 == 0:
                     logger.info(f"Downloaded {total_rows} results")
@@ -1544,3 +1551,17 @@ def pop_keys_from_dict(dictionary, keys):
 
 def get_organisation_hash():
     return os.environ["EMIS_ORGANISATION_HASH"]
+
+
+def truncate_patient_id(patient_id):
+    """
+    EMIS patient IDs are 128 byte strings which significantly bloat our output
+    files. However, because they are actually hex-encoded SHA-512 hashes we can
+    get away with throwing away all but the first 63 bits and storing them as
+    int64s (63 bits so we can safely store them as signed int64s without
+    worrying about negative patient IDs, which might upset expectations
+    elsewhere). 63 bits still gives us plenty of entropy as sqrt(2^63) is about
+    2 billion so well above the threshold where we'd need to worry about
+    collisions with a population of a few tens of millions.
+    """
+    return int(patient_id[:16], 16) >> 1
