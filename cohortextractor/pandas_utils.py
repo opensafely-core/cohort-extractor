@@ -1,18 +1,16 @@
-from pathlib import Path
-
 import pandas
 
 
 def dataframe_to_file(df, filename):
-    extension = Path(filename).suffix.lstrip(".")
-    if extension == "csv":
+    filename = str(filename)
+    if filename.endswith(".csv"):
         df.to_csv(filename, index=False)
-    elif extension == "feather":
+    elif filename.endswith(".feather"):
         df.to_feather(filename)
-    elif extension == "dta":
+    elif filename.endswith(".dta"):
         df.to_stata(filename, write_index=False)
     else:
-        raise RuntimeError(f"Unsupported extension: {extension}")
+        raise RuntimeError(f"Unsupported file format: {filename}")
 
 
 def dataframe_from_rows(covariate_definitions, rows):

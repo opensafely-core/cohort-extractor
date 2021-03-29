@@ -107,9 +107,11 @@ class TPPBackend:
         os.rename(temp_filename, filename)
 
     def _get_temp_filename(self, filename):
-        root, extension = os.path.splitext(filename)
+        root, name = os.path.split(filename)
+        # Need to handle multiple extensions e.g. csv.gz to can't use `splitext`
+        base, sep, extensions = name.partition(".")
         timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-        return f"{root}.partial.{timestamp}{extension}"
+        return os.path.join(root, f"{base}.partial.{timestamp}{sep}{extensions}")
 
     def to_dicts(self):
         result = self.execute_queries(self.queries)

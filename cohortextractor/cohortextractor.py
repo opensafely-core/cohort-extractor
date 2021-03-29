@@ -42,6 +42,7 @@ target_dir = "/home/app/notebook"
 
 
 SUPPORTED_FILE_FORMATS = ["csv", "feather", "dta"]
+EXTENSION_REGEX = "|".join(map(re.escape, SUPPORTED_FILE_FORMATS))
 
 
 def show_exception_timestamp(*args):
@@ -295,9 +296,7 @@ def _generate_measures(
     logger.debug("args", suffix=suffix, skip_existing=skip_existing)
     measures = load_study_definition(study_name, value="measures")
     measure_outputs = defaultdict(list)
-    filename_re = re.compile(
-        fr"^input{re.escape(suffix)}.+\.({'|'.join(SUPPORTED_FILE_FORMATS)})$"
-    )
+    filename_re = re.compile(fr"^input{re.escape(suffix)}.+\.({EXTENSION_REGEX})$")
     for file in os.listdir(output_dir):
         if not filename_re.match(file):
             continue
@@ -348,18 +347,16 @@ def _calculate_measure_df(patient_df, measure):
 
 
 def _get_date_from_filename(filename):
-    match = re.search(
-        fr"_(\d\d\d\d\-\d\d\-\d\d)\.({'|'.join(SUPPORTED_FILE_FORMATS)})$", filename
-    )
+    match = re.search(fr"_(\d\d\d\d\-\d\d\-\d\d)\.({EXTENSION_REGEX})$", filename)
     return datetime.date.fromisoformat(match.group(1)) if match else None
 
 
-def _load_dataframe_for_measures(file, measures):
+def _load_dataframe_for_measures(filename, measures):
     """
     Given a file name and a list of measures, load the file into a Pandas
     dataframe with types as appropriate for the supplied measures
     """
-    extension = os.path.splitext(file)[1].lstrip(".")
+    filename = str(filename)
     numeric_columns = set()
     group_by_columns = set()
     for measure in measures:
@@ -372,16 +369,16 @@ def _load_dataframe_for_measures(file, measures):
     dtype = {col: "category" for col in group_by_columns}
     for col in numeric_columns:
         dtype[col] = "float64"
-    if extension == "csv":
+    if filename.endswith(".csv"):
         df = pandas.read_csv(
-            file, dtype=dtype, usecols=list(dtype.keys()), keep_default_na=False
+            filename, dtype=dtype, usecols=list(dtype.keys()), keep_default_na=False
         )
-    elif extension == "feather":
-        df = pandas.read_feather(file, columns=list(dtype.keys()))
-    elif extension == "dta":
-        df = pandas.read_stata(file, columns=list(dtype.keys()))
+    elif filename.endswith(".feather"):
+        df = pandas.read_feather(filename, columns=list(dtype.keys()))
+    elif filename.endswith(".dta"):
+        df = pandas.read_stata(filename, columns=list(dtype.keys()))
     else:
-        raise RuntimeError(f"Unsupported extension: {extension}")
+        raise RuntimeError(f"Unsupported file format: {filename}")
     df["population"] = 1
     return df
 
