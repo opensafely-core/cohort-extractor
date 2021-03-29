@@ -1,6 +1,4 @@
-import csv
 import datetime
-import gzip
 import os
 import re
 import uuid
@@ -9,6 +7,7 @@ import warnings
 import structlog
 
 from .codelistlib import codelist
+from .csv_utils import is_csv_filename, write_rows_to_csv
 from .date_expressions import PrestoDateFormatter
 from .expressions import format_expression
 from .pandas_utils import dataframe_from_rows, dataframe_to_file
@@ -90,18 +89,8 @@ class EMISBackend:
 
         # Special handling for CSV as we can stream this directly to disk
         # without building a dataframe in memory
-        if str(filename).endswith(".csv"):
-            with open(filename, "w", newline="") as csvfile:
-                writer = csv.writer(csvfile)
-                for row in results:
-                    writer.writerow(row)
-        elif str(filename).endswith(".csv.gz"):
-            # `gzip.open` defaults to 9 (max compression) whereas the default
-            # speed/compression tradeoff in the command line tool is 6
-            with gzip.open(filename, "wt", newline="", compresslevel=6) as gzfile:
-                writer = csv.writer(gzfile)
-                for row in results:
-                    writer.writerow(row)
+        if is_csv_filename(filename):
+            write_rows_to_csv(results, filename)
         else:
             df = dataframe_from_rows(self.covariate_definitions, results)
             dataframe_to_file(df, filename)

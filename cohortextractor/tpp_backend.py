@@ -1,7 +1,5 @@
-import csv
 import datetime
 import enum
-import gzip
 import hashlib
 import os
 import re
@@ -9,6 +7,7 @@ import uuid
 
 import structlog
 
+from .csv_utils import is_csv_filename, write_rows_to_csv
 from .date_expressions import MSSQLDateFormatter
 from .expressions import format_expression
 from .mssql_utils import (
@@ -85,18 +84,8 @@ class TPPBackend:
 
         # Special handling for CSV as we can stream this directly to disk
         # without building a dataframe in memory
-        if temp_filename.endswith(".csv"):
-            with open(temp_filename, "w", newline="") as csvfile:
-                writer = csv.writer(csvfile)
-                for row in results:
-                    writer.writerow(row)
-        elif temp_filename.endswith(".csv.gz"):
-            # `gzip.open` defaults to 9 (max compression) whereas the default
-            # speed/compression tradeoff in the command line tool is 6
-            with gzip.open(temp_filename, "wt", newline="", compresslevel=6) as gzfile:
-                writer = csv.writer(gzfile)
-                for row in results:
-                    writer.writerow(row)
+        if is_csv_filename(temp_filename):
+            write_rows_to_csv(results, temp_filename)
         else:
             df = dataframe_from_rows(self.covariate_definitions, results)
             dataframe_to_file(df, temp_filename)
