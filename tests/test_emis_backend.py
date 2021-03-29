@@ -8,7 +8,7 @@ import pytest
 
 from cohortextractor import StudyDefinition, codelist, patients
 from cohortextractor.date_expressions import InvalidExpressionError
-from cohortextractor.emis_backend import quote
+from cohortextractor.emis_backend import quote, truncate_patient_id
 from tests.emis_backend_setup import (
     CPNS,
     ICNARC,
@@ -91,8 +91,8 @@ def test_minimal_study_to_file(tmp_path, format):
     elif format in ("dta", "dta.gz"):
         results = pandas.read_stata(filename).to_dict("records")
     assert results == [
-        {"patient_id": cast(0), "sex": "M", "age": cast(40)},
-        {"patient_id": cast(1), "sex": "F", "age": cast(55)},
+        {"patient_id": cast(patient_1.registration_id), "sex": "M", "age": cast(40)},
+        {"patient_id": cast(patient_2.registration_id), "sex": "F", "age": cast(55)},
     ]
 
 
@@ -2076,3 +2076,13 @@ def test_dynamic_index_dates_with_invalid_expression():
                 on_or_before="last_day_of_month(earliest_bar) + 1 mnth",
             ),
         )
+
+
+def test_truncate_patient_id():
+    small_id = 123456789
+    # Remove the '0x' prefix
+    small_id_hex = hex(small_id)[2:]
+    assert truncate_patient_id(small_id_hex) == small_id // 2
+
+    large_id_hex = hex(987654321 + 2 ** 100)[2:]
+    assert truncate_patient_id(large_id_hex) == 576460752303423488
