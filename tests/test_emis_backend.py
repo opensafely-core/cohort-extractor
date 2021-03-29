@@ -1,4 +1,5 @@
 import csv
+import gzip
 import os
 import tempfile
 
@@ -62,7 +63,7 @@ def delete_temporary_tables():
             conn.execute(f"DROP TABLE {table}")
 
 
-@pytest.mark.parametrize("format", ["csv", "feather", "dta"])
+@pytest.mark.parametrize("format", ["csv", "csv.gz", "feather", "dta", "dta.gz"])
 def test_minimal_study_to_file(tmp_path, format):
     session = make_session()
     patient_1 = Patient(date_of_birth="1980-01-01", gender=1, hashed_organisation="abc")
@@ -81,9 +82,13 @@ def test_minimal_study_to_file(tmp_path, format):
         cast = str
         with open(filename) as f:
             results = list(csv.DictReader(f))
+    if format == "csv.gz":
+        cast = str
+        with gzip.open(filename, "rt") as f:
+            results = list(csv.DictReader(f))
     elif format == "feather":
         results = pandas.read_feather(filename).to_dict("records")
-    elif format == "dta":
+    elif format in ("dta", "dta.gz"):
         results = pandas.read_stata(filename).to_dict("records")
     assert results == [
         {"patient_id": cast(0), "sex": "M", "age": cast(40)},

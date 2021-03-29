@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import csv
 import glob
+import gzip
 import os
 import subprocess
 from unittest.mock import patch
@@ -96,7 +97,7 @@ def setup_function(function):
     session.commit()
 
 
-@pytest.mark.parametrize("format", ["csv", "feather", "dta"])
+@pytest.mark.parametrize("format", ["csv", "csv.gz", "feather", "dta", "dta.gz"])
 def test_minimal_study_to_file(tmp_path, format):
     session = make_session()
     patient_1 = Patient(DateOfBirth="1980-01-01", Sex="M")
@@ -115,9 +116,13 @@ def test_minimal_study_to_file(tmp_path, format):
         cast = str
         with open(filename) as f:
             results = list(csv.DictReader(f))
+    if format == "csv.gz":
+        cast = str
+        with gzip.open(filename, "rt") as f:
+            results = list(csv.DictReader(f))
     elif format == "feather":
         results = pandas.read_feather(filename).to_dict("records")
-    elif format == "dta":
+    elif format in ("dta", "dta.gz"):
         results = pandas.read_stata(filename).to_dict("records")
     assert results == [
         {"patient_id": cast(patient_1.Patient_ID), "sex": "M", "age": cast(40)},

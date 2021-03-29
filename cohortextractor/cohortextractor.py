@@ -41,7 +41,7 @@ notebook_tag = "opencorona-research"
 target_dir = "/home/app/notebook"
 
 
-SUPPORTED_FILE_FORMATS = ["csv", "feather", "dta"]
+SUPPORTED_FILE_FORMATS = ["csv", "csv.gz", "feather", "dta", "dta.gz"]
 EXTENSION_REGEX = "|".join(map(re.escape, SUPPORTED_FILE_FORMATS))
 
 
@@ -369,13 +369,13 @@ def _load_dataframe_for_measures(filename, measures):
     dtype = {col: "category" for col in group_by_columns}
     for col in numeric_columns:
         dtype[col] = "float64"
-    if filename.endswith(".csv"):
+    if filename.endswith(".csv") or filename.endswith(".csv.gz"):
         df = pandas.read_csv(
             filename, dtype=dtype, usecols=list(dtype.keys()), keep_default_na=False
         )
     elif filename.endswith(".feather"):
         df = pandas.read_feather(filename, columns=list(dtype.keys()))
-    elif filename.endswith(".dta"):
+    elif filename.endswith(".dta") or filename.endswith(".dta.gz"):
         df = pandas.read_stata(filename, columns=list(dtype.keys()))
     else:
         raise RuntimeError(f"Unsupported file format: {filename}")

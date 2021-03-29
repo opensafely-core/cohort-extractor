@@ -12,7 +12,7 @@ import pytest
 import cohortextractor
 
 
-@pytest.mark.parametrize("format", ["csv", "feather", "dta"])
+@pytest.mark.parametrize("format", ["csv", "csv.gz", "feather", "dta", "dta.gz"])
 def test_smoketest(tmp_path, format):
     _cohortextractor(
         "generate_cohort",

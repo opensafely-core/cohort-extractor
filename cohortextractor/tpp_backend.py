@@ -1,6 +1,7 @@
 import csv
 import datetime
 import enum
+import gzip
 import hashlib
 import os
 import re
@@ -84,9 +85,16 @@ class TPPBackend:
 
         # Special handling for CSV as we can stream this directly to disk
         # without building a dataframe in memory
-        if str(temp_filename).endswith(".csv"):
+        if temp_filename.endswith(".csv"):
             with open(temp_filename, "w", newline="") as csvfile:
                 writer = csv.writer(csvfile)
+                for row in results:
+                    writer.writerow(row)
+        elif temp_filename.endswith(".csv.gz"):
+            # `gzip.open` defaults to 9 (max compression) whereas the default
+            # speed/compression tradeoff in the command line tool is 6
+            with gzip.open(temp_filename, "wt", newline="", compresslevel=6) as gzfile:
+                writer = csv.writer(gzfile)
                 for row in results:
                     writer.writerow(row)
         else:

@@ -1,5 +1,6 @@
 import csv
 import datetime
+import gzip
 import os
 import re
 import uuid
@@ -85,6 +86,13 @@ class EMISBackend:
         if str(filename).endswith(".csv"):
             with open(filename, "w", newline="") as csvfile:
                 writer = csv.writer(csvfile)
+                for row in results:
+                    writer.writerow(row)
+        elif str(filename).endswith(".csv.gz"):
+            # `gzip.open` defaults to 9 (max compression) whereas the default
+            # speed/compression tradeoff in the command line tool is 6
+            with gzip.open(filename, "wt", newline="", compresslevel=6) as gzfile:
+                writer = csv.writer(gzfile)
                 for row in results:
                     writer.writerow(row)
         else:

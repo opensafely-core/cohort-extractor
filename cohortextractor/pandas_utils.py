@@ -3,11 +3,11 @@ import pandas
 
 def dataframe_to_file(df, filename):
     filename = str(filename)
-    if filename.endswith(".csv"):
+    if filename.endswith(".csv") or filename.endswith(".csv.gz"):
         df.to_csv(filename, index=False)
     elif filename.endswith(".feather"):
         df.to_feather(filename)
-    elif filename.endswith(".dta"):
+    elif filename.endswith(".dta") or filename.endswith(".dta.gz"):
         df.to_stata(filename, write_index=False)
     else:
         raise RuntimeError(f"Unsupported file format: {filename}")
