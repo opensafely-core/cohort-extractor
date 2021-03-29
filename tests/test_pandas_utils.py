@@ -1,5 +1,7 @@
 import math
 
+import numpy
+import pandas
 from pandas import NaT, Timestamp
 
 from cohortextractor.pandas_utils import dataframe_from_rows
@@ -27,49 +29,49 @@ def test_dataframe_from_rows():
 
     expected = [
         {
+            "patient_id": 1,
             "age": 20,
+            "sex": "M",
             "bmi": 18.5,
+            "stp": "STP1",
             "date_admitted": Timestamp("2018-08-01 00:00:00"),
             "date_died": Timestamp("2020-05-01 00:00:00"),
-            "patient_id": 1,
-            "sex": "M",
-            "stp": "STP1",
         },
         {
+            "patient_id": 2,
             "age": 38,
+            "sex": "F",
             "bmi": None,
+            "stp": "STP2",
             "date_admitted": Timestamp("2019-12-12 00:00:00"),
             "date_died": Timestamp("2020-06-01 00:00:00"),
-            "patient_id": 2,
-            "sex": "F",
-            "stp": "STP2",
         },
         {
+            "patient_id": 3,
             "age": 65,
+            "sex": "M",
             "bmi": 0.0,
+            "stp": "STP2",
             "date_admitted": NaT,
             "date_died": Timestamp("2020-07-01 00:00:00"),
-            "patient_id": 3,
-            "sex": "M",
-            "stp": "STP2",
         },
         {
+            "patient_id": 4,
             "age": 42,
+            "sex": "F",
             "bmi": 17.8,
+            "stp": None,
             "date_admitted": Timestamp("2020-04-10 00:00:00"),
             "date_died": Timestamp("2020-08-01 00:00:00"),
-            "patient_id": 4,
-            "sex": "F",
-            "stp": None,
         },
         {
+            "patient_id": 5,
             "age": 18,
+            "sex": "M",
             "bmi": 26.2,
+            "stp": "STP3",
             "date_admitted": Timestamp("2020-06-20 00:00:00"),
             "date_died": NaT,
-            "patient_id": 5,
-            "sex": "M",
-            "stp": "STP3",
         },
     ]
 
@@ -83,3 +85,10 @@ def test_dataframe_from_rows():
         for record in df.to_dict("record")
     ]
     assert records == expected
+    assert df.patient_id.dtype == int
+    assert df.age.dtype == int
+    assert type(df.sex.dtype) == pandas.CategoricalDtype
+    assert df.bmi.dtype == float
+    assert type(df.stp.dtype) == pandas.CategoricalDtype
+    assert df.date_admitted.dtype == numpy.dtype("datetime64[ns]")
+    assert df.date_died.dtype == numpy.dtype("datetime64[ns]")
