@@ -91,7 +91,7 @@ def mssql_sqlalchemy_engine_from_url(url):
 
 
 def mssql_fetch_table(
-    cursor,
+    get_cursor,
     table,
     key_column,
     batch_size=2 ** 14,
@@ -109,40 +109,59 @@ def mssql_fetch_table(
     assuming `retries` is greater than zero.
     """
 
-    def fetch_batch(min_key=None):
-        return _fetch_batch_with_retries(
-            cursor, table, key_column, batch_size, min_key, retries, sleep
-        )
+    batch_fetcher = BatchFetcher(
+        get_cursor=get_cursor,
+        table=table,
+        key_column=key_column,
+        batch_size=batch_size,
+        retries=retries,
+        sleep=sleep,
+    )
 
-    result_batch = fetch_batch()
-    headers = [x[0] for x in cursor.description]
+    result_batch = batch_fetcher.fetch()
+    headers = [x[0] for x in batch_fetcher.cursor.description]
     key_column_index = headers.index(key_column)
     yield headers
     yield from iter(result_batch)
     while len(result_batch) == batch_size:
         min_key = result_batch[-1][key_column_index]
-        result_batch = fetch_batch(min_key)
+        result_batch = batch_fetcher.fetch(min_key)
         yield from iter(result_batch)
 
 
-def _fetch_batch_with_retries(
-    cursor, table, key_column, batch_size, min_key, retries, sleep
-):
-    if min_key is not None:
-        assert isinstance(min_key, int)
-        where = f"WHERE {key_column} > {min_key}"
-    else:
-        where = ""
-    query = f"SELECT TOP {batch_size} * FROM {table} {where} ORDER BY {key_column}"
-    while True:
-        try:
-            cursor.execute(query)
-            return cursor.fetchall()
-        # We can't be more specific than this because we don't know what class
-        # of cursor object we'll be passed
-        except Exception:
-            if retries <= 0:
-                raise
-            else:
-                retries -= 1
-                time.sleep(sleep)
+class BatchFetcher:
+    def __init__(self, get_cursor, table, key_column, batch_size, retries, sleep):
+        self.get_cursor = get_cursor
+        self.table = table
+        self.key_column = key_column
+        self.batch_size = batch_size
+        self.retries = retries
+        self.sleep = sleep
+        self.cursor = None
+
+    def fetch(self, min_key=None):
+        if min_key is not None:
+            assert isinstance(min_key, int)
+            where = f"WHERE {self.key_column} > {min_key}"
+        else:
+            where = ""
+        query = (
+            f"SELECT TOP {self.batch_size} * FROM {self.table} "
+            f"{where} ORDER BY {self.key_column}"
+        )
+        retries = self.retries
+        while True:
+            try:
+                if self.cursor is None:
+                    self.cursor = self.get_cursor()
+                self.cursor.execute(query)
+                return self.cursor.fetchall()
+            # We can't be more specific than this because we don't know what class
+            # of cursor object we'll be passed
+            except Exception:
+                if retries <= 0:
+                    raise
+                else:
+                    retries -= 1
+                    time.sleep(self.sleep)
+                    self.cursor = None
