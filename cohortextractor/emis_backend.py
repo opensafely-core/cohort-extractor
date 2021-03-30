@@ -70,13 +70,15 @@ class EMISBackend:
             # In production "patient_id" is a string (hex-encoded hash) but in
             # test it's an int so we need to handle that correctly
             if result.description[id_column_index][1] == "integer":
-                truncate_patient_id = lambda x: x  # noqa
+                _truncate_patient_id = lambda x: x  # noqa
+            else:
+                _truncate_patient_id = truncate_patient_id
 
             yield headers
 
             for row in result:
                 # Reduce long EMIS patient IDs (see docstring)
-                patient_id = truncate_patient_id(row[id_column_index])
+                patient_id = _truncate_patient_id(row[id_column_index])
                 row[id_column_index] = patient_id
                 unique_ids.add(patient_id)
                 total_rows += 1
