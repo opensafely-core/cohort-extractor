@@ -1,7 +1,6 @@
 import datetime
 import enum
 import hashlib
-import os
 import re
 import uuid
 
@@ -89,15 +88,13 @@ class TPPBackend:
 
         results = check_ids_and_log(results)
 
-        temp_filename = self._get_temp_filename(filename)
-
         # Special handling for CSV as we can stream this directly to disk
         # without building a dataframe in memory
-        if is_csv_filename(temp_filename):
-            write_rows_to_csv(results, temp_filename)
+        if is_csv_filename(filename):
+            write_rows_to_csv(results, filename)
         else:
             df = dataframe_from_rows(self.covariate_definitions, results)
-            dataframe_to_file(df, temp_filename)
+            dataframe_to_file(df, filename)
 
         self.execute_queries(
             [f"-- Deleting '{output_table}'\nDROP TABLE {output_table}"]
@@ -106,18 +103,6 @@ class TPPBackend:
         duplicates = total_rows - len(unique_ids)
         if duplicates != 0:
             raise RuntimeError(f"Duplicate IDs found ({duplicates} rows)")
-
-        # If the extraction doesn't complete successfully we still want to keep
-        # the output file for debugging purposes, just under a name which makes
-        # it clear that it's not complete
-        os.rename(temp_filename, filename)
-
-    def _get_temp_filename(self, filename):
-        root, name = os.path.split(filename)
-        # Need to handle multiple extensions e.g. csv.gz to can't use `splitext`
-        base, sep, extensions = name.partition(".")
-        timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-        return os.path.join(root, f"{base}.partial.{timestamp}{sep}{extensions}")
 
     def to_dicts(self):
         result = self.execute_queries(self.queries)

@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 import csv
-import glob
 import gzip
 import os
 import subprocess
@@ -1621,11 +1620,16 @@ def test_duplicate_id_checking(tmp_path):
         study.to_dicts()
     with pytest.raises(RuntimeError):
         study.to_file(tmp_path / "test.csv")
-    # Check that we don't produce a normal output file but we do leave a
-    # partial file
-    assert not os.path.exists(tmp_path / "test.csv")
-    partial_files = glob.glob(f"{tmp_path}/test.partial.*.csv")
-    assert len(partial_files) == 1
+    # Check that we still produce an output file with the duplicates in
+    with open(tmp_path / "test.csv") as f:
+        output = list(csv.DictReader(f))
+    expected = [
+        {"patient_id": "1", "foo": "1"},
+        {"patient_id": "1", "foo": "4"},
+        {"patient_id": "2", "foo": "2"},
+        {"patient_id": "3", "foo": "3"},
+    ]
+    assert output == expected
 
 
 def test_using_expression_in_population_definition():
