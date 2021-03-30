@@ -48,11 +48,20 @@ class TPPBackend:
             queries.append(f"CREATE INDEX ix_patient_id ON {output_table} (patient_id)")
             self.execute_queries(queries)
 
+        def get_cursor():
+            # If we've written results to a temporary database then we make a
+            # new connection each time we retry, which can fix issues with
+            # dropped connections. If we haven't then we're relying on
+            # session-scoped temporary tables which means we can't reconnect
+            # without losing everything
+            force_reconnect = bool(self.temporary_database)
+            return self.get_db_connection(force_reconnect=force_reconnect).cursor()
+
         # `batch_size` here was chosen through a bit of unscientific
         # trial-and-error and some guesswork. It may well need changing in
         # future.
         results = mssql_fetch_table(
-            cursor=self.get_db_connection().cursor(),
+            get_cursor=get_cursor,
             table=output_table,
             key_column="patient_id",
             batch_size=32000,
@@ -212,9 +221,12 @@ class TPPBackend:
             else:
                 raise
 
-    def get_db_connection(self):
+    def get_db_connection(self, force_reconnect=False):
         if self._db_connection:
-            return self._db_connection
+            if not force_reconnect:
+                return self._db_connection
+            else:
+                self._db_connection.close()
         self._db_connection = mssql_dbapi_connection_from_url(self.database_url)
         return self._db_connection
 
