@@ -1685,8 +1685,7 @@ def household_as_of(reference_date, returning=None, return_expectations=None):
     reliable but are apparently pretty good.
 
     Args:
-        reference_date: date of interest as a string with the format `YYYY-MM-DD`. Filters results to a particular
-        set date.
+        reference_date: date of interest as a string with the format `YYYY-MM-DD`. Filters results to a particular set date.
 
         returning: string indicating value to be returned. Options are:
 
@@ -1709,8 +1708,7 @@ def household_as_of(reference_date, returning=None, return_expectations=None):
             * `msoa`: Returns the MSOA (Middle Super Output Area) in which the
                household is situated
 
-        return_expectations: a dictionary defining the incidence and distribution of expected value
-        within the population in question.
+        return_expectations: a dictionary defining the incidence and distribution of expected value within the population in question.
 
     Returns:
         list: of integers if `returning` argument is set to `pseudo_id`, `household_size` or
