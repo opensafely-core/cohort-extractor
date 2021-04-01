@@ -2883,6 +2883,10 @@ def test_patients_admitted_to_hospital():
             with_admission_method=["11", "99"],
             returning="days_in_critical_care",
         ),
+        primary_diagnosis_prefix=patients.admitted_to_hospital(
+            returning="binary_flag",
+            with_these_primary_diagnoses=codelist(["AAA"], "icd10"),
+        ),
     )
 
     assert_results(
@@ -2903,6 +2907,7 @@ def test_patients_admitted_to_hospital():
         last_primary_diagnosis=["", "", "CCCC", "FFFF"],
         discharge_dest=["", "11", "99", ""],
         critical_care_days=["", "3", "", "5"],
+        primary_diagnosis_prefix=["0", "1", "0", "0"],
     )
 
 

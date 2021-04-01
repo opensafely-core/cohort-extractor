@@ -1904,8 +1904,12 @@ def admitted_to_hospital(
         date_format: a string detailing the format of the dates to be returned. It can be `YYYY-MM-DD`,
             `YYYY-MM` or `YYYY` and wherever possible the least disclosive data should be returned. i.e returning
             only year is less disclosive than a date with day, month and year.
-        with_these_diagnoses: icd10 codes to match against any diagnosis
-        with_these_primary_diagnoses: icd10 codes to match against the primary diagnosis
+        with_these_diagnoses: icd10 codes to match against any diagnosis (note
+            this uses **prefix** matching so a code like `J12` will match
+            `J120`, `J121` etc.)
+        with_these_primary_diagnoses: icd10 codes to match against the primary
+            diagnosis note this uses **prefix** matching so a code like `J12`
+            will match `J120`, `J121` etc.)
         with_these_procedures: opcs4 codes to match against the procedure
         with_admission_method: string or list of strings to match against
         with_source_of_admission: string or list of strings to match against
