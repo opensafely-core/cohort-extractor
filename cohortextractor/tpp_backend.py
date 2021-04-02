@@ -1962,8 +1962,13 @@ class TPPBackend:
 
         if with_these_primary_diagnoses:
             assert with_these_primary_diagnoses.system == "icd10"
-            codes_sql = codelist_to_sql(with_these_primary_diagnoses)
-            conditions.append(f"APCS_Der.Spell_Primary_Diagnosis IN ({codes_sql})")
+            fragments = [
+                f"APCS_Der.Spell_Primary_Diagnosis LIKE {pattern} ESCAPE '\\'"
+                for pattern in codelist_to_like_patterns(
+                    with_these_primary_diagnoses, prefix="", suffix="%"
+                )
+            ]
+            conditions.append("(" + " OR ".join(fragments) + ")")
 
         if with_these_diagnoses:
             assert with_these_diagnoses.system == "icd10"
