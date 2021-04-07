@@ -75,6 +75,46 @@ def test_smoketest(tmp_path, format):
     ]
 
 
+@pytest.mark.xfail(reason="Feature implementation in progress")
+def test_suppresses_small_numbers(tmp_path):
+    def run_study(population):
+        _cohortextractor(
+            study="test_suppresses_small_numbers",
+            args=[
+                "generate_cohort",
+                "--expectations-population",
+                str(population),
+                "--index-date-range",
+                "2020-01-01 to 2020-01-01 by month",
+                "--output-dir",
+                tmp_path,
+            ],
+        )
+        _cohortextractor(
+            study="test_suppresses_small_numbers",
+            args=[
+                "generate_measures",
+                "--output-dir",
+                tmp_path,
+            ],
+        )
+
+        with open(tmp_path / "measure_liver_disease_by_stp.csv") as f:
+            return list(csv.DictReader(f))
+
+    # Incidence is 1.0 and there is only one STP to make the numbers deterministic
+    results = run_study(100)
+    assert results[0]["has_chronic_liver_disease"] == "100.0"
+    assert results[0]["population"] == "100"
+    assert results[0]["value"] == "1.0"
+
+    # Push the population down below the small number threshold to trigger suppression
+    results = run_study(3)
+    assert results[0]["has_chronic_liver_disease"] == ""
+    assert results[0]["population"] == "3"
+    assert results[0]["value"] == ""
+
+
 def _cohortextractor(study, args):
     study_path = os.path.join(os.path.dirname(__file__), "fixtures", "studies", study)
     cohortextractor_path = os.path.dirname(os.path.dirname(cohortextractor.__file__))
