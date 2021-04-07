@@ -35,3 +35,24 @@ class Measure:
             self.group_by = [group_by]
         else:
             self.group_by = group_by
+
+    def calculate(self, data):
+        """
+        Calculates this measure on the provided patient dataset.
+
+        Args:
+            data: a Pandas DataFrame
+        """
+        if self.group_by:
+            columns = [self.numerator, self.denominator, *self.group_by]
+            # Remove duplicates but preserve order
+            columns = list(dict.fromkeys(columns).keys())
+            result = data[columns]
+            result = result.groupby(self.group_by).sum()
+            result = result.reset_index()
+        else:
+            result = data[[self.numerator, self.denominator]]
+        result["value"] = (
+            result[self.numerator] / result[self.denominator]
+        )
+        return result

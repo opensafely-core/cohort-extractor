@@ -315,7 +315,7 @@ def _generate_measures(
             # already exist we can avoid loading the patient data entirely
             if patient_df is None:
                 patient_df = _load_dataframe_for_measures(filepath, measures)
-            measure_df = _calculate_measure_df(patient_df, measure)
+            measure_df = measure.calculate(patient_df)
             measure_df.to_csv(output_file, index=False)
             logger.info(f"Created measure output at {output_file}")
     if not measure_outputs:
@@ -328,22 +328,6 @@ def _generate_measures(
         output_file = f"{output_dir}/measure_{measure.id}.csv"
         _combine_csv_files_with_dates(output_file, measure_outputs[measure.id])
         logger.info(f"Combined measure output for all dates in {output_file}")
-
-
-def _calculate_measure_df(patient_df, measure):
-    if measure.group_by:
-        columns = [measure.numerator, measure.denominator, *measure.group_by]
-        # Remove duplicates but preserve order
-        columns = list(dict.fromkeys(columns).keys())
-        measure_df = patient_df[columns]
-        measure_df = measure_df.groupby(measure.group_by).sum()
-        measure_df = measure_df.reset_index()
-    else:
-        measure_df = patient_df[[measure.numerator, measure.denominator]]
-    measure_df["value"] = (
-        measure_df[measure.numerator] / measure_df[measure.denominator]
-    )
-    return measure_df
 
 
 def _get_date_from_filename(filename):
