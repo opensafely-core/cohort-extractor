@@ -15,20 +15,26 @@ import cohortextractor
 @pytest.mark.parametrize("format", ["csv", "csv.gz", "feather", "dta", "dta.gz"])
 def test_smoketest(tmp_path, format):
     _cohortextractor(
-        "generate_cohort",
-        "--expectations-population",
-        "100",
-        "--index-date-range",
-        "2020-01-01 to 2020-04-01 by month",
-        "--output-dir",
-        tmp_path,
-        "--output-format",
-        format,
+        study="test_smoketest",
+        args=[
+            "generate_cohort",
+            "--expectations-population",
+            "100",
+            "--index-date-range",
+            "2020-01-01 to 2020-04-01 by month",
+            "--output-dir",
+            tmp_path,
+            "--output-format",
+            format,
+        ],
     )
     _cohortextractor(
-        "generate_measures",
-        "--output-dir",
-        tmp_path,
+        study="test_smoketest",
+        args=[
+            "generate_measures",
+            "--output-dir",
+            tmp_path,
+        ],
     )
     # liver_disease_by_stp
     with open(tmp_path / "measure_liver_disease_by_stp.csv") as f:
@@ -69,12 +75,12 @@ def test_smoketest(tmp_path, format):
     ]
 
 
-def _cohortextractor(*args):
-    fixture_path = os.path.join(os.path.dirname(__file__), "fixtures/smoketest")
+def _cohortextractor(study, args):
+    study_path = os.path.join(os.path.dirname(__file__), "fixtures", "studies", study)
     cohortextractor_path = os.path.dirname(os.path.dirname(cohortextractor.__file__))
     subprocess.run(
         [sys.executable, "-m", "cohortextractor.cohortextractor", *args],
         check=True,
-        cwd=fixture_path,
+        cwd=study_path,
         env=dict(os.environ, PYTHONPATH=cohortextractor_path),
     )
