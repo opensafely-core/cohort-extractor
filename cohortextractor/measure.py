@@ -43,10 +43,7 @@ class Measure:
         Args:
             data: a Pandas DataFrame
         """
-        columns = [self.numerator, self.denominator, *self.group_by]
-        # Remove duplicates but preserve order
-        columns = list(dict.fromkeys(columns).keys())
-
+        columns = _drop_duplicates([self.numerator, self.denominator, *self.group_by])
         result = data[columns]
 
         if self.group_by:
@@ -56,3 +53,10 @@ class Measure:
         result["value"] = result[self.numerator] / result[self.denominator]
 
         return result
+
+
+def _drop_duplicates(lst):
+    """
+    Preserves the order of the list.
+    """
+    return list(dict.fromkeys(lst).keys())
