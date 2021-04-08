@@ -44,7 +44,11 @@ class Measure:
             data: a Pandas DataFrame
         """
         columns = _drop_duplicates([self.numerator, self.denominator, *self.group_by])
-        result = data[columns]
+
+        # Ensure we're working on a copy rather than a view so that
+        # modifications we make (for example low number suppression)
+        # can't be reflected in the underlying data.
+        result = data[columns].copy()
 
         if self.group_by:
             result = result.groupby(self.group_by).sum()
