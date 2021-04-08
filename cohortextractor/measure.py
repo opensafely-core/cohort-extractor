@@ -43,16 +43,16 @@ class Measure:
         Args:
             data: a Pandas DataFrame
         """
+        columns = [self.numerator, self.denominator, *self.group_by]
+        # Remove duplicates but preserve order
+        columns = list(dict.fromkeys(columns).keys())
+
+        result = data[columns]
+
         if self.group_by:
-            columns = [self.numerator, self.denominator, *self.group_by]
-            # Remove duplicates but preserve order
-            columns = list(dict.fromkeys(columns).keys())
-            result = data[columns]
             result = result.groupby(self.group_by).sum()
             result = result.reset_index()
-        else:
-            result = data[[self.numerator, self.denominator]]
-        result["value"] = (
-            result[self.numerator] / result[self.denominator]
-        )
+
+        result["value"] = result[self.numerator] / result[self.denominator]
+
         return result
