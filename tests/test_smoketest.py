@@ -75,7 +75,6 @@ def test_smoketest(tmp_path, format):
     ]
 
 
-@pytest.mark.xfail(reason="Feature implementation in progress")
 def test_suppresses_small_numbers(tmp_path):
     def run_study(population):
         _cohortextractor(

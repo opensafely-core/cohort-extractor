@@ -1,5 +1,12 @@
+import numpy
+
+SMALL_NUMBER_THRESHOLD = 5
+
+
 class Measure:
-    def __init__(self, id, denominator, numerator, group_by=None):
+    def __init__(
+        self, id, denominator, numerator, group_by=None, small_number_suppression=False
+    ):
         """
         Creates a "measure" using data extracted by the StudyDefinition defined
         in the same file.
@@ -22,9 +29,14 @@ class Measure:
                 "population" to treat the entire population as a single group.
                 Set group_by to None (or omit it entirely) to perform no
                 grouping and leave the data at individual patient level.
+            small_number_suppression: A boolean to enable or disable
+                suppression of small numbers. If enabled, numerator
+                values less than or equal to 5 will be suppressed to
+                `numpy.nan` to avoid re-identification. Defaults to `False`.
 
         Returns:
             Measure instance
+
         """
         self.id = id
         self.denominator = denominator
@@ -35,6 +47,7 @@ class Measure:
             self.group_by = [group_by]
         else:
             self.group_by = group_by
+        self.small_number_suppression = small_number_suppression
 
     def calculate(self, data):
         """
@@ -54,6 +67,11 @@ class Measure:
             result = result.groupby(self.group_by).sum()
             result = result.reset_index()
 
+        if self.small_number_suppression:
+            result.loc[
+                _is_suppressible(result[self.numerator]), self.numerator
+            ] = numpy.nan
+
         result["value"] = result[self.numerator] / result[self.denominator]
 
         return result
@@ -64,3 +82,11 @@ def _drop_duplicates(lst):
     Preserves the order of the list.
     """
     return list(dict.fromkeys(lst).keys())
+
+
+def _is_suppressible(column):
+    """
+    Args:
+        column: a column of a DataFrame
+    """
+    return (column > 0) & (column <= SMALL_NUMBER_THRESHOLD)
