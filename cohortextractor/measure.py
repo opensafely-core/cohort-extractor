@@ -56,28 +56,36 @@ class Measure:
         Args:
             data: a Pandas DataFrame
         """
+        result = self._select_columns(data)
+        result = self._group_rows(result)
+        self._suppress_small_numbers(result)
+        self._calculate_results(result)
+
+        return result
+
+    def _select_columns(self, data):
         columns = _drop_duplicates([self.numerator, self.denominator, *self.group_by])
 
         # Ensure we're working on a copy rather than a view so that
         # modifications we make (for example low number suppression)
         # can't be reflected in the underlying data.
-        result = data[columns].copy()
+        return data[columns].copy()
 
-        if self.group_by:
-            result = result.groupby(self.group_by).sum()
-            result = result.reset_index()
+    def _group_rows(self, data):
+        if not self.group_by:
+            return data
+        return data.groupby(self.group_by).sum().reset_index()
 
+    def _suppress_small_numbers(self, data):
         if self.small_number_suppression:
-            result.loc[
-                _is_suppressible(result[self.numerator]), self.numerator
-            ] = numpy.nan
-            result.loc[
-                _is_suppressible(result[self.denominator]), self.denominator
-            ] = numpy.nan
+            self._suppress_column(self.numerator, data)
+            self._suppress_column(self.denominator, data)
 
-        result["value"] = result[self.numerator] / result[self.denominator]
+    def _suppress_column(self, column, data):
+        data.loc[_is_suppressible(data[column]), column] = numpy.nan
 
-        return result
+    def _calculate_results(self, data):
+        data["value"] = data[self.numerator] / data[self.denominator]
 
 
 def _drop_duplicates(lst):
