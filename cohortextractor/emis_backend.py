@@ -1123,6 +1123,20 @@ class EMISBackend:
               {self.patient_no_duplicates_table}
             """
 
+    def patients_date_deregistered_from_all_supported_practices(self, between):
+        date_condition, date_joins = self.get_date_condition(
+            self.patient_no_duplicates_table, "registration_end_date", between
+        )
+        return f"""
+        SELECT
+          registration_id,
+          hashed_organisation,
+          registration_end_date AS value
+        FROM {self.patient_no_duplicates_table}
+        {date_joins}
+        WHERE {date_condition}
+        """
+
     def patients_with_death_recorded_in_primary_care(
         self,
         # Set date limits

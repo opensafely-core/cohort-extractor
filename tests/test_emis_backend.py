@@ -2014,6 +2014,29 @@ def test_patients_aggregate_value_of():
     assert "abc_value" not in results[0].keys()
 
 
+def test_patients_date_deregistered_from_all_supported_practices():
+    session = make_session()
+    session.add_all(
+        [
+            # Never de-registered
+            Patient(registered_date="2001-01-01", registration_end_date=None),
+            # De-registered, but after cut-off date
+            Patient(registered_date="2001-01-01", registration_end_date="2020-01-01"),
+            # De-registered
+            Patient(registered_date="2001-01-01", registration_end_date="2010-01-01"),
+        ]
+    )
+    session.commit()
+    study = StudyDefinition(
+        population=patients.all(),
+        dereg_date=patients.date_deregistered_from_all_supported_practices(
+            on_or_before="2015-01-01",
+            date_format="YYYY-MM",
+        ),
+    )
+    assert_results(study.to_dicts(), dereg_date=["", "", "2010-01"])
+
+
 def test_dynamic_index_dates():
     session = make_session()
     session.add_all(
