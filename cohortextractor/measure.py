@@ -30,7 +30,7 @@ class Measure:
                 Set group_by to None (or omit it entirely) to perform no
                 grouping and leave the data at individual patient level.
             small_number_suppression: A boolean to enable or disable
-                suppression of small numbers. If enabled, numerator
+                suppression of small numbers. If enabled, numerator and denominator
                 values less than or equal to 5 will be suppressed to
                 `numpy.nan` to avoid re-identification. Defaults to `False`.
 
@@ -70,6 +70,9 @@ class Measure:
         if self.small_number_suppression:
             result.loc[
                 _is_suppressible(result[self.numerator]), self.numerator
+            ] = numpy.nan
+            result.loc[
+                _is_suppressible(result[self.denominator]), self.denominator
             ] = numpy.nan
 
         result["value"] = result[self.numerator] / result[self.denominator]

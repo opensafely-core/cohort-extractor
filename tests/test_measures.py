@@ -137,7 +137,7 @@ def test_suppresses_small_numbers_after_grouping():
     data = pandas.DataFrame(
         {
             "fish": [1, 1, 3, 3],
-            "litres": [1, 1, 1, 1],
+            "litres": [1, 1, 3, 3],
             "colour": ["gold", "gold", "pink", "pink"],
         }
     )
@@ -145,7 +145,7 @@ def test_suppresses_small_numbers_after_grouping():
     result.set_index("colour", inplace=True)
 
     assert numpy.isnan(result.loc["gold"]["value"])
-    assert result.loc["pink"]["value"] == 3.0
+    assert result.loc["pink"]["value"] == 1.0
 
 
 def test_suppression_doesnt_affect_later_calculations_on_the_same_data():
@@ -177,3 +177,17 @@ def test_doesnt_suppress_zero_values():
 
     assert result.loc["bowl"]["fish"] == 0
     assert result.loc["bowl"]["value"] == 0
+
+
+def test_suppresses_denominator_if_its_small_enough():
+    m = Measure(
+        "ignored-id",
+        numerator="fish",
+        denominator="litres",
+        small_number_suppression=True,
+    )
+    data = pandas.DataFrame({"fish": [0], "litres": [4]}, index=["bag"])
+    result = m.calculate(data)
+
+    assert numpy.isnan(result.loc["bag"]["litres"])
+    assert numpy.isnan(result.loc["bag"]["value"])

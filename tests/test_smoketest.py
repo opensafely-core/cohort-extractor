@@ -104,13 +104,13 @@ def test_suppresses_small_numbers(tmp_path):
     # Incidence is 1.0 and there is only one STP to make the numbers deterministic
     results = run_study(100)
     assert results[0]["has_chronic_liver_disease"] == "100.0"
-    assert results[0]["population"] == "100"
+    assert results[0]["population"] == "100.0"
     assert results[0]["value"] == "1.0"
 
     # Push the population down below the small number threshold to trigger suppression
     results = run_study(3)
     assert results[0]["has_chronic_liver_disease"] == ""
-    assert results[0]["population"] == "3"
+    assert results[0]["population"] == ""
     assert results[0]["value"] == ""
 
 
