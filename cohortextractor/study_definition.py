@@ -31,16 +31,11 @@ class StudyDefinition:
         self.database_url = os.environ.get("DATABASE_URL")
         self.temporary_database = os.environ.get("TEMP_DATABASE_NAME")
         if self.database_url:
-            Backend = self.get_backend_for_database_url(self.database_url)
-            self.backend = Backend(
-                self.database_url,
-                self.covariate_definitions,
-                temporary_database=self.temporary_database,
-            )
+            self.backend = self.create_backend()
         else:
             # Without a backend defined we can still generate dummy data but we
             # can't rely on the backend to validate the study definition for us
-            self.validate_study_definition(self.covariate_definitions)
+            self.validate_study_definition()
             self.backend = None
 
     def set_index_date(self, index_date):
@@ -61,12 +56,7 @@ class StudyDefinition:
             )
         )
         if self.backend:
-            self.backend.close()
-            self.backend = self.backend.__class__(
-                self.database_url,
-                self.covariate_definitions,
-                temporary_database=self.temporary_database,
-            )
+            self.recreate_backend()
 
     def to_file(self, filename, expectations_population=False, **kwargs):
         if expectations_population:
@@ -136,14 +126,26 @@ class StudyDefinition:
                 "Cannot extract data as no DATABASE_URL environment variable defined"
             )
 
-    def validate_study_definition(self, covariate_definitions):
+    def validate_study_definition(self):
         # As a crude way of error checking we construct a TPP backend with a
         # dummy database URL. We immediately discard the backend instance, but
         # the process of constructing it should trigger any problems with the
         # study definition.
-        database_url = "mssql://localhost/dummy"
-        Backend = self.get_backend_for_database_url(database_url)
-        Backend(database_url, covariate_definitions)
+        self.create_backend("mssql://localhost/dummy")
+
+    def create_backend(self, database_url=None):
+        # Creates an appropriate backend for the database URL. Uses
+        # the provided URL or `self.database_url` if none is provided.
+        Backend = self.get_backend_for_database_url(database_url or self.database_url)
+        return Backend(
+            self.database_url,
+            self.covariate_definitions,
+            temporary_database=self.temporary_database,
+        )
+
+    def recreate_backend(self):
+        self.backend.close()
+        self.backend = self.create_backend()
 
     @staticmethod
     def get_pandas_csv_args(covariate_definitions):
