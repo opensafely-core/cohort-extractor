@@ -299,7 +299,12 @@ class EMISBackend:
         return ColumnExpression(
             f"CASE {' '.join(clauses)} ELSE {quote(default_value)} END",
             type=column_type,
-            default_value=default_value,
+            # Note, confusingly, this is not the same as the `default_value`
+            # used above. Above it refers to the value the case-expression will
+            # default to in case of no match. Below it refers to the "empty"
+            # value for the column type which is almost always the empty string
+            # apart from bools and ints where it's zero.
+            default_value=self.get_default_value_for_type(column_type),
             source_tables=tables_used,
         )
 
