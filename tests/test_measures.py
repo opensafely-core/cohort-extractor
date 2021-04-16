@@ -113,16 +113,17 @@ def test_suppresses_small_numbers_at_threshold_in_the_numerator():
         {
             "fish": [
                 measure.SMALL_NUMBER_THRESHOLD,
+                measure.SMALL_NUMBER_THRESHOLD,
                 measure.SMALL_NUMBER_THRESHOLD + 1,
             ],
-            "litres": [100, measure.SMALL_NUMBER_THRESHOLD + 1],
+            "litres": [100, 100, measure.SMALL_NUMBER_THRESHOLD + 1],
         },
-        index=["bowl", "bag"],
+        index=["bowl", "box", "bag"],
     )
     result = m.calculate(data)
 
     assert numpy.isnan(result.loc["bowl"]["fish"])
-    assert numpy.isnan(result.loc["bowl"]["value"])
+    assert numpy.isnan(result.loc["box"]["fish"])
     assert result.loc["bag"]["value"] == 1.0
 
 
@@ -136,15 +137,16 @@ def test_suppresses_small_numbers_after_grouping():
     )
     data = pandas.DataFrame(
         {
-            "fish": [1, 1, 3, 3],
-            "litres": [1, 1, 3, 3],
-            "colour": ["gold", "gold", "pink", "pink"],
+            "fish": [2, 2, 2, 2, 3, 3],
+            "litres": [2, 2, 2, 2, 3, 3],
+            "colour": ["gold", "gold", "bronze", "bronze", "pink", "pink"],
         }
     )
     result = m.calculate(data)
     result.set_index("colour", inplace=True)
 
     assert numpy.isnan(result.loc["gold"]["value"])
+    assert numpy.isnan(result.loc["bronze"]["value"])
     assert result.loc["pink"]["value"] == 1.0
 
 
@@ -172,7 +174,9 @@ def test_doesnt_suppress_zero_values():
         denominator="litres",
         small_number_suppression=True,
     )
-    data = pandas.DataFrame({"fish": [0], "litres": [100]}, index=["bowl"])
+    data = pandas.DataFrame(
+        {"fish": [0, 1], "litres": [100, 100]}, index=["bowl", "bag"]
+    )
     result = m.calculate(data)
 
     assert result.loc["bowl"]["fish"] == 0
@@ -191,3 +195,72 @@ def test_suppresses_denominator_if_its_small_enough():
 
     assert numpy.isnan(result.loc["bag"]["litres"])
     assert numpy.isnan(result.loc["bag"]["value"])
+
+
+def test_suppresses_an_extra_value_if_total_of_small_values_is_less_than_threshold():
+    m = Measure(
+        "ignored-id",
+        numerator="fish",
+        denominator="litres",
+        small_number_suppression=True,
+    )
+    data = pandas.DataFrame(
+        {"fish": [2, 2, 6], "litres": [10, 10, 10]}, index=["a", "b", "c"]
+    )
+    result = m.calculate(data)
+
+    assert numpy.isnan(result.loc["a"]["fish"])
+    assert numpy.isnan(result.loc["b"]["fish"])
+    assert numpy.isnan(result.loc["c"]["fish"])
+
+
+def test_suppresses_all_small_values_even_if_total_is_way_over_threshold():
+    m = Measure(
+        "ignored-id",
+        numerator="fish",
+        denominator="litres",
+        small_number_suppression=True,
+    )
+    data = pandas.DataFrame(
+        {"fish": [2, 2, 2, 2], "litres": [10, 10, 10, 10]}, index=["a", "b", "c", "d"]
+    )
+    result = m.calculate(data)
+
+    assert numpy.isnan(result.loc["a"]["fish"])
+    assert numpy.isnan(result.loc["b"]["fish"])
+    assert numpy.isnan(result.loc["c"]["fish"])
+    assert numpy.isnan(result.loc["d"]["fish"])
+
+
+def test_suppresses_smallest_extra_value_to_reach_threshold():
+    m = Measure(
+        "ignored-id",
+        numerator="fish",
+        denominator="litres",
+        small_number_suppression=True,
+    )
+    data = pandas.DataFrame(
+        {"fish": [2, 10, 8], "litres": [10, 10, 10]}, index=["a", "b", "c"]
+    )
+    result = m.calculate(data)
+
+    assert numpy.isnan(result.loc["a"]["fish"])
+    assert result.loc["b"]["fish"] == 10
+    assert numpy.isnan(result.loc["c"]["fish"])
+
+
+def test_suppresses_all_equal_extra_values_to_reach_threshold():
+    m = Measure(
+        "ignored-id",
+        numerator="fish",
+        denominator="litres",
+        small_number_suppression=True,
+    )
+    data = pandas.DataFrame(
+        {"fish": [1, 10, 10], "litres": [10, 10, 10]}, index=["a", "b", "c"]
+    )
+    result = m.calculate(data)
+
+    assert numpy.isnan(result.loc["a"]["fish"])
+    assert numpy.isnan(result.loc["b"]["fish"])
+    assert numpy.isnan(result.loc["c"]["fish"])

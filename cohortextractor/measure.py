@@ -30,9 +30,11 @@ class Measure:
                 Set group_by to None (or omit it entirely) to perform no
                 grouping and leave the data at individual patient level.
             small_number_suppression: A boolean to enable or disable
-                suppression of small numbers. If enabled, numerator and denominator
-                values less than or equal to 5 will be suppressed to
-                `numpy.nan` to avoid re-identification. Defaults to `False`.
+                suppression of small numbers. If enabled, numerator
+                and denominator values less than or equal to 5 will be
+                suppressed to `numpy.nan` to avoid re-identification. Larger
+                numbers also suppressed to bring the total suppressed above
+                5. Defaults to `False`.
 
         Returns:
             Measure instance
@@ -82,7 +84,27 @@ class Measure:
             self._suppress_column(self.denominator, data)
 
     def _suppress_column(self, column, data):
-        data.loc[_is_suppressible(data[column]), column] = numpy.nan
+        small_values = (data[column] > 0) & (data[column] <= SMALL_NUMBER_THRESHOLD)
+
+        if data.loc[small_values].empty:
+            return
+
+        small_value_total = data.loc[small_values, column].sum()
+        data.loc[small_values, column] = numpy.nan
+
+        if small_value_total > SMALL_NUMBER_THRESHOLD:
+            return
+
+        # If the total suppressed is small then reidentification may
+        # be possible by comparing the total of the unsuppressed
+        # values with the population. So we suppress further values to
+        # take the total over the threshold. If there are multiple
+        # rows with the next smallest value, it may be possible to
+        # change the query to reorder the rows and thus reveal their
+        # values; so we suppress all of them.
+        next_smallest_value = data.loc[data[column] > 0, column].min()
+        all_next_smallest = data[column] == next_smallest_value
+        data.loc[all_next_smallest, column] = numpy.nan
 
     def _calculate_results(self, data):
         data["value"] = data[self.numerator] / data[self.denominator]
@@ -93,11 +115,3 @@ def _drop_duplicates(lst):
     Preserves the order of the list.
     """
     return list(dict.fromkeys(lst).keys())
-
-
-def _is_suppressible(column):
-    """
-    Args:
-        column: a column of a DataFrame
-    """
-    return (column > 0) & (column <= SMALL_NUMBER_THRESHOLD)
