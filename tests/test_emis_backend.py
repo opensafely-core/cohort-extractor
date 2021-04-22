@@ -2095,28 +2095,34 @@ def test_null_observation_dates_handled_correctly():
             Patient(
                 observations=[
                     Observation(snomed_concept_id="10000001", effective_date=None),
+                    Observation(
+                        snomed_concept_id="10000002", effective_date="2020-02-05"
+                    ),
                 ]
             ),
             Patient(
                 observations=[
                     Observation(
                         snomed_concept_id="10000001", effective_date="2020-06-12"
-                    )
+                    ),
+                    Observation(
+                        snomed_concept_id="10000002", effective_date="2021-07-02"
+                    ),
                 ]
             ),
         ]
     )
     session.commit()
-    codes = codelist(["10000001"], "snomedct")
+    codes = codelist(["10000001", "10000002"], "snomedct")
     study = StudyDefinition(
         population=patients.all(),
-        event_date=patients.with_these_clinical_events(
+        first_event_date=patients.with_these_clinical_events(
             codes,
             returning="date",
             find_first_match_in_period=True,
             date_format="YYYY-MM-DD",
         ),
-        event_code=patients.with_these_clinical_events(
+        first_event_code=patients.with_these_clinical_events(
             codes,
             returning="code",
             find_first_match_in_period=True,
@@ -2124,10 +2130,46 @@ def test_null_observation_dates_handled_correctly():
         ),
         # This should be the same value as `event_date` but doing it this way
         # makes it use a parition query so we can test that branch
-        date_of_code=patients.date_of("event_code", date_format="YYYY-MM-DD"),
+        date_of_first_code=patients.date_of(
+            "first_event_code", date_format="YYYY-MM-DD"
+        ),
+        last_event_date=patients.with_these_clinical_events(
+            codes,
+            returning="date",
+            find_last_match_in_period=True,
+            date_format="YYYY-MM-DD",
+        ),
+        last_event_code=patients.with_these_clinical_events(
+            codes,
+            returning="code",
+            find_last_match_in_period=True,
+            date_format="YYYY-MM-DD",
+        ),
+        date_of_last_code=patients.date_of("last_event_code", date_format="YYYY-MM-DD"),
+        pre2020_event_date=patients.with_these_clinical_events(
+            codes,
+            on_or_before="2020-01-01",
+            returning="date",
+            find_last_match_in_period=True,
+            date_format="YYYY-MM-DD",
+        ),
+        pre2020_event_code=patients.with_these_clinical_events(
+            codes,
+            on_or_before="2020-01-01",
+            returning="code",
+            find_last_match_in_period=True,
+            date_format="YYYY-MM-DD",
+        ),
+        date_of_pre2020_code=patients.date_of(
+            "pre2020_event_code", date_format="YYYY-MM-DD"
+        ),
     )
     assert_results(
         study.to_dicts(),
-        event_date=["1900-01-01", "2020-06-12"],
-        date_of_code=["1900-01-01", "2020-06-12"],
+        first_event_date=["1900-01-01", "2020-06-12"],
+        date_of_first_code=["1900-01-01", "2020-06-12"],
+        last_event_date=["2020-02-05", "2021-07-02"],
+        date_of_last_code=["2020-02-05", "2021-07-02"],
+        pre2020_event_date=["1900-01-01", ""],
+        date_of_pre2020_code=["1900-01-01", ""],
     )

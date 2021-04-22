@@ -863,8 +863,12 @@ class EMISBackend:
         ignore_missing_values=False,
     ):
         codelist_table, codelist_queries = self.create_codelist_table(codelist)
+        # Using COALESCE like this has the potential to produce very
+        # inefficient queries by scuppering use of indices. However, my
+        # understanding is there are no indicies anyway in the current Presto
+        # setup so this shouldn't actually make much difference
         date_condition, date_joins = self.get_date_condition(
-            from_table, "effective_date", between
+            from_table, f"COALESCE(effective_date, {quote(EARLIEST_DATE)})", between
         )
         ignored_day_condition, extra_queries = self._these_codes_occur_on_same_day(
             from_table, ignore_days_where_these_codes_occur
@@ -877,10 +881,10 @@ class EMISBackend:
 
         # Result ordering
         if find_first_match_in_period:
-            ordering = "ASC"
+            ordering = "ASC NULLS FIRST"
             date_aggregate = "MIN"
         else:
-            ordering = "DESC"
+            ordering = "DESC NULLS LAST"
             date_aggregate = "MAX"
 
         query_column = None
