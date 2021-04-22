@@ -2086,3 +2086,48 @@ def test_truncate_patient_id():
 
     large_id_hex = hex(987654321 + 2 ** 100)[2:]
     assert truncate_patient_id(large_id_hex) == 576460752303423488
+
+
+def test_null_observation_dates_handled_correctly():
+    session = make_session()
+    session.add_all(
+        [
+            Patient(
+                observations=[
+                    Observation(snomed_concept_id="10000001", effective_date=None),
+                ]
+            ),
+            Patient(
+                observations=[
+                    Observation(
+                        snomed_concept_id="10000001", effective_date="2020-06-12"
+                    )
+                ]
+            ),
+        ]
+    )
+    session.commit()
+    codes = codelist(["10000001"], "snomedct")
+    study = StudyDefinition(
+        population=patients.all(),
+        event_date=patients.with_these_clinical_events(
+            codes,
+            returning="date",
+            find_first_match_in_period=True,
+            date_format="YYYY-MM-DD",
+        ),
+        event_code=patients.with_these_clinical_events(
+            codes,
+            returning="code",
+            find_first_match_in_period=True,
+            date_format="YYYY-MM-DD",
+        ),
+        # This should be the same value as `event_date` but doing it this way
+        # makes it use a parition query so we can test that branch
+        date_of_code=patients.date_of("event_code", date_format="YYYY-MM-DD"),
+    )
+    assert_results(
+        study.to_dicts(),
+        event_date=["1900-01-01", "2020-06-12"],
+        date_of_code=["1900-01-01", "2020-06-12"],
+    )

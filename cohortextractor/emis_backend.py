@@ -28,6 +28,14 @@ IMMUNISATIONS_TABLE = "immunisation_all_orgs_v2"
 ICNARC_TABLE = "icnarc_view"
 ONS_TABLE = "ons_view"
 CPNS_TABLE = "cpns_view"
+# Sometimes a clinician will want to record that an event has happened at some
+# point in the past without knowing the specific date. In TPP such events are
+# given a date of 1900-01-01 and in EMIS they are given a date of NULL.
+# However, we already use NULL as a value to indicate that a patient had no
+# matching event at all, so we need another value to indicate "they had a
+# matching event but at an indeterminate time in the past". For consistency's
+# sake we use the same date as in TPP.
+EARLIEST_DATE = "1900-01-01"
 
 
 class EMISBackend:
@@ -911,7 +919,7 @@ class EMISBackend:
               registration_id,
               hashed_organisation,
               {column_definition} AS {column_name},
-              DATE(effective_date) AS date
+              COALESCE(DATE(effective_date), {quote(EARLIEST_DATE)}) AS date
             FROM (
               SELECT
                 {from_table}.registration_id,
@@ -938,7 +946,7 @@ class EMISBackend:
               {from_table}.registration_id,
               {from_table}.hashed_organisation,
               {column_definition} AS {column_name},
-              {date_aggregate}(DATE(effective_date)) AS date
+              {date_aggregate}(COALESCE(DATE(effective_date), {quote(EARLIEST_DATE)})) AS date
             FROM {from_table}{additional_join}
             INNER JOIN {codelist_table}
             ON {code_column} = {codelist_table}.code
