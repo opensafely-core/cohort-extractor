@@ -567,8 +567,10 @@ def with_these_clinical_events(
 
         find_first_match_in_period: a boolean indicating if any returned date, code, category, or numeric value
             should be based on the first match in the period.
+            If several matches compare equal, then their IDs are used to break the tie.
         find_last_match_in_period: a boolean indicating if any returned date, code, category, or numeric value
             should be based on the last match in the period. This is the default behaviour.
+            If several matches compare equal, then their IDs are used to break the tie.
         include_date_of_match: a boolean indicating if an extra column should be included in the output.
             The default value is `False`.
         date_format: a string detailing the format of the dates to be returned. It can be `YYYY-MM-DD`,
