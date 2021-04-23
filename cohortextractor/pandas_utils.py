@@ -8,6 +8,15 @@ def dataframe_to_file(df, filename):
     elif filename.endswith(".feather"):
         df.to_feather(filename)
     elif filename.endswith(".dta") or filename.endswith(".dta.gz"):
+        # Make a shallow copy of the dataframe so we can replace certain
+        # columns without duplicating the entire thing in memory
+        df = df.copy(deep=False)
+        # Replace categorical columns with arrays of strings as Stata's
+        # categorical support isn't that great. See:
+        # https://github.com/opensafely-core/cohort-extractor/issues/534
+        for column, dtype in list(df.dtypes.items()):
+            if isinstance(dtype, pandas.Categorical):
+                df[column] = df[column].__array__()
         # Encode dates as proper Stata dates (we use "td" as we only need day
         # resolution)
         convert_dates = {
