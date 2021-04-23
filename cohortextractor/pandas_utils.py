@@ -8,7 +8,14 @@ def dataframe_to_file(df, filename):
     elif filename.endswith(".feather"):
         df.to_feather(filename)
     elif filename.endswith(".dta") or filename.endswith(".dta.gz"):
-        df.to_stata(filename, write_index=False)
+        # Encode dates as proper Stata dates (we use "td" as we only need day
+        # resolution)
+        convert_dates = {
+            column: "td"
+            for (column, dtype) in df.dtypes.items()
+            if dtype.name == "datetime64"
+        }
+        df.to_stata(filename, write_index=False, convert_dates=convert_dates)
     else:
         raise RuntimeError(f"Unsupported file format: {filename}")
 
