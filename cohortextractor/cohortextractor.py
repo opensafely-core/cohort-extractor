@@ -291,7 +291,7 @@ def _generate_measures(
     skip_existing=False,
 ):
     logger.info(
-        "Generating measure for {study_name} in {output_dir}",
+        f"Generating measure for {study_name} in {output_dir}",
     )
     logger.debug("args", suffix=suffix, skip_existing=skip_existing)
     measures = load_study_definition(study_name, value="measures")
