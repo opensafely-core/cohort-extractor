@@ -3,6 +3,7 @@ import pandas
 
 import cohortextractor.measure as measure
 from cohortextractor.measure import Measure
+from tests.helpers import RecordingReporter, null_reporter
 
 
 def test_calculates_quotients():
@@ -11,7 +12,7 @@ def test_calculates_quotients():
         {"fish": [10, 20, 50], "litres": [1, 2, 100]},
         index=["small bowl", "large bowl", "pond"],
     )
-    result = m.calculate(data)
+    result = calculate(m, data)
 
     assert result.loc["small bowl"]["value"] == 10.0
     assert result.loc["large bowl"]["value"] == 10.0
@@ -24,7 +25,7 @@ def test_groups_data_together():
         {"fish": [10, 20], "litres": [1, 2], "colour": ["gold", "gold"]},
         index=["small bowl", "large bowl"],
     )
-    result = m.calculate(data)
+    result = calculate(m, data)
     result.set_index("colour", inplace=True)
 
     assert result.loc["gold"]["fish"] == 30
@@ -37,7 +38,7 @@ def test_groups_into_multiple_buckets():
     data = pandas.DataFrame(
         {"fish": [10, 10], "litres": [1, 2], "colour": ["gold", "pink"]}
     )
-    result = m.calculate(data)
+    result = calculate(m, data)
     result.set_index("colour", inplace=True)
 
     assert result.loc["gold"]["value"] == 10.0
@@ -59,7 +60,7 @@ def test_groups_by_multiple_columns():
             "nationality": ["russian", "japanese", "russian", "french"],
         }
     )
-    result = m.calculate(data)
+    result = calculate(m, data)
 
     assert result.iloc[0]["colour"] == "gold"
     assert result.iloc[0]["nationality"] == "japanese"
@@ -77,14 +78,14 @@ def test_throws_away_unused_columns():
     data = pandas.DataFrame(
         {"fish": [10], "litres": [1], "colour": ["green"], "clothing": ["trousers"]}
     )
-    result = m.calculate(data)
+    result = calculate(m, data)
     assert "clothing" not in result.iloc[0]
 
     m = Measure("ignored-id", numerator="fish", denominator="litres", group_by="colour")
     data = pandas.DataFrame(
         {"fish": [10], "litres": [1], "colour": ["green"], "age": [12]}
     )
-    result = m.calculate(data)
+    result = calculate(m, data)
     assert "age" not in result.iloc[0]
 
 
@@ -96,7 +97,7 @@ def test_suppresses_small_numbers_in_the_numerator():
         small_number_suppression=True,
     )
     data = pandas.DataFrame({"fish": [1], "litres": [100]}, index=["bowl"])
-    result = m.calculate(data)
+    result = calculate(m, data)
 
     assert numpy.isnan(result.loc["bowl"]["fish"])
     assert numpy.isnan(result.loc["bowl"]["value"])
@@ -120,7 +121,7 @@ def test_suppresses_small_numbers_at_threshold_in_the_numerator():
         },
         index=["bowl", "box", "bag"],
     )
-    result = m.calculate(data)
+    result = calculate(m, data)
 
     assert numpy.isnan(result.loc["bowl"]["fish"])
     assert numpy.isnan(result.loc["box"]["fish"])
@@ -142,7 +143,7 @@ def test_suppresses_small_numbers_after_grouping():
             "colour": ["gold", "gold", "bronze", "bronze", "pink", "pink"],
         }
     )
-    result = m.calculate(data)
+    result = calculate(m, data)
     result.set_index("colour", inplace=True)
 
     assert numpy.isnan(result.loc["gold"]["value"])
@@ -159,11 +160,11 @@ def test_suppression_doesnt_affect_later_calculations_on_the_same_data():
         denominator="litres",
         small_number_suppression=True,
     )
-    r1 = m1.calculate(data)
+    r1 = calculate(m1, data)
     assert numpy.isnan(r1.iloc[0]["value"])
 
     m2 = Measure("ignored-id", numerator="fish", denominator="litres")
-    r2 = m2.calculate(data)
+    r2 = calculate(m2, data)
     assert r2.iloc[0]["value"] == 1.0
 
 
@@ -177,7 +178,7 @@ def test_doesnt_suppress_zero_values():
     data = pandas.DataFrame(
         {"fish": [0, 1], "litres": [100, 100]}, index=["bowl", "bag"]
     )
-    result = m.calculate(data)
+    result = calculate(m, data)
 
     assert result.loc["bowl"]["fish"] == 0
     assert result.loc["bowl"]["value"] == 0
@@ -191,7 +192,7 @@ def test_suppresses_denominator_if_its_small_enough():
         small_number_suppression=True,
     )
     data = pandas.DataFrame({"fish": [0], "litres": [4]}, index=["bag"])
-    result = m.calculate(data)
+    result = calculate(m, data)
 
     assert numpy.isnan(result.loc["bag"]["litres"])
     assert numpy.isnan(result.loc["bag"]["value"])
@@ -207,7 +208,7 @@ def test_suppresses_an_extra_value_if_total_of_small_values_is_less_than_thresho
     data = pandas.DataFrame(
         {"fish": [2, 2, 6], "litres": [10, 10, 10]}, index=["a", "b", "c"]
     )
-    result = m.calculate(data)
+    result = calculate(m, data)
 
     assert numpy.isnan(result.loc["a"]["fish"])
     assert numpy.isnan(result.loc["b"]["fish"])
@@ -224,7 +225,7 @@ def test_suppresses_all_small_values_even_if_total_is_way_over_threshold():
     data = pandas.DataFrame(
         {"fish": [2, 2, 2, 2], "litres": [10, 10, 10, 10]}, index=["a", "b", "c", "d"]
     )
-    result = m.calculate(data)
+    result = calculate(m, data)
 
     assert numpy.isnan(result.loc["a"]["fish"])
     assert numpy.isnan(result.loc["b"]["fish"])
@@ -242,7 +243,7 @@ def test_suppresses_smallest_extra_value_to_reach_threshold():
     data = pandas.DataFrame(
         {"fish": [2, 10, 8], "litres": [10, 10, 10]}, index=["a", "b", "c"]
     )
-    result = m.calculate(data)
+    result = calculate(m, data)
 
     assert numpy.isnan(result.loc["a"]["fish"])
     assert result.loc["b"]["fish"] == 10
@@ -259,8 +260,42 @@ def test_suppresses_all_equal_extra_values_to_reach_threshold():
     data = pandas.DataFrame(
         {"fish": [1, 10, 10], "litres": [10, 10, 10]}, index=["a", "b", "c"]
     )
-    result = m.calculate(data)
+    result = calculate(m, data)
 
     assert numpy.isnan(result.loc["a"]["fish"])
     assert numpy.isnan(result.loc["b"]["fish"])
     assert numpy.isnan(result.loc["c"]["fish"])
+
+
+def test_reports_suppression_of_small_values():
+    m = Measure(
+        "ignored-id",
+        numerator="fish",
+        denominator="litres",
+        small_number_suppression=True,
+    )
+    data = pandas.DataFrame({"fish": [1], "litres": [100]}, index=["bowl"])
+    reporter = RecordingReporter()
+    calculate(m, data, reporter)
+
+    assert "Suppressed small numbers in column fish" in reporter.msg
+
+
+def test_reports_suppression_of_extra_values():
+    m = Measure(
+        "ignored-id",
+        numerator="fish",
+        denominator="litres",
+        small_number_suppression=True,
+    )
+    data = pandas.DataFrame(
+        {"fish": [2, 10, 8], "litres": [10, 10, 10]}, index=["a", "b", "c"]
+    )
+    reporter = RecordingReporter()
+    calculate(m, data, reporter)
+
+    assert "Additional suppression in column fish" in reporter.msg
+
+
+def calculate(measure, data, reporter=null_reporter):
+    return measure.calculate(data, reporter)

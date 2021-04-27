@@ -315,7 +315,7 @@ def _generate_measures(
             # already exist we can avoid loading the patient data entirely
             if patient_df is None:
                 patient_df = _load_dataframe_for_measures(filepath, measures)
-            measure_df = measure.calculate(patient_df)
+            measure_df = measure.calculate(patient_df, _report)
             measure_df.to_csv(output_file, index=False)
             logger.info(f"Created measure output at {output_file}")
     if not measure_outputs:
@@ -390,6 +390,16 @@ def _combine_csv_files_with_dates(filename, input_files):
                     )
                 for row in reader:
                     writer.writerow(row + [date])
+
+
+# Used for reporting events to users. We may introduce a dedicated
+# mechanism for this eventually, but for now it just uses the logging
+# system.
+reporter = structlog.get_logger("cohortextactor.reporter")
+
+
+def _report(msg):
+    reporter.info(msg)
 
 
 def make_cohort_report(input_dir, output_dir):

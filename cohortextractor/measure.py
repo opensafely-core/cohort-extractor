@@ -51,7 +51,7 @@ class Measure:
             self.group_by = group_by
         self.small_number_suppression = small_number_suppression
 
-    def calculate(self, data):
+    def calculate(self, data, reporter):
         """
         Calculates this measure on the provided patient dataset.
 
@@ -60,7 +60,7 @@ class Measure:
         """
         result = self._select_columns(data)
         result = self._group_rows(result)
-        self._suppress_small_numbers(result)
+        self._suppress_small_numbers(result, reporter)
         self._calculate_results(result)
 
         return result
@@ -78,21 +78,29 @@ class Measure:
             return data
         return data.groupby(self.group_by).sum().reset_index()
 
-    def _suppress_small_numbers(self, data):
+    def _suppress_small_numbers(self, data, reporter):
         if self.small_number_suppression:
-            self._suppress_column(self.numerator, data)
-            self._suppress_column(self.denominator, data)
+            self._suppress_column(self.numerator, data, reporter)
+            self._suppress_column(self.denominator, data, reporter)
 
-    def _suppress_column(self, column, data):
-        small_values = (data[column] > 0) & (data[column] <= SMALL_NUMBER_THRESHOLD)
+    def _suppress_column(self, column, data, reporter):
+        small_value_filter = (data[column] > 0) & (
+            data[column] <= SMALL_NUMBER_THRESHOLD
+        )
+        large_value_filter = data[column] > SMALL_NUMBER_THRESHOLD
 
-        if data.loc[small_values].empty:
+        num_small_values = data.loc[small_value_filter, column].count()
+        num_large_values = data.loc[large_value_filter, column].count()
+        if num_small_values == 0:
             return
 
-        small_value_total = data.loc[small_values, column].sum()
-        data.loc[small_values, column] = numpy.nan
+        small_value_total = data.loc[small_value_filter, column].sum()
+        data.loc[small_value_filter, column] = numpy.nan
+        reporter(f"Suppressed small numbers in column {column} in measure {self.id}")
 
         if small_value_total > SMALL_NUMBER_THRESHOLD:
+            return
+        if num_large_values == 0:
             return
 
         # If the total suppressed is small then reidentification may
@@ -102,9 +110,10 @@ class Measure:
         # rows with the next smallest value, it may be possible to
         # change the query to reorder the rows and thus reveal their
         # values; so we suppress all of them.
-        next_smallest_value = data.loc[data[column] > 0, column].min()
+        next_smallest_value = data.loc[large_value_filter, column].min()
         all_next_smallest = data[column] == next_smallest_value
         data.loc[all_next_smallest, column] = numpy.nan
+        reporter(f"Additional suppression in column {column} in measure {self.id}")
 
     def _calculate_results(self, data):
         data["value"] = data[self.numerator] / data[self.denominator]
