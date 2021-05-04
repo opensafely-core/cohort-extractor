@@ -1019,6 +1019,103 @@ class TPPBackend:
 
         return codelist_queries + extra_queries + [sql]
 
+    def patients_with_these_decision_support_values(self, **kwargs):
+        # First, we pop the kwargs.
+        algorithm = kwargs.pop("algorithm")
+        # TODO: What is replacing e.g. `on_or_before` with `between`?
+        between = kwargs.pop("between")
+        find_first_match_in_period = kwargs.pop("find_first_match_in_period")
+        find_last_match_in_period = kwargs.pop("find_last_match_in_period")
+        returning = kwargs.pop("returning")
+        # TODO: What is handling `date_format`?
+        ignore_missing_values = kwargs.pop("ignore_missing_values")
+
+        # Then, we resolve the algorithm.
+        algorithm_to_pk = {  # Map the value we use to the PK TPP use
+            "efi": 1,
+        }
+        if algorithm not in algorithm_to_pk:
+            raise ValueError(f"Unsupported `algorithm` value: {algorithm}")
+
+        # Then, we resolve the date limits.
+        date_condition, date_joins = self.get_date_condition(
+            "DecisionSupportValue", "CalculationDateTime", between
+        )
+
+        # Then, we resolve the matching rule.
+        # "It will never happen" happens, but not often enough to raise a `ValueError`.
+        assert not (find_first_match_in_period and find_last_match_in_period)
+        if find_first_match_in_period:
+            ordering = "ASC"
+            date_aggregate = "MIN"
+        else:
+            # TODO: Why do we have `find_last_match_in_period`?
+            ordering = "DESC"
+            date_aggregate = "MAX"
+
+        # Then, we resolve the return type.
+        value_column_alias = returning
+        if returning == "binary_flag" or returning == "date":
+            use_partition_query = False
+            value_column_expression = 1  # The literal value `1`
+            value_column_alias = "binary_flag"
+        elif returning == "number_of_matches_in_period":
+            use_partition_query = False
+            value_column_expression = "COUNT(*)"
+        elif returning == "numeric_value":
+            use_partition_query = True
+            value_column_expression = "NumericValue"
+        else:
+            raise ValueError(f"Unsupported `returning` value: {returning}")
+
+        # Then, we resolve the missing values rule.
+        missing_values_condition = (
+            "NumericValue != 0" if ignore_missing_values else "1 = 1"
+        )
+
+        # Finally, we construct the query.
+        if use_partition_query:
+            sql = f"""
+                SELECT
+                    Patient_ID AS patient_id,
+                    {value_column_expression} AS {value_column_alias},
+                    CalculationDateTime AS date
+                FROM (
+                    SELECT
+                        Patient_ID,
+                        {value_column_expression},
+                        CalculationDateTime,
+                        ROW_NUMBER() OVER (
+                            PARTITION BY Patient_ID
+                            ORDER BY CalculationDateTime {ordering}, Patient_ID
+                        ) AS rownum
+                    FROM
+                        DecisionSupportValue
+                    WHERE
+                        AlgorithmType = {algorithm_to_pk[algorithm]}
+                        AND {date_condition}
+                        AND {missing_values_condition}
+                ) t
+                WHERE
+                    rownum = 1
+            """
+        else:
+            sql = f"""
+                SELECT
+                    Patient_ID AS patient_id,
+                    {value_column_expression} AS {value_column_alias},
+                    {date_aggregate}(CalculationDateTime) AS date
+                FROM
+                    DecisionSupportValue
+                WHERE
+                    AlgorithmType = {algorithm_to_pk[algorithm]}
+                    AND {date_condition}
+                    AND {missing_values_condition}
+                GROUP BY
+                    Patient_ID
+            """
+        return [sql]
+
     def _number_of_episodes_by_medication(
         self,
         codelist,

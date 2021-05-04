@@ -27,6 +27,7 @@ from tests.tpp_backend_setup import (
     Appointment,
     CodedEvent,
     CodedEventSnomed,
+    DecisionSupportValue,
     EC_Diagnosis,
     HighCostDrugs,
     Household,
@@ -92,6 +93,7 @@ def setup_function(function):
     session.query(APCS).delete()
     session.query(OPA).delete()
     session.query(HighCostDrugs).delete()
+    session.query(DecisionSupportValue).delete()
     session.query(Patient).delete()
     session.commit()
 
@@ -3380,3 +3382,247 @@ def test_ethnicity_from_sus():
         ethnicity_by_group_6=["2", "2"],
         ethnicity_by_group_16=["4", "7"],
     )
+
+
+def _make_patient_with_decision_support_values():
+    """Makes a patient with decision support values for the Electronic Frailty Index."""
+    session = make_session()
+    session.add_all(
+        [
+            Patient(
+                DecisionSupportValue=[
+                    DecisionSupportValue(
+                        AlgorithmType=1,  # Set by TPP
+                        CalculationDateTime="2020-01-01 00:00:00.000",
+                        NumericValue=0.1,
+                    ),
+                    DecisionSupportValue(
+                        AlgorithmType=1,
+                        CalculationDateTime="2020-07-01 00:00:00.000",
+                        NumericValue=0.2,
+                    ),
+                    DecisionSupportValue(
+                        AlgorithmType=1,
+                        CalculationDateTime="2021-01-01 00:00:00.000",
+                        NumericValue=0.3,
+                    ),
+                ]
+            ),
+        ]
+    )
+    session.commit()
+
+
+def test_decision_support_values_with_unsupported_algorithm_value():
+    _make_patient_with_decision_support_values()
+    with pytest.raises(ValueError) as exinfo:
+        StudyDefinition(
+            population=patients.all(),
+            efi=patients.with_these_decision_support_values(
+                "eFI",
+            ),
+        )
+
+    assert str(exinfo.value) == "Unsupported `algorithm` value: eFI"
+
+
+@pytest.mark.parametrize(
+    "returning", ["binary_flag", "date", "number_of_matches_in_period", "numeric_value"]
+)
+def test_decision_support_values_with_max_date(returning):
+    _make_patient_with_decision_support_values()
+    study = StudyDefinition(
+        population=patients.all(),
+        efi=patients.with_these_decision_support_values(
+            "efi",
+            on_or_before="2021-01-01",
+            returning=returning,
+        ),
+    )
+    results = study.to_dicts()
+    if returning == "binary_flag":
+        assert [x["efi"] for x in results] == ["1"]
+    elif returning == "date":
+        assert [x["efi"] for x in results] == ["2021"]
+    elif returning == "number_of_matches_in_period":
+        assert [x["efi"] for x in results] == ["3"]
+    elif returning == "numeric_value":
+        assert [x["efi"] for x in results] == ["0.3"]
+    else:
+        raise ValueError(f"Unsupported `returning` value: {returning}")
+
+
+@pytest.mark.parametrize(
+    "returning", ["binary_flag", "date", "number_of_matches_in_period", "numeric_value"]
+)
+def test_decision_support_values_with_min_date(returning):
+    _make_patient_with_decision_support_values()
+    study = StudyDefinition(
+        population=patients.all(),
+        efi=patients.with_these_decision_support_values(
+            "efi",
+            on_or_after="2021-01-01",
+            returning=returning,
+        ),
+    )
+    results = study.to_dicts()
+    if returning == "binary_flag":
+        assert [x["efi"] for x in results] == ["1"]
+    elif returning == "date":
+        assert [x["efi"] for x in results] == ["2021"]
+    elif returning == "number_of_matches_in_period":
+        assert [x["efi"] for x in results] == ["1"]
+    elif returning == "numeric_value":
+        assert [x["efi"] for x in results] == ["0.3"]
+    else:
+        raise ValueError(f"Unsupported `returning` value: {returning}")
+
+
+@pytest.mark.parametrize(
+    "returning", ["binary_flag", "date", "number_of_matches_in_period", "numeric_value"]
+)
+def test_decision_support_values_with_max_and_min_date(returning):
+    _make_patient_with_decision_support_values()
+    study = StudyDefinition(
+        population=patients.all(),
+        efi=patients.with_these_decision_support_values(
+            "efi",
+            between=["2020-01-01", "2020-12-31"],
+            returning=returning,
+        ),
+    )
+    results = study.to_dicts()
+    if returning == "binary_flag":
+        assert [x["efi"] for x in results] == ["1"]
+    elif returning == "date":
+        assert [x["efi"] for x in results] == ["2020"]
+    elif returning == "number_of_matches_in_period":
+        assert [x["efi"] for x in results] == ["2"]
+    elif returning == "numeric_value":
+        assert [x["efi"] for x in results] == ["0.2"]
+    else:
+        raise ValueError(f"Unsupported `returning` value: {returning}")
+
+
+@pytest.mark.parametrize(
+    "returning", ["binary_flag", "date", "number_of_matches_in_period", "numeric_value"]
+)
+def test_decision_support_values_with_first_match(returning):
+    _make_patient_with_decision_support_values()
+    study = StudyDefinition(
+        population=patients.all(),
+        efi=patients.with_these_decision_support_values(
+            "efi",
+            find_first_match_in_period=True,
+            returning=returning,
+        ),
+    )
+    results = study.to_dicts()
+    if returning == "binary_flag":
+        assert [x["efi"] for x in results] == ["1"]
+    elif returning == "date":
+        assert [x["efi"] for x in results] == ["2020"]
+    elif returning == "number_of_matches_in_period":
+        assert [x["efi"] for x in results] == ["3"]
+    elif returning == "numeric_value":
+        assert [x["efi"] for x in results] == ["0.1"]
+    else:
+        raise ValueError(f"Unsupported `returning` value: {returning}")
+
+
+@pytest.mark.parametrize(
+    "returning", ["binary_flag", "date", "number_of_matches_in_period", "numeric_value"]
+)
+def test_decision_support_values_with_last_match(returning):
+    _make_patient_with_decision_support_values()
+    study = StudyDefinition(
+        population=patients.all(),
+        efi=patients.with_these_decision_support_values(
+            "efi",
+            find_last_match_in_period=True,
+            returning=returning,
+        ),
+    )
+    results = study.to_dicts()
+    if returning == "binary_flag":
+        assert [x["efi"] for x in results] == ["1"]
+    elif returning == "date":
+        assert [x["efi"] for x in results] == ["2021"]
+    elif returning == "number_of_matches_in_period":
+        assert [x["efi"] for x in results] == ["3"]
+    elif returning == "numeric_value":
+        assert [x["efi"] for x in results] == ["0.3"]
+    else:
+        raise ValueError(f"Unsupported `returning` value: {returning}")
+
+
+def test_decision_support_values_with_first_match_and_last_match():
+    _make_patient_with_decision_support_values()
+    with pytest.raises(AssertionError):
+        StudyDefinition(
+            population=patients.all(),
+            efi=patients.with_these_decision_support_values(
+                "efi",
+                find_first_match_in_period=True,
+                find_last_match_in_period=True,
+            ),
+        )
+
+
+def test_decision_support_values_with_unsupported_returning_value():
+    _make_patient_with_decision_support_values()
+    with pytest.raises(ValueError) as exinfo:
+        StudyDefinition(
+            population=patients.all(),
+            efi=patients.with_these_decision_support_values(
+                "efi",
+                returning="code",
+            ),
+        )
+
+    assert str(exinfo.value) == "Unsupported `returning` value: code"
+
+
+@pytest.mark.parametrize(
+    "returning", ["binary_flag", "date", "number_of_matches_in_period", "numeric_value"]
+)
+def test_decision_support_values_with_ignore_missing_values(returning):
+    session = make_session()
+    session.add_all(
+        [
+            Patient(
+                DecisionSupportValue=[
+                    DecisionSupportValue(
+                        AlgorithmType=1,
+                        CalculationDateTime="2020-01-01 00:00:00.000",
+                        NumericValue=0.0,  # Ignore me!
+                    ),
+                    DecisionSupportValue(
+                        AlgorithmType=1,
+                        CalculationDateTime="2021-01-01 00:00:00.000",
+                        NumericValue=0.1,
+                    ),
+                ]
+            ),
+        ]
+    )
+    session.commit()
+    study = StudyDefinition(
+        population=patients.all(),
+        efi=patients.with_these_decision_support_values(
+            "efi",
+            returning=returning,
+            ignore_missing_values=True,
+        ),
+    )
+    results = study.to_dicts()
+    if returning == "binary_flag":
+        assert [x["efi"] for x in results] == ["1"]
+    elif returning == "date":
+        assert [x["efi"] for x in results] == ["2021"]
+    elif returning == "number_of_matches_in_period":
+        assert [x["efi"] for x in results] == ["1"]
+    elif returning == "numeric_value":
+        assert [x["efi"] for x in results] == ["0.1"]
+    else:
+        raise ValueError(f"Unsupported `returning` value: {returning}")
