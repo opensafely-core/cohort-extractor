@@ -1189,6 +1189,7 @@ def test_patients_categorised_as():
     assert "has_bar" not in results[0].keys()
 
 
+@pytest.mark.freeze_time("2020-02-15")
 def test_patients_registered_practice_as_of():
     session = make_session()
     patient = Patient(
@@ -1218,6 +1219,7 @@ def test_patients_registered_practice_as_of():
     assert [i["pseudo_id"] for i in results] == ["abc"]
 
 
+@pytest.mark.freeze_time("2020-02-15")
 def test_patients_address_as_of():
     session = make_session()
     patient = Patient(imd_rank=300, rural_urban=2)
