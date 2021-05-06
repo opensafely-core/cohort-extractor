@@ -1361,14 +1361,14 @@ def test_patients_admitted_to_icu():
         population=patients.all(),
         icu_first=patients.admitted_to_icu(
             on_or_after="2020-02-01",
-            include_day=True,
             returning="date_admitted",
+            date_format="YYYY-MM-DD",
             find_first_match_in_period=True,
         ),
         icu_last=patients.admitted_to_icu(
             on_or_after="2020-02-01",
-            include_day=True,
             returning="date_admitted",
+            date_format="YYYY-MM-DD",
             find_last_match_in_period=True,
         ),
         icu_flag=patients.admitted_to_icu(
