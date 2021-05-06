@@ -1361,14 +1361,14 @@ def test_patients_admitted_to_icu():
         population=patients.all(),
         icu_first=patients.admitted_to_icu(
             on_or_after="2020-02-01",
-            include_day=True,
             returning="date_admitted",
+            date_format="YYYY-MM-DD",
             find_first_match_in_period=True,
         ),
         icu_last=patients.admitted_to_icu(
             on_or_after="2020-02-01",
-            include_day=True,
             returning="date_admitted",
+            date_format="YYYY-MM-DD",
             find_last_match_in_period=True,
         ),
         icu_flag=patients.admitted_to_icu(
@@ -1385,6 +1385,12 @@ def test_patients_admitted_to_icu():
         advanced_support=patients.admitted_to_icu(
             on_or_after="2020-02-01",
             returning="had_advanced_respiratory_support",
+        ),
+        icu_second=patients.admitted_to_icu(
+            on_or_after="icu_first + 1 day",
+            returning="date_admitted",
+            date_format="YYYY-MM-DD",
+            find_first_match_in_period=True,
         ),
     )
 
@@ -1408,6 +1414,13 @@ def test_patients_admitted_to_icu():
         resp_support=["1", "1", "0", "0", "1"],
         basic_support=["1", "1", "0", "0", "0"],
         advanced_support=["1", "0", "0", "0", "1"],
+        icu_second=[
+            "",
+            "",
+            "",
+            "",
+            "2020-04-01",
+        ],
     )
 
 
