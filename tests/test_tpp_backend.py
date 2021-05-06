@@ -155,7 +155,9 @@ def test_meds():
     )
     patient_with_med = Patient()
     patient_with_med.MedicationIssues = [
-        MedicationIssue(MedicationDictionary=asthma_medication)
+        MedicationIssue(
+            MedicationDictionary=asthma_medication, ConsultationDate="2010-01-01"
+        )
     ]
     patient_without_med = Patient()
     session.add(patient_with_med)
