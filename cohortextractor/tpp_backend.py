@@ -1359,12 +1359,7 @@ class TPPBackend:
         find_last_match_in_period=None,
         returning="binary_flag",
     ):
-        if find_first_match_in_period:
-            date_aggregate = "MIN"
-        else:
-            date_aggregate = "MAX"
-        date_expression = f"""
-        {date_aggregate}(
+        date_expression = """
         CASE
         WHEN
           COALESCE(IcuAdmissionDateTime, '9999-01-01') < COALESCE(OriginalIcuAdmissionDate, '9999-01-01')
@@ -1372,7 +1367,7 @@ class TPPBackend:
           IcuAdmissionDateTime
         ELSE
           OriginalIcuAdmissionDate
-        END)"""
+        END"""
         date_condition, date_joins = self.get_date_condition(
             "ICNARC", date_expression, between
         )
@@ -1380,7 +1375,10 @@ class TPPBackend:
         greater_than_zero_expr = "CASE WHEN {} > 0 THEN 1 ELSE 0 END"
 
         if returning == "date_admitted":
-            column_definition = date_expression
+            if find_first_match_in_period:
+                column_definition = f"MIN({date_expression})"
+            else:
+                column_definition = f"MAX({date_expression})"
         elif returning == "binary_flag":
             column_definition = 1
         elif returning == "had_respiratory_support":
@@ -1404,8 +1402,8 @@ class TPPBackend:
         FROM
           ICNARC
         {date_joins}
+        WHERE {date_condition}
         GROUP BY ICNARC.Patient_ID
-        HAVING {date_condition}
         """
 
     def patients_with_these_codes_on_death_certificate(
