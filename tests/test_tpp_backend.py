@@ -3427,9 +3427,15 @@ def test_decision_support_values_with_unsupported_algorithm_value():
 
 
 @pytest.mark.parametrize(
-    "returning", ["binary_flag", "date", "number_of_matches_in_period", "numeric_value"]
+    "returning,expected",
+    [
+        ("binary_flag", ["1"]),
+        ("date", ["2021"]),
+        ("number_of_matches_in_period", ["3"]),
+        ("numeric_value", ["0.3"]),
+    ],
 )
-def test_decision_support_values_with_max_date(returning):
+def test_decision_support_values_with_max_date(returning, expected):
     _make_patient_with_decision_support_values()
     study = StudyDefinition(
         population=patients.all(),
@@ -3439,23 +3445,19 @@ def test_decision_support_values_with_max_date(returning):
             returning=returning,
         ),
     )
-    results = study.to_dicts()
-    if returning == "binary_flag":
-        assert [x["efi"] for x in results] == ["1"]
-    elif returning == "date":
-        assert [x["efi"] for x in results] == ["2021"]
-    elif returning == "number_of_matches_in_period":
-        assert [x["efi"] for x in results] == ["3"]
-    elif returning == "numeric_value":
-        assert [x["efi"] for x in results] == ["0.3"]
-    else:
-        raise ValueError(f"Unsupported `returning` value: {returning}")
+    assert_results(study.to_dicts(), efi=expected)
 
 
 @pytest.mark.parametrize(
-    "returning", ["binary_flag", "date", "number_of_matches_in_period", "numeric_value"]
+    "returning,expected",
+    [
+        ("binary_flag", ["1"]),
+        ("date", ["2021"]),
+        ("number_of_matches_in_period", ["1"]),
+        ("numeric_value", ["0.3"]),
+    ],
 )
-def test_decision_support_values_with_min_date(returning):
+def test_decision_support_values_with_min_date(returning, expected):
     _make_patient_with_decision_support_values()
     study = StudyDefinition(
         population=patients.all(),
@@ -3465,23 +3467,19 @@ def test_decision_support_values_with_min_date(returning):
             returning=returning,
         ),
     )
-    results = study.to_dicts()
-    if returning == "binary_flag":
-        assert [x["efi"] for x in results] == ["1"]
-    elif returning == "date":
-        assert [x["efi"] for x in results] == ["2021"]
-    elif returning == "number_of_matches_in_period":
-        assert [x["efi"] for x in results] == ["1"]
-    elif returning == "numeric_value":
-        assert [x["efi"] for x in results] == ["0.3"]
-    else:
-        raise ValueError(f"Unsupported `returning` value: {returning}")
+    assert_results(study.to_dicts(), efi=expected)
 
 
 @pytest.mark.parametrize(
-    "returning", ["binary_flag", "date", "number_of_matches_in_period", "numeric_value"]
+    "returning,expected",
+    [
+        ("binary_flag", ["1"]),
+        ("date", ["2020"]),
+        ("number_of_matches_in_period", ["2"]),
+        ("numeric_value", ["0.2"]),
+    ],
 )
-def test_decision_support_values_with_max_and_min_date(returning):
+def test_decision_support_values_with_max_and_min_date(returning, expected):
     _make_patient_with_decision_support_values()
     study = StudyDefinition(
         population=patients.all(),
@@ -3491,23 +3489,19 @@ def test_decision_support_values_with_max_and_min_date(returning):
             returning=returning,
         ),
     )
-    results = study.to_dicts()
-    if returning == "binary_flag":
-        assert [x["efi"] for x in results] == ["1"]
-    elif returning == "date":
-        assert [x["efi"] for x in results] == ["2020"]
-    elif returning == "number_of_matches_in_period":
-        assert [x["efi"] for x in results] == ["2"]
-    elif returning == "numeric_value":
-        assert [x["efi"] for x in results] == ["0.2"]
-    else:
-        raise ValueError(f"Unsupported `returning` value: {returning}")
+    assert_results(study.to_dicts(), efi=expected)
 
 
 @pytest.mark.parametrize(
-    "returning", ["binary_flag", "date", "number_of_matches_in_period", "numeric_value"]
+    "returning,expected",
+    [
+        ("binary_flag", ["1"]),
+        ("date", ["2020"]),
+        ("number_of_matches_in_period", ["3"]),
+        ("numeric_value", ["0.1"]),
+    ],
 )
-def test_decision_support_values_with_first_match(returning):
+def test_decision_support_values_with_first_match(returning, expected):
     _make_patient_with_decision_support_values()
     study = StudyDefinition(
         population=patients.all(),
@@ -3517,23 +3511,19 @@ def test_decision_support_values_with_first_match(returning):
             returning=returning,
         ),
     )
-    results = study.to_dicts()
-    if returning == "binary_flag":
-        assert [x["efi"] for x in results] == ["1"]
-    elif returning == "date":
-        assert [x["efi"] for x in results] == ["2020"]
-    elif returning == "number_of_matches_in_period":
-        assert [x["efi"] for x in results] == ["3"]
-    elif returning == "numeric_value":
-        assert [x["efi"] for x in results] == ["0.1"]
-    else:
-        raise ValueError(f"Unsupported `returning` value: {returning}")
+    assert_results(study.to_dicts(), efi=expected)
 
 
 @pytest.mark.parametrize(
-    "returning", ["binary_flag", "date", "number_of_matches_in_period", "numeric_value"]
+    "returning,expected",
+    [
+        ("binary_flag", ["1"]),
+        ("date", ["2021"]),
+        ("number_of_matches_in_period", ["3"]),
+        ("numeric_value", ["0.3"]),
+    ],
 )
-def test_decision_support_values_with_last_match(returning):
+def test_decision_support_values_with_last_match(returning, expected):
     _make_patient_with_decision_support_values()
     study = StudyDefinition(
         population=patients.all(),
@@ -3543,17 +3533,7 @@ def test_decision_support_values_with_last_match(returning):
             returning=returning,
         ),
     )
-    results = study.to_dicts()
-    if returning == "binary_flag":
-        assert [x["efi"] for x in results] == ["1"]
-    elif returning == "date":
-        assert [x["efi"] for x in results] == ["2021"]
-    elif returning == "number_of_matches_in_period":
-        assert [x["efi"] for x in results] == ["3"]
-    elif returning == "numeric_value":
-        assert [x["efi"] for x in results] == ["0.3"]
-    else:
-        raise ValueError(f"Unsupported `returning` value: {returning}")
+    assert_results(study.to_dicts(), efi=expected)
 
 
 def test_decision_support_values_with_first_match_and_last_match():
@@ -3584,9 +3564,15 @@ def test_decision_support_values_with_unsupported_returning_value():
 
 
 @pytest.mark.parametrize(
-    "returning", ["binary_flag", "date", "number_of_matches_in_period", "numeric_value"]
+    "returning,expected",
+    [
+        ("binary_flag", ["1"]),
+        ("date", ["2021"]),
+        ("number_of_matches_in_period", ["1"]),
+        ("numeric_value", ["0.1"]),
+    ],
 )
-def test_decision_support_values_with_ignore_missing_values(returning):
+def test_decision_support_values_with_ignore_missing_values(returning, expected):
     session = make_session()
     session.add_all(
         [
@@ -3615,14 +3601,4 @@ def test_decision_support_values_with_ignore_missing_values(returning):
             ignore_missing_values=True,
         ),
     )
-    results = study.to_dicts()
-    if returning == "binary_flag":
-        assert [x["efi"] for x in results] == ["1"]
-    elif returning == "date":
-        assert [x["efi"] for x in results] == ["2021"]
-    elif returning == "number_of_matches_in_period":
-        assert [x["efi"] for x in results] == ["1"]
-    elif returning == "numeric_value":
-        assert [x["efi"] for x in results] == ["0.1"]
-    else:
-        raise ValueError(f"Unsupported `returning` value: {returning}")
+    assert_results(study.to_dicts(), efi=expected)
