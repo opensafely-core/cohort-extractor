@@ -1022,12 +1022,10 @@ class TPPBackend:
     def patients_with_these_decision_support_values(self, **kwargs):
         # First, we pop the kwargs.
         algorithm = kwargs.pop("algorithm")
-        # TODO: What is replacing e.g. `on_or_before` with `between`?
         between = kwargs.pop("between")
         find_first_match_in_period = kwargs.pop("find_first_match_in_period")
         find_last_match_in_period = kwargs.pop("find_last_match_in_period")
         returning = kwargs.pop("returning")
-        # TODO: What is handling `date_format`?
         ignore_missing_values = kwargs.pop("ignore_missing_values")
 
         # Then, we resolve the algorithm.
@@ -1049,7 +1047,6 @@ class TPPBackend:
             ordering = "ASC"
             date_aggregate = "MIN"
         else:
-            # TODO: Why do we have `find_last_match_in_period`?
             ordering = "DESC"
             date_aggregate = "MAX"
 
