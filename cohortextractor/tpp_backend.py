@@ -1158,7 +1158,6 @@ class TPPBackend:
         """
         if codelist is None:
             return "0 = 1", []
-        assert codelist.system == "ctv3"
         codelist_table, queries = self.create_codelist_table(
             codelist, case_sensitive=True
         )
