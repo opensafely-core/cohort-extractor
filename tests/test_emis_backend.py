@@ -1406,7 +1406,7 @@ def test_patients_with_these_codes_on_death_certificate():
                 nhs_no="bbb",
                 ONSDeath=[
                     ONSDeaths(
-                        reg_stat_dod=20210101, icd10u=code, upload_date="01/04/2020"
+                        reg_stat_dod=20210101, icd10u=code, upload_date="2020-04-01"
                     )
                 ],
             ),
@@ -1415,7 +1415,7 @@ def test_patients_with_these_codes_on_death_certificate():
                 nhs_no="ccc",
                 ONSDeath=[
                     ONSDeaths(
-                        reg_stat_dod=20200201, icd10u="MI", upload_date="01/04/2020"
+                        reg_stat_dod=20200201, icd10u="MI", upload_date="2020-04-01"
                     )
                 ],
             ),
@@ -1427,7 +1427,7 @@ def test_patients_with_these_codes_on_death_certificate():
                         reg_stat_dod=20200201,
                         icd10u=code,
                         icd10014="MI",
-                        upload_date="01/04/2020",
+                        upload_date="2020-04-01",
                     )
                 ],
             ),
@@ -1439,7 +1439,7 @@ def test_patients_with_these_codes_on_death_certificate():
                         reg_stat_dod=20200301,
                         icd10u="MI",
                         icd10014=code,
-                        upload_date="01/04/2020",
+                        upload_date="2020-04-01",
                     )
                 ],
             ),
@@ -1485,17 +1485,17 @@ def test_patients_died_from_any_cause():
             # Died after date cutoff
             Patient(
                 nhs_no="bbb",
-                ONSDeath=[ONSDeaths(reg_stat_dod=20210101, upload_date="02/02/2021")],
+                ONSDeath=[ONSDeaths(reg_stat_dod=20210101, upload_date="2021-02-02")],
             ),
             # Died
             Patient(
                 nhs_no="ccc",
                 ONSDeath=[
                     ONSDeaths(
-                        reg_stat_dod=20200201, icd10u="A", upload_date="02/02/2020"
+                        reg_stat_dod=20200201, icd10u="A", upload_date="2020-02-02"
                     ),
                     ONSDeaths(
-                        reg_stat_dod=20200201, icd10u="A", upload_date="02/02/2021"
+                        reg_stat_dod=20200201, icd10u="A", upload_date="2021-02-02"
                     ),
                 ],
             ),

@@ -1435,9 +1435,7 @@ class EMISBackend:
             {date_joins}
             WHERE ({code_conditions})
                 AND {date_condition}
-                AND date_parse(o.upload_date, '%d/%m/%Y') = (
-                    SELECT MAX(date_parse(upload_date, '%d/%m/%Y')) FROM {ONS_TABLE}
-                )
+                AND o.upload_date = (SELECT MAX(upload_date) FROM {ONS_TABLE})
             """
 
     def patients_died_from_any_cause(
