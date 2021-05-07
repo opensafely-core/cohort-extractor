@@ -233,6 +233,11 @@ class Patient(Base):
         back_populates="Patient",
         cascade="all, delete, delete-orphan",
     )
+    DecisionSupportValue = relationship(
+        "DecisionSupportValue",
+        back_populates="Patient",
+        cascade="all, delete, delete-orphan",
+    )
 
 
 class RegistrationHistory(Base):
@@ -726,3 +731,18 @@ class OPA(Base):
     OPA_Ident = Column(Integer, primary_key=True)
     Appointment_Date = Column(Date)
     Ethnic_Category = Column(String)
+
+
+class DecisionSupportValue(Base):
+    __tablename__ = "DecisionSupportValue"
+
+    Patient_ID = Column(Integer, ForeignKey("Patient.Patient_ID"))
+    Patient = relationship(
+        "Patient", back_populates="DecisionSupportValue", cascade="all, delete"
+    )
+    # This column isn't in the actual database but SQLAlchemy gets a bit upset
+    # if we don't give it a primary key
+    id = Column(Integer, primary_key=True)
+    AlgorithmType = Column(Integer)
+    CalculationDateTime = Column(DateTime)
+    NumericValue = Column(Float)
