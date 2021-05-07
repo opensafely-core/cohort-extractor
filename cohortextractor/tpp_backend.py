@@ -1019,16 +1019,16 @@ class TPPBackend:
 
         return codelist_queries + extra_queries + [sql]
 
-    def patients_with_these_decision_support_values(self, **kwargs):
-        # First, we pop the kwargs.
-        algorithm = kwargs.pop("algorithm")
-        between = kwargs.pop("between")
-        find_first_match_in_period = kwargs.pop("find_first_match_in_period")
-        find_last_match_in_period = kwargs.pop("find_last_match_in_period")
-        returning = kwargs.pop("returning")
-        ignore_missing_values = kwargs.pop("ignore_missing_values")
-
-        # Then, we resolve the algorithm.
+    def patients_with_these_decision_support_values(
+        self,
+        algorithm,
+        between,
+        find_first_match_in_period,
+        find_last_match_in_period,
+        returning,
+        ignore_missing_values,
+    ):
+        # First, we resolve the algorithm.
         algorithm_to_pk = {  # Map the value we use to the PK TPP use
             "efi": 1,
         }
