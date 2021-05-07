@@ -1029,10 +1029,12 @@ class TPPBackend:
         ignore_missing_values,
     ):
         # First, we resolve the algorithm.
-        algorithm_to_pk = {  # Map the value we use to the PK TPP use
+        algorithm_to_id = {  # Map the value we use to the ID TPP use
             "efi": 1,
         }
-        if algorithm not in algorithm_to_pk:
+        try:
+            algorithm_type_id = algorithm_to_id[algorithm]
+        except KeyError:
             raise ValueError(f"Unsupported `algorithm` value: {algorithm}")
 
         # Then, we resolve the date limits.
@@ -1089,7 +1091,7 @@ class TPPBackend:
                     FROM
                         DecisionSupportValue
                     WHERE
-                        AlgorithmType = {algorithm_to_pk[algorithm]}
+                        AlgorithmType = {quote(algorithm_type_id)}
                         AND {date_condition}
                         AND {missing_values_condition}
                 ) t
@@ -1105,7 +1107,7 @@ class TPPBackend:
                 FROM
                     DecisionSupportValue
                 WHERE
-                    AlgorithmType = {algorithm_to_pk[algorithm]}
+                    AlgorithmType = {quote(algorithm_type_id)}
                     AND {date_condition}
                     AND {missing_values_condition}
                 GROUP BY
