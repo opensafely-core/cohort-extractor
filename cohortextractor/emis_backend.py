@@ -386,8 +386,9 @@ class EMISBackend:
         final_query = queries.pop()
         run_analyze = bool(os.environ.get("RUN_ANALYZE"))
         for sql in queries:
-            cursor.execute(sql)
             table_name = re.search(r"CREATE TABLE IF NOT EXISTS (\w+)", sql).groups()[0]
+            logger.info(f"Running query for {table_name}")
+            cursor.execute(sql)
             if run_analyze:
                 cursor.execute(f"ANALYZE {table_name}")
 
