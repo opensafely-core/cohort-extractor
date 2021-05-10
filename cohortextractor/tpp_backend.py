@@ -1030,7 +1030,7 @@ class TPPBackend:
     ):
         # First, we resolve the algorithm.
         algorithm_to_id = {  # Map the value we use to the ID TPP use
-            "efi": 1,
+            "electronic_frailty_index": 1,
         }
         try:
             algorithm_type_id = algorithm_to_id[algorithm]

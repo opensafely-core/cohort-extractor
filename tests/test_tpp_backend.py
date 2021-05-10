@@ -3455,7 +3455,7 @@ def test_decision_support_values_with_max_date(returning, expected):
     study = StudyDefinition(
         population=patients.all(),
         efi=patients.with_these_decision_support_values(
-            "efi",
+            "electronic_frailty_index",
             on_or_before="2021-01-01",
             returning=returning,
         ),
@@ -3477,7 +3477,7 @@ def test_decision_support_values_with_min_date(returning, expected):
     study = StudyDefinition(
         population=patients.all(),
         efi=patients.with_these_decision_support_values(
-            "efi",
+            "electronic_frailty_index",
             on_or_after="2021-01-01",
             returning=returning,
         ),
@@ -3499,7 +3499,7 @@ def test_decision_support_values_with_max_and_min_date(returning, expected):
     study = StudyDefinition(
         population=patients.all(),
         efi=patients.with_these_decision_support_values(
-            "efi",
+            "electronic_frailty_index",
             between=["2020-01-01", "2020-12-31"],
             returning=returning,
         ),
@@ -3521,7 +3521,7 @@ def test_decision_support_values_with_first_match(returning, expected):
     study = StudyDefinition(
         population=patients.all(),
         efi=patients.with_these_decision_support_values(
-            "efi",
+            "electronic_frailty_index",
             find_first_match_in_period=True,
             returning=returning,
         ),
@@ -3543,7 +3543,7 @@ def test_decision_support_values_with_last_match(returning, expected):
     study = StudyDefinition(
         population=patients.all(),
         efi=patients.with_these_decision_support_values(
-            "efi",
+            "electronic_frailty_index",
             find_last_match_in_period=True,
             returning=returning,
         ),
@@ -3557,7 +3557,7 @@ def test_decision_support_values_with_first_match_and_last_match():
         StudyDefinition(
             population=patients.all(),
             efi=patients.with_these_decision_support_values(
-                "efi",
+                "electronic_frailty_index",
                 find_first_match_in_period=True,
                 find_last_match_in_period=True,
             ),
@@ -3570,7 +3570,7 @@ def test_decision_support_values_with_unsupported_returning_value():
         StudyDefinition(
             population=patients.all(),
             efi=patients.with_these_decision_support_values(
-                "efi",
+                "electronic_frailty_index",
                 returning="code",
             ),
         )
@@ -3611,7 +3611,7 @@ def test_decision_support_values_with_ignore_missing_values(returning, expected)
     study = StudyDefinition(
         population=patients.all(),
         efi=patients.with_these_decision_support_values(
-            "efi",
+            "electronic_frailty_index",
             returning=returning,
             ignore_missing_values=True,
         ),

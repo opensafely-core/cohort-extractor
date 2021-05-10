@@ -2056,7 +2056,7 @@ def with_these_decision_support_values(
     Returns values computed by the given decision support algorithm.
 
     Args:
-        algorithm: a string indicating the decision support algorithm. Currently, the only option is `efi` for the electronic frailty index algorithm.
+        algorithm: a string indicating the decision support algorithm. Currently, the only option is `electronic_frailty_index` for the electronic frailty index algorithm.
         on_or_before: the date of interest as a string with the format `YYYY-MM-DD`. Filters matches to on or before the given date. The default value is `None`.
         on_or_after: the date of interest as a string with the format `YYYY-MM-DD`. Filters matches to on or after the given date. The default value is `None`.
         between: two dates of interest as a list with each date as a string with the format `YYYY-MM-DD`. Filters matches to between the two dates. The default value is `None`.
