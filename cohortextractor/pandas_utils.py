@@ -15,14 +15,14 @@ def dataframe_to_file(df, filename):
         # categorical support isn't that great. See:
         # https://github.com/opensafely-core/cohort-extractor/issues/534
         for column, dtype in list(df.dtypes.items()):
-            if isinstance(dtype, pandas.Categorical):
+            if dtype.name == "category":
                 df[column] = df[column].__array__()
         # Encode dates as proper Stata dates (we use "td" as we only need day
         # resolution)
         convert_dates = {
             column: "td"
             for (column, dtype) in df.dtypes.items()
-            if dtype.name == "datetime64"
+            if dtype.name == "datetime64[ns]"
         }
         df.to_stata(filename, write_index=False, convert_dates=convert_dates)
     else:
