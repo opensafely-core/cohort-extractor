@@ -386,8 +386,9 @@ class EMISBackend:
         final_query = queries.pop()
         run_analyze = bool(os.environ.get("RUN_ANALYZE"))
         for sql in queries:
-            cursor.execute(sql)
             table_name = re.search(r"CREATE TABLE IF NOT EXISTS (\w+)", sql).groups()[0]
+            logger.info(f"Running query for {table_name}")
+            cursor.execute(sql)
             if run_analyze:
                 cursor.execute(f"ANALYZE {table_name}")
 
@@ -1337,43 +1338,55 @@ class EMISBackend:
         find_last_match_in_period=None,
         returning="binary_flag",
     ):
-        if find_first_match_in_period:
-            date_aggregate = "MIN"
-        else:
-            date_aggregate = "MAX"
-        date_expression = f"""
-        {date_aggregate}(
+        date_expression = """
         CASE
         WHEN
-          COALESCE(date_format(icuadmissiondatetime, '%Y-%m-%d'), '9999-01-01') < COALESCE(date_format(originalicuadmissiondate, '%Y-%m-%d'), '9999-01-01')
+          COALESCE(date_format(icuadmissiondatetime, '%Y-%m-%d'), '9999-01-01')
+            < COALESCE(date_format(originalicuadmissiondate, '%Y-%m-%d'), '9999-01-01')
         THEN
           DATE(icuadmissiondatetime)
         ELSE
           DATE(originalicuadmissiondate)
-        END)"""
+        END"""
         date_condition, date_joins = self.get_date_condition(
             ICNARC_TABLE, date_expression, between
         )
 
+        greater_than_zero_expr = "CASE WHEN {} > 0 THEN 1 ELSE 0 END"
+
         if returning == "date_admitted":
-            column_definition = date_expression
+            if find_first_match_in_period:
+                column_definition = f"MIN({date_expression})"
+            else:
+                column_definition = f"MAX({date_expression})"
         elif returning == "binary_flag":
             column_definition = 1
+        elif returning == "had_respiratory_support":
+            column_definition = greater_than_zero_expr.format(
+                "SUM(basicdays_respiratorysupport) + SUM(advanceddays_respiratorysupport)"
+            )
+        elif returning == "had_basic_respiratory_support":
+            column_definition = greater_than_zero_expr.format(
+                "SUM(basicdays_respiratorysupport)"
+            )
+        elif returning == "had_advanced_respiratory_support":
+            column_definition = greater_than_zero_expr.format(
+                "SUM(advanceddays_respiratorysupport)"
+            )
         else:
-            assert False, "`returning` must be one of `binary_flag` or `date_admitted`"
+            raise ValueError(f"Unsupported `returning` value: {returning}")
+
         return f"""
-            SELECT
-              registration_id,
-              hashed_organisation,
-              {column_definition} AS {returning},
-              MAX(Ventilator) AS ventilated -- apparently can be 0, 1 or NULL
-            FROM
-              {ICNARC_TABLE}
-            {date_joins}
-            GROUP BY registration_id, hashed_organisation
-            HAVING
-              {date_condition} AND SUM(basicdays_respiratorysupport) + SUM(advanceddays_respiratorysupport) >= 1
-            """
+        SELECT
+          {ICNARC_TABLE}.registration_id AS registration_id,
+          {ICNARC_TABLE}.hashed_organisation AS hashed_organisation,
+          {column_definition} AS {returning}
+        FROM
+          {ICNARC_TABLE}
+        {date_joins}
+        WHERE {date_condition}
+        GROUP BY {ICNARC_TABLE}.registration_id, {ICNARC_TABLE}.hashed_organisation
+        """
 
     def patients_with_these_codes_on_death_certificate(
         self,
@@ -1422,9 +1435,7 @@ class EMISBackend:
             {date_joins}
             WHERE ({code_conditions})
                 AND {date_condition}
-                AND date_parse(o.upload_date, '%d/%m/%Y') = (
-                    SELECT MAX(date_parse(upload_date, '%d/%m/%Y')) FROM {ONS_TABLE}
-                )
+                AND o.upload_date = (SELECT MAX(upload_date) FROM {ONS_TABLE})
             """
 
     def patients_died_from_any_cause(

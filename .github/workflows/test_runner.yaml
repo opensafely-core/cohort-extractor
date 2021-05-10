@@ -6,8 +6,8 @@ env:
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
 jobs:
-  install:
-    name: Install and cache dependencies
+  check:
+    name: Check formatting
     runs-on: ubuntu-latest
 
     steps:
@@ -21,26 +21,6 @@ jobs:
           python -m pip install --upgrade pip
           python -m venv venv
           venv/bin/pip install --progress-bar=off --requirement requirements.txt
-      - name: Cache
-        uses: actions/cache@v2
-        with:
-          path: ${{ github.workspace }}/venv
-          key: venv-${{ github.ref }}-${{ hashFiles('requirements.txt') }}
-
-  check:
-    name: Check formatting
-    needs: install
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@v2
-      - uses: actions/setup-python@v2
-        with:
-          python-version: "3.8"
-      - uses: actions/cache@v2
-        with:
-          path: ${{ github.workspace }}/venv
-          key: venv-${{ github.ref }}-${{ hashFiles('requirements.txt') }}
       - name: Run all pre-commit checks
         run: |
           source ${{ github.workspace }}/venv/bin/activate
@@ -48,7 +28,6 @@ jobs:
 
   test:
     name: Run test suite
-    needs: install
     runs-on: ubuntu-latest
 
     steps:
@@ -56,10 +35,12 @@ jobs:
       - uses: actions/setup-python@v2
         with:
           python-version: "3.8"
-      - uses: actions/cache@v2
-        with:
-          path: ${{ github.workspace }}/venv
-          key: venv-${{ github.ref }}-${{ hashFiles('requirements.txt') }}
+      - name: Install
+        run: |
+          set -xe
+          python -m pip install --upgrade pip
+          python -m venv venv
+          venv/bin/pip install --progress-bar=off --requirement requirements.txt
       - name: Start SQL Server and Presto instances for the tests
         run: docker-compose up -d mssql presto
       - name: Run tests

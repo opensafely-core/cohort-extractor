@@ -836,7 +836,9 @@ def care_home_status_as_of(
 
     Example:
 
-        This creates a variable called `care_home_type` which contains a 2 letter string which represents a type of care home environment.
+        This creates a variable called `care_home_type` which contains a 2
+        letter string which represents a type of care home environment. If the
+        address is not valid, it defaults to an empty string.
 
             care_home_type=patients.care_home_status_as_of(
                 "2020-02-01",
@@ -854,11 +856,12 @@ def care_home_status_as_of(
                       AND LocationRequiresNursing='Y'
                     \"\"\",
                     "PS": "IsPotentialCareHome",
-                    "U": "DEFAULT",
+                    "PR": "NOT IsPotentialCareHome",
+                    "": "DEFAULT",
                 },
                 return_expectations={
                     "rate": "universal",
-                    "category": {"ratios": {"PC": 0.05, "PN": 0.05, "PS": 0.05, "U": 0.85,},},
+                    "category": {"ratios": {"PC": 0.05, "PN": 0.05, "PS": 0.05, "PR": 0.84, "": 0.01},},
                 },
             ),
     """
