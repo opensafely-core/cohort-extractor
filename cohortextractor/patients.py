@@ -2037,3 +2037,39 @@ def with_ethnicity_from_sus(
             )
     """
     return "with_ethnicity_from_sus", locals()
+
+
+def with_these_decision_support_values(
+    algorithm,
+    on_or_before=None,
+    on_or_after=None,
+    between=None,
+    find_first_match_in_period=None,
+    find_last_match_in_period=None,
+    returning="numeric_value",
+    include_date_of_match=False,
+    date_format=None,
+    ignore_missing_values=False,
+    return_expectations=None,
+):
+    """
+    Returns values computed by the given decision support algorithm.
+
+    Args:
+        algorithm: a string indicating the decision support algorithm. Currently, the only option is `electronic_frailty_index` for the electronic frailty index algorithm.
+        on_or_before: the date of interest as a string with the format `YYYY-MM-DD`. Filters matches to on or before the given date. The default value is `None`.
+        on_or_after: the date of interest as a string with the format `YYYY-MM-DD`. Filters matches to on or after the given date. The default value is `None`.
+        between: two dates of interest as a list with each date as a string with the format `YYYY-MM-DD`. Filters matches to between the two dates. The default value is `None`.
+        find_first_match_in_period: a boolean indicating if values should be based on the first match in the period.
+        find_last_match_in_period: a boolean indicating if values should be based on the last match in the period. This is the default behaviour.
+        returning: a string indicating the values to return. The options are:
+            * `binary_flag`
+            * `date`
+            * `number_of_matches_in_period`
+            * `numeric_value` The default value.
+        include_date_of_match: a boolean indicating if an extra column containing the date of the match should be returned. The default value is `False`.
+        date_format: a string indicating the format of any dates included in the values. It can be `YYYY-MM-DD`, `YYYY-MM`, or `YYYY`. Wherever possible the least disclosive dates should be returned i.e returning dates with year and month is less disclosive than returning dates with year, month, and day. The default value is `None`. Only used if `include_date_of_match=True`.
+        ignore_missing_values: a boolean indicating if matches where the value is missing or zero should be ignored. We are unable to distinguish between null values (missing) and zeros due to limitations in how the data are recorded by TPP. The default value is `False`.
+        return_expectations: as described elsewhere.
+    """
+    return "with_these_decision_support_values", locals()
