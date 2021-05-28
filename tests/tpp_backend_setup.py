@@ -531,6 +531,9 @@ class SGSS_AllTests_Positive(Base):
     # Possible values: "N", "U", "Y"
     Symptomatic = Column(String)
 
+    Variant = Column(String)
+    VariantDetectionMethod = Column(String)
+
     # These columns are entirely NULL for some reason
     Pillar = Column(String)
     LFT_Flag = Column(String)

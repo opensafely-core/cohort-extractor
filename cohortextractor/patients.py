@@ -1557,6 +1557,27 @@ def with_test_result_in_sgss(
 
         "LFT_Only", "PCR_Only", "LFT_WithPCR"
 
+    ### Variant
+
+    The `returning="variant"` option (only available in the "All Tests" data)
+    returns details on specific SARS-CoV-2 variants detected. Possible values
+    include, but are not limited to:
+
+        B.1.617.2
+        VOC-21JAN-02
+        VUI-21FEB-04
+        P.1
+        E484K
+        B.1.1.7+E484K
+        No VOC detected
+        Sequencing Failed
+        Undetermined
+        Undetermined + e484k
+
+    The `returning="variant_detection_method"` options returns possible values:
+
+        "Reflex Assay" and "Private Lab Sequencing"
+
     For more detail on SGSS in general see [PHE_Laboratory_Reporting_Guidelines.pdf][PHE_LRG]
 
     [PHE_LRG]: https://assets.publishing.service.gov.uk/government/uploads/system/uploads/attachment_data/file/739854/PHE_Laboratory_Reporting_Guidelines.pdf
@@ -1589,7 +1610,9 @@ def with_test_result_in_sgss(
             * `binary_flag`: indicates if they have had the an event or not
             * `date`: indicates date of event and used with either find_first_match_in_period or find_last_match_in_period
             * `s_gene_target_failure`: returns the value of the SGTF field (see above)
-            * `case_category` see above
+            * `case_category` (see above)
+            * `variant` (see above)
+            * `variant_detection_method` (see above)
 
         date_format: a string detailing the format of the dates to be returned.
             It can be `YYYY-MM-DD`, `YYYY-MM` or `YYYY` and wherever possible

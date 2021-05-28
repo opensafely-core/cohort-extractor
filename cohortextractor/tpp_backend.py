@@ -1787,6 +1787,17 @@ class TPPBackend:
                 "  test_result = 'positive'"
             )
 
+        if (
+            returning in ("variant", "variant_detection_method")
+            and restrict_to_earliest_specimen_date
+        ):
+            raise ValueError(
+                f"Due to limitations in the SGSS data we receive you can only use:\n"
+                f"  returning = '{returning}'\n"
+                f"with the option:\n"
+                f"  restrict_to_earliest_specimen_date = False\n"
+            )
+
         if returning == "binary_flag":
             column = "1"
         elif returning == "date":
@@ -1800,6 +1811,23 @@ class TPPBackend:
             column = "t2.sgtf"
         elif returning == "case_category":
             column = "t2.case_cateogory"
+        elif returning == "variant":
+            raw_column = "t2.variant"
+            transforms = {
+                "(blank)": "",
+                "none": "",
+                "N/A": "",
+                "VOC-20DEC-01 detected": "VOC-20DEC-01",
+            }
+            case_clauses = "\n".join(
+                [
+                    f"WHEN {raw_column} = {quote(key)} THEN {quote(value)}"
+                    for (key, value) in transforms.items()
+                ]
+            )
+            column = f"CASE {case_clauses} ELSE {raw_column} END"
+        elif returning == "variant_detection_method":
+            column = "t2.variant_detection_method"
         else:
             raise ValueError(f"Unsupported `returning` value: {returning}")
 
@@ -1824,13 +1852,17 @@ class TPPBackend:
             positive_query = """
             SELECT
               Patient_ID AS patient_id,
-              Specimen_Date AS date
+              Specimen_Date AS date,
+              Variant AS variant,
+              VariantDetectionMethod AS variant_detection_method
             FROM SGSS_AllTests_Positive
             """
             negative_query = """
             SELECT
               Patient_ID AS patient_id,
-              Specimen_Date AS date
+              Specimen_Date AS date,
+              '' AS variant,
+              '' AS variant_detection_method
             FROM SGSS_AllTests_Negative
             """
 
