@@ -2193,7 +2193,11 @@ def test_patients_with_test_result_in_sgss():
                     SGSS_Negative(Earliest_Specimen_Date="2020-07-10"),
                 ],
                 SGSS_AllTests_Positives=[
-                    SGSS_AllTests_Positive(Specimen_Date="2020-05-15"),
+                    SGSS_AllTests_Positive(
+                        Specimen_Date="2020-05-15",
+                        Variant="B.1.351",
+                        VariantDetectionMethod="Private Lab Sequencing",
+                    ),
                     SGSS_AllTests_Positive(Specimen_Date="2020-05-20"),
                 ],
                 SGSS_AllTests_Negatives=[
@@ -2214,7 +2218,11 @@ def test_patients_with_test_result_in_sgss():
                     SGSS_AllTests_Negative(Specimen_Date="2020-04-01")
                 ],
                 SGSS_AllTests_Positives=[
-                    SGSS_AllTests_Positive(Specimen_Date="2020-04-20"),
+                    SGSS_AllTests_Positive(
+                        Specimen_Date="2020-04-20",
+                        Variant="VOC-20DEC-01 detected",
+                        VariantDetectionMethod="Reflex Assay",
+                    ),
                     SGSS_AllTests_Positive(Specimen_Date="2020-05-02"),
                 ],
             ),
@@ -2277,6 +2285,20 @@ def test_patients_with_test_result_in_sgss():
             find_first_match_in_period=True,
             returning="s_gene_target_failure",
         ),
+        variant=patients.with_test_result_in_sgss(
+            pathogen="SARS-CoV-2",
+            test_result="positive",
+            find_first_match_in_period=True,
+            restrict_to_earliest_specimen_date=False,
+            returning="variant",
+        ),
+        variant_detection_method=patients.with_test_result_in_sgss(
+            pathogen="SARS-CoV-2",
+            test_result="positive",
+            find_first_match_in_period=True,
+            restrict_to_earliest_specimen_date=False,
+            returning="variant_detection_method",
+        ),
     )
     assert_results(
         study.to_dicts(),
@@ -2293,6 +2315,8 @@ def test_patients_with_test_result_in_sgss():
         first_negative_after_a_positive=["2020-07-10", "", "", ""],
         last_positive_test_date=["2020-05-20", "2020-05-02", "", ""],
         sgtf_result=["9", "1", "", ""],
+        variant=["B.1.351", "VOC-20DEC-01", "", ""],
+        variant_detection_method=["Private Lab Sequencing", "Reflex Assay", "", ""],
     )
 
 

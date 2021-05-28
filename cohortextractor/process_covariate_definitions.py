@@ -369,6 +369,8 @@ class GetColumnType:
             "days_in_critical_care": "str",
             "administrative_category": "str",
             "duration_of_elective_wait": "str",
+            "variant": "str",
+            "variant_detection_method": "str",
         }
         try:
             return mapping[returning]
