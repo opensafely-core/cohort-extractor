@@ -65,8 +65,8 @@ def age_as_of(
     return_expectations=None,
 ):
     """
-    Returns the patient's age, in whole years, as at `reference_date`. 
-    Note that the patient's date of birth is rounded down to the first of the month, 
+    Returns the patient's age, in whole years, as at `reference_date`.
+    Note that the patient's date of birth is rounded down to the first of the month,
     and age is derived from this rounded date.
 
     Age can be negative if a patient's date of birth is after the `reference_date`.
@@ -101,8 +101,8 @@ def date_of_birth(
     return_expectations=None,
 ):
     """
-    Returns date of birth as a string with format "YYYY-MM". 
-    
+    Returns date of birth as a string with format "YYYY-MM".
+
     Args:
         date_format: a string detailing the format of the dates for date of birth to be returned.
             It can be "YYYY-MM" or "YYYY" and wherever possible the least disclosive data should be
