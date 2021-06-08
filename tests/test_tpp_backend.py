@@ -2741,8 +2741,16 @@ def test_patients_date_deregistered_from_all_supported_practices():
             on_or_before="2018-02-01",
             date_format="YYYY-MM",
         ),
+        dereg_date_2=patients.date_deregistered_from_all_supported_practices(
+            on_or_after="2015-01-01",
+            date_format="YYYY-MM",
+        ),
     )
-    assert_results(study.to_dicts(), dereg_date=["", "", "2017-10"])
+    assert_results(
+        study.to_dicts(),
+        dereg_date=["", "", "2017-10"],
+        dereg_date_2=["", "2020-01", "2017-10"],
+    )
 
 
 def test_patients_admitted_to_hospital():
