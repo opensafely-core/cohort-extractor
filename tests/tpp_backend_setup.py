@@ -238,6 +238,11 @@ class Patient(Base):
         back_populates="Patient",
         cascade="all, delete, delete-orphan",
     )
+    HealthCareWorker = relationship(
+        "HealthCareWorker",
+        back_populates="Patient",
+        cascade="all, delete, delete-orphan",
+    )
 
 
 class RegistrationHistory(Base):
@@ -749,3 +754,17 @@ class DecisionSupportValue(Base):
     AlgorithmType = Column(Integer)
     CalculationDateTime = Column(DateTime)
     NumericValue = Column(Float)
+
+
+class HealthCareWorker(Base):
+    __tablename__ = "HealthCareWorker"
+
+    # This column isn't in the actual database but SQLAlchemy gets a bit upset
+    # if we don't give it a primary key
+    id = Column(Integer, primary_key=True)
+    Patient_ID = Column(Integer, ForeignKey("Patient.Patient_ID"))
+    Patient = relationship(
+        "Patient", back_populates="HealthCareWorker", cascade="all, delete"
+    )
+    # Only ever contains "Y" so redundant really
+    HealthCareWorker = Column(String)
