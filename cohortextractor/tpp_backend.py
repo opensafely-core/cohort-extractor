@@ -1335,7 +1335,9 @@ class TPPBackend:
             max_date = "3000-01-01"
         if min_date is None:
             min_date = "1900-01-01"
-        date_condition, date_joins = self.get_date_condition("t", "t.end_date", between)
+        date_condition, date_joins = self.get_date_condition(
+            "t", "t.end_date", (min_date, max_date)
+        )
         return f"""
         SELECT
           t.Patient_id,
