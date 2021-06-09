@@ -175,8 +175,22 @@ class StudyDefinition:
         for name, (funcname, kwargs) in covariate_definitions.items():
             if name == "population" or kwargs.get("hidden"):
                 continue
-            args[name] = kwargs.copy()
+            kwargs = kwargs.copy()
+            kwargs["funcname"] = funcname
+            args[name] = kwargs
             column_type = kwargs["column_type"]
+
+            if funcname == "aggregate_of":
+                # We've already validated that the source columns for each
+                # aggregate expression are of the same type and, for dates,
+                # that they have the same date format. So we can just grab the
+                # first source column and use the date format from that.
+                other_column = kwargs["column_names"][0]
+                other_date_format = covariate_definitions[other_column][1].get(
+                    "date_format"
+                )
+                if other_date_format:
+                    kwargs["date_format"] = other_date_format
 
             # Awkward workaround: IMD is in fact an int, but it comes to us
             # rounded to nearest hundred which makes it act a bit more like a
@@ -230,6 +244,8 @@ class StudyDefinition:
         # matching on dependent columns
         for colname in self.pandas_csv_args["parse_dates"]:
             definition_args = self.pandas_csv_args["args"][colname]
+            if definition_args["funcname"] == "aggregate_of":
+                continue
             if "source" in definition_args:
                 source_args = self.pandas_csv_args["args"][definition_args["source"]]
                 definition_args["return_expectations"] = source_args[
@@ -257,6 +273,8 @@ class StudyDefinition:
         # its incidence calculated as a mask
         for colname, dtype in self.pandas_csv_args["dtype"].items():
             definition_args = self.pandas_csv_args["args"][colname]
+            if definition_args["funcname"] == "aggregate_of":
+                continue
             return_expectations = definition_args["return_expectations"] or {}
             if not self.default_expectations and not return_expectations:
                 raise ValueError(
@@ -293,6 +311,22 @@ class StudyDefinition:
                 raise ValueError(
                     f"Column definition {colname} does not return expected type {dtype}"
                 )
+
+        # Calculate the value of aggregated columns
+        for colname, definition_args in self.pandas_csv_args["args"].items():
+            if definition_args["funcname"] != "aggregate_of":
+                continue
+            fn = definition_args["aggregate_function"]
+            if fn == "MIN":
+                method_name = "min"
+            elif fn == "MAX":
+                method_name = "max"
+            else:
+                raise ValueError(f"Unsupported aggregate function '{fn}'")
+            columns = df[list(definition_args["column_names"])]
+            aggregate_method = getattr(columns, method_name)
+            df[colname] = aggregate_method(axis=1)
+
         # Finally, reduce date columns to the precision requested in
         # the definition
         for colname in self.pandas_csv_args["parse_dates"]:

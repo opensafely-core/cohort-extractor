@@ -1,4 +1,4 @@
-from math import isclose
+from math import isclose, isnan
 
 import numpy as np
 import pandas as pd
@@ -816,3 +816,45 @@ def test_make_df_from_expectations_with_deregistration_date():
     dates = result.dereg_date.dropna()
     assert dates.max() <= "2018-02"
     assert dates.min() >= "1980-01"
+
+
+def test_make_df_from_expectations_with_aggregate_of():
+    study = StudyDefinition(
+        default_expectations={
+            "date": {"earliest": "1900-01-01", "latest": "today"},
+            "rate": "exponential_increase",
+            "incidence": 0.2,
+        },
+        population=patients.all(),
+        date_1=patients.with_these_clinical_events(
+            codelist(["X"], system="ctv3"),
+            returning="date",
+            date_format="YYYY-MM-DD",
+        ),
+        date_2=patients.with_these_clinical_events(
+            codelist(["X"], system="ctv3"),
+            returning="date",
+            date_format="YYYY-MM-DD",
+        ),
+        date_min=patients.minimum_of("date_1", "date_2"),
+        date_max=patients.maximum_of("date_1", "date_2"),
+    )
+    population_size = 10000
+    result = study.make_df_from_expectations(population_size)
+    for _, row in result.iterrows():
+        print(row)
+        dates = [d for d in [row["date_1"], row["date_2"]] if isinstance(d, str)]
+        if dates:
+            date_min = min(dates)
+            date_max = max(dates)
+        else:
+            date_min = float("nan")
+            date_max = float("nan")
+        assert_nan_equal(row["date_min"], date_min)
+        assert_nan_equal(row["date_max"], date_max)
+
+
+def assert_nan_equal(v1, v2):
+    assert (
+        not isinstance(v1, str) and not isinstance(v2, str) and isnan(v1) and isnan(v2)
+    ) or v1 == v2
