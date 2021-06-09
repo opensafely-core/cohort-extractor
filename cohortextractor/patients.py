@@ -273,7 +273,7 @@ def most_recent_bmi(
         on_or_after: date of interest as a string with the format `YYYY-MM-DD`. Filters results to measurements
             on or after the given date. The default value is `None`.
         between: two dates of interest as a list with each date as a string with the format `YYYY-MM-DD`.
-            Filters results to measurements between the two dates provided. The default value is `None`.
+            Filters results to measurements between the two dates provided (inclusive). The default value is `None`.
         minimum_age_at_measurement: Measurements taken before this age will not count towards BMI
             calculations. It is an integer and the default value is 16.
         return_expectations: a dictionary defining the incidence and distribution of expected BMI
@@ -357,7 +357,7 @@ def mean_recorded_value(
         on_or_after: date of interest as a string with the format `YYYY-MM-DD`. Filters results to measurements
             on or after the given date. The default value is `None`.
         between: two dates of interest as a list with each date as a string with the format `YYYY-MM-DD`.
-            Filters results to measurements between the two dates provided. The default value is `None`.
+            Filters results to measurements between the two dates provided (inclusive). The default value is `None`.
         include_measurement_date: a boolean indicating if an extra column, named `date_of_bmi`,
             should be included in the output. The default value is `False`.
         date_format: a string detailing the format of the dates to be returned. It can be `YYYY-MM-DD`,
@@ -445,7 +445,7 @@ def with_these_medications(
         on_or_after: date of interest as a string with the format `YYYY-MM-DD`. Filters results to
             on or after the given date. The default value is `None`.
         between: two dates of interest as a list with each date as a string with the format `YYYY-MM-DD`.
-            Filters results to between the two dates provided. The default value is `None`.
+            Filters results to between the two dates provided (inclusive). The default value is `None`.
         returning: string indicating value to be returned. Options are:
 
             * `binary_flag`
@@ -558,7 +558,7 @@ def with_these_clinical_events(
         on_or_after: date of interest as a string with the format `YYYY-MM-DD`. Filters results to
             on or after the given date. The default value is `None`.
         between: two dates of interest as a list with each date as a string with the format `YYYY-MM-DD`.
-            Filters results to between the two dates provided. The default value is `None`.
+            Filters results to between the two dates provided (inclusive). The default value is `None`.
         returning: string indicating value to be returned. Options are:
 
             * `binary_flag`
@@ -983,7 +983,7 @@ def with_these_codes_on_death_certificate(
         on_or_after: date of interest as a string with the format `YYYY-MM-DD`. Filters results
             on or after the given date. The default value is `None`.
         between: two dates of interest as a list with each date as a string with the format `YYYY-MM-DD`.
-            Filters results between the two dates provided. The default value is `None`.
+            Filters results between the two dates provided (inclusive). The default value is `None`.
         match_only_underlying_cause: boolean for indicating if filters results to only specified cause of death.
         returning: string indicating value to be returned. Options are:
 
@@ -1046,7 +1046,7 @@ def died_from_any_cause(
         on_or_after: date of interest as a string with the format `YYYY-MM-DD`. Filters results
             on or after the given date. The default value is `None`.
         between: two dates of interest as a list with each date as a string with the format `YYYY-MM-DD`.
-            Filters results to between the two dates provided. The default value is `None`.
+            Filters results to between the two dates provided (inclusive). The default value is `None`.
         returning: string indicating value to be returned. Options are:
 
             * `date_of_death`: Date of death
@@ -1107,7 +1107,7 @@ def with_death_recorded_in_cpns(
         on_or_after: date of interest as a string with the format `YYYY-MM-DD`. Filters results
             on or after the given date. The default value is `None`.
         between: two dates of interest as a list with each date as a string with the format `YYYY-MM-DD`.
-            Filters results to between the two dates provided. The default value is `None`.
+            Filters results to between the two dates provided (inclusive). The default value is `None`.
         returning: string indicating value to be returned. Options are:
 
             * `date_of_death`: Date of death
@@ -1170,7 +1170,7 @@ def with_death_recorded_in_primary_care(
         on_or_after: date of interest as a string with the format `YYYY-MM-DD`. Filters results
             on or after the given date. The default value is `None`.
         between: two dates of interest as a list with each date as a string with the format `YYYY-MM-DD`.
-            Filters results to  between the two dates provided. The default value is `None`.
+            Filters results to  between the two dates provided (inclusive). The default value is `None`.
         returning: string indicating value to be returned. Options are:
 
             * `date_of_death`: Date of death
@@ -1249,7 +1249,7 @@ def with_vaccination_record(
         on_or_after: date of interest as a string with the format `YYYY-MM-DD`. Filters results to
             on or after the given date. The default value is `None`.
         between: two dates of interest as a list with each date as a string with the format `YYYY-MM-DD`.
-            Filters results to between the two dates provided. The default value is `None`.
+            Filters results to between the two dates provided (inclusive). The default value is `None`.
         returning: string indicating value to be returned. Options are:
 
             * `binary_flag`: indicates if they have had the vaccination or not
@@ -1329,7 +1329,7 @@ def with_tpp_vaccination_record(
         on_or_after: date of interest as a string with the format `YYYY-MM-DD`. Filters results to
             on or after the given date. The default value is `None`.
         between: two dates of interest as a list with each date as a string with the format `YYYY-MM-DD`.
-            Filters results to between the two dates provided. The default value is `None`.
+            Filters results to between the two dates provided (inclusive). The default value is `None`.
         returning: string indicating value to be returned. Options are:
 
             * `binary_flag`: indicates if they have had the vaccination or not
@@ -1394,7 +1394,7 @@ def with_gp_consultations(
         on_or_after: date of interest as a string with the format `YYYY-MM-DD`. Filters results to
             on or after the given date. The default value is `None`.
         between: two dates of interest as a list with each date as a string with the format `YYYY-MM-DD`.
-            Filters results to between the two dates provided. The default value is `None`.
+            Filters results to between the two dates provided (inclusive). The default value is `None`.
         find_first_match_in_period: a boolean that indicates if the data returned is first event
             if there are multiple matches within the time period
         find_last_match_in_period: a boolean that indicates if the data returned is last event
@@ -1783,7 +1783,7 @@ def attended_emergency_care(
         on_or_after: date of interest as a string with the format `YYYY-MM-DD`. Filters results to
             on or after the given date. The default value is `None`.
         between: two dates of interest as a list with each date as a string with the format `YYYY-MM-DD`.
-            Filters results to between the two dates provided. The default value is `None`.
+            Filters results to between the two dates provided (inclusive). The default value is `None`.
         returning: string indicating value to be returned. Options are:
 
             * `binary_flag`: Whether patient attended A&E
@@ -1848,7 +1848,7 @@ def date_deregistered_from_all_supported_practices(
         on_or_after: date of interest as a string with the format `YYYY-MM-DD`. Filters results to
             on or after the given date. The default value is `None`.
         between: two dates of interest as a list with each date as a string with the format `YYYY-MM-DD`.
-            Filters results to between the two dates provided. The default value is `None`.
+            Filters results to between the two dates provided (inclusive). The default value is `None`.
         date_format: a string detailing the format of the dates to be returned. It can be `YYYY-MM-DD`,
             `YYYY-MM` or `YYYY` and wherever possible the least disclosive data should be returned. i.e returning
             only year is less disclosive than a date with day, month and year.
@@ -1905,7 +1905,7 @@ def admitted_to_hospital(
         on_or_after: date of interest as a string with the format `YYYY-MM-DD`. Filters results to
             on or after the given date. The default value is `None`.
         between: two dates of interest as a list with each date as a string with the format `YYYY-MM-DD`.
-            Filters results to between the two dates provided. The default value is `None`.
+            Filters results to between the two dates provided (inclusive). The default value is `None`.
         returning: string indicating value to be returned. Options are:
 
             * `binary_flag`: if they were admitted at all,
