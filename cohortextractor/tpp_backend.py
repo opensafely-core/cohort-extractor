@@ -374,7 +374,7 @@ class TPPBackend:
             # value for the column type which is almost always the empty string
             # apart from bools and ints where it's zero.
             default_value=self.get_default_value_for_type(column_type),
-            source_tables=tables_used,
+            source_tables=list(tables_used),
         )
 
     def get_aggregate_expression(
@@ -422,7 +422,7 @@ class TPPBackend:
             f"ISNULL(({aggregate_expression}), {quote(default_value)})",
             type=column_type,
             default_value=default_value,
-            source_tables=tables_used,
+            source_tables=list(tables_used),
             # It's already been checked that date_format is consistent across
             # the source columns, so we just grab the first one and use the
             # date_format from that

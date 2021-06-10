@@ -1678,7 +1678,15 @@ def maximum_of(*column_names, **extra_columns):
           "some_column",
           another_colum=patients.with_these_medications(...)
       )
+
+    This function doesn't accept `return_expectations` but instead derives
+    dummy values from the values of its source columns.
     """
+    if "return_expectations" in extra_columns:
+        raise ValueError(
+            "The `maximum_of` function does not accept `return_expecations` and "
+            "instead derives dummy values from the values of its source columns"
+        )
     aggregate_function = "MAX"
     column_names = column_names + tuple(extra_columns.keys())
     return "aggregate_of", locals()
@@ -1702,7 +1710,15 @@ def minimum_of(*column_names, **extra_columns):
           "some_column",
           another_colum=patients.with_these_medications(...)
       )
+
+    This function doesn't accept `return_expectations` but instead derives
+    dummy values from the values of its source columns.
     """
+    if "return_expectations" in extra_columns:
+        raise ValueError(
+            "The `minimum_of` function does not accept `return_expecations` and "
+            "instead derives dummy values from the values of its source columns"
+        )
     aggregate_function = "MIN"
     column_names = column_names + tuple(extra_columns.keys())
     return "aggregate_of", locals()
