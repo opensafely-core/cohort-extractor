@@ -29,6 +29,7 @@ from tests.tpp_backend_setup import (
     CodedEventSnomed,
     DecisionSupportValue,
     EC_Diagnosis,
+    HealthCareWorker,
     HighCostDrugs,
     Household,
     HouseholdMember,
@@ -94,6 +95,7 @@ def setup_function(function):
     session.query(OPA).delete()
     session.query(HighCostDrugs).delete()
     session.query(DecisionSupportValue).delete()
+    session.query(HealthCareWorker).delete()
     session.query(Patient).delete()
     session.commit()
 
@@ -3649,3 +3651,26 @@ def test_decision_support_values_with_ignore_missing_values(returning, expected)
         ),
     )
     assert_results(study.to_dicts(), efi=expected)
+
+
+def test_with_healthcare_worker_flag_on_covid_vaccine_record():
+    session = make_session()
+    session.add_all(
+        [
+            Patient(HealthCareWorker=[HealthCareWorker(HealthCareWorker="Y")]),
+            Patient(
+                HealthCareWorker=[
+                    HealthCareWorker(HealthCareWorker="Y"),
+                    HealthCareWorker(HealthCareWorker="Y"),
+                ]
+            ),
+            Patient(HealthCareWorker=[HealthCareWorker(HealthCareWorker="N")]),
+            Patient(),
+        ]
+    )
+    session.commit()
+    study = StudyDefinition(
+        population=patients.all(),
+        hcw=patients.with_healthcare_worker_flag_on_covid_vaccine_record(),
+    )
+    assert_results(study.to_dicts(), hcw=["1", "1", "0", "0"])

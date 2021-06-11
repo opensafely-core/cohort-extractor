@@ -20,6 +20,7 @@ setup(
         "presto-python-client",
         "prettytable",
         "pyarrow",
+        "pyspark",
         "pyyaml",
         "requests",
         "requests-pkcs12",
