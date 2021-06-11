@@ -2339,6 +2339,20 @@ class TPPBackend:
         """
         return sql
 
+    def patients_with_healthcare_worker_flag_on_covid_vaccine_record(self, returning):
+        assert returning == "binary_flag"
+        return """
+        SELECT
+          Patient_ID as patient_id,
+          1 as binary_flag
+        FROM
+          HealthCareWorker
+        WHERE
+          HealthCareWorker.HealthCareWorker = 'Y'
+        GROUP BY
+          patient_id
+        """
+
 
 class ColumnExpression:
     def __init__(

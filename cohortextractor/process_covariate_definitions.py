@@ -322,6 +322,11 @@ class GetColumnType:
     def type_of_with_these_decision_support_values(self, returning, **kwargs):
         return self._type_from_return_value(returning)
 
+    def type_of_with_healthcare_worker_flag_on_covid_vaccine_record(
+        self, returning, **kwargs
+    ):
+        return self._type_from_return_value(returning)
+
     def _type_from_return_value(self, returning):
         if returning == "nhse_region_name":
             raise ValueError(

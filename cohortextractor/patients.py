@@ -2116,3 +2116,22 @@ def with_these_decision_support_values(
         return_expectations: as described elsewhere.
     """
     return "with_these_decision_support_values", locals()
+
+
+def with_healthcare_worker_flag_on_covid_vaccine_record(
+    returning="binary_flag", return_expectations=None
+):
+    """
+    Return whether patient was recorded as being a healthcare worker at the
+    time they received a COVID-19 vaccination.
+
+    This data is from the NHS England COVID-19 data store, and reflects
+    information collected at the point of vaccination where recipients are
+    asked by vaccination staff whether they are in the category of health and
+    care worker.
+
+    Args:
+        returning: must be 'binary_flag', if supplied
+        return_expectations: as described elsewhere.
+    """
+    return "with_healthcare_worker_flag_on_covid_vaccine_record", locals()
