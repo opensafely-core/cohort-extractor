@@ -14,26 +14,20 @@ This tool supports the authoring of OpenSAFELY-compliant research, by:
 It is also the mechanism by which cohorts are extracted from live
 database backends within the OpenSAFELY framework.
 
-To install the latest released version:
-
-    pip install --upgrade opensafely-cohort-extractor
-
-To discover its options:
-
-    cohortextractor --help
-
 It is designed to be run within an OpenSAFELY-compliant research
-repository. [You can find a template repository to get you started
-here](https://github.com/opensafely/research-template).
+repository, via Docker.  You can find a [template repository here](https://github.com/opensafely/research-template)
+and a [Getting Started guide](https://docs.opensafely.org/getting-started/) in the
+OpenSAFELY documentation to help you get your study repository set up.
 
-The tool has a `remote` subcommand which triggers jobs to be scheduled
-to run elsewhere, via a [job
-server](https://github.com/opensafely/job-server). If you set the
-environment variable `OPENSAFELY_REMOTE_WEBHOOK`, this hook will be
-supplied to the job server, which will `POST` a message to that URL
-when a job has finished.
+Normally it will be invoked via the [https://github.com/opensafely-core/opensafely-cli](OpenSAFELY command line tool),
+as described in the [documentation](https://docs.opensafely.org/getting-started/).
 
-# For developers and researchers
+If running it directly, it should be run from within the research repository.
+To run the latest version via Docker and access its full help:
+
+    docker run --rm ghcr.io/opensafely-core/cohortextractor --help
+
+# For developers
 
 Please see [the additional information](DEVELOPERS.md).
 
