@@ -19,7 +19,7 @@ repository, via Docker.  You can find a [template repository here](https://githu
 and a [Getting Started guide](https://docs.opensafely.org/getting-started/) in the
 OpenSAFELY documentation to help you get your study repository set up.
 
-Normally it will be invoked via the [https://github.com/opensafely-core/opensafely-cli](OpenSAFELY command line tool),
+Normally it will be invoked via the [OpenSAFELY command line tool](https://github.com/opensafely-core/opensafely-cli),
 as described in the [documentation](https://docs.opensafely.org/getting-started/).
 
 If running it directly, it should be run from within the research repository.
