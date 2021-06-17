@@ -2,7 +2,8 @@ FROM ghcr.io/opensafely-core/base-docker
 
 RUN \
   apt-get update --fix-missing && \
-  apt-get install -y python3.8 python3.8-dev python3-pip git curl unixodbc-dev && \
+  apt-get install -y \
+    python3.8 python3.8-dev python3-pip git curl unixodbc-dev default-jre-headless && \
   update-alternatives --install /usr/bin/python python /usr/bin/python3.8 1
 
 # Install mssql tools
@@ -39,5 +40,9 @@ WORKDIR /workspace
 
 # It's helpful to see output immediately
 ENV PYTHONUNBUFFERED=True
+
+# These are need so that Spark uses the correct version of Python
+ENV PYSPARK_PYTHON=/usr/bin/python
+ENV PYSPARK_DRIVER_PYTHON=/usr/bin/python
 
 ENTRYPOINT ["cohortextractor"]

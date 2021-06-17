@@ -1,8 +1,4 @@
 import csv
-import inspect
-import subprocess
-import sys
-import textwrap
 
 import pytest
 
@@ -74,38 +70,6 @@ def test_errors_are_triggered_without_database_url(monkeypatch):
                 "2020-01-01",
             ),
         )
-
-
-def test_drivers_not_accidentally_imported(tmp_path):
-    # Make a test script to be executed in a separate process so we can see
-    # what gets imported
-    def test_script():
-        import sys
-
-        from cohortextractor import StudyDefinition, patients
-
-        study = StudyDefinition(
-            population=patients.all(),
-            sex=patients.sex(
-                return_expectations={
-                    "rate": "universal",
-                    "date": {"earliest": "1900-01-01", "latest": "today"},
-                    "category": {"ratios": {"M": 0.49, "F": 0.51}},
-                }
-            ),
-        )
-        study.to_file("TMP_PATH/dummy.csv", expectations_population=10)
-        pyodbc = "yes" if "pyodbc" in sys.modules else "no"
-        ctds = "yes" if "ctds" in sys.modules else "no"
-        print(f"pyodbc: {pyodbc}, ctds: {ctds}")
-
-    # Convert the code in `test_script` to a standalone script by removing the
-    # function definition line and stripping the indentation
-    source = inspect.getsource(test_script).splitlines()[1:]
-    source = textwrap.dedent("\n".join(source))
-    source = source.replace("TMP_PATH", str(tmp_path))
-    result = subprocess.check_output([sys.executable, "-c", source]).strip()
-    assert result == b"pyodbc: no, ctds: no"
 
 
 def test_column_name_clashes_produce_errors():
