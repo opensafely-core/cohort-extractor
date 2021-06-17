@@ -41,4 +41,8 @@ WORKDIR /workspace
 # It's helpful to see output immediately
 ENV PYTHONUNBUFFERED=True
 
+# These are need so that Spark uses the correct version of Python
+ENV PYSPARK_PYTHON=/usr/bin/python
+ENV PYSPARK_DRIVER_PYTHON=/usr/bin/python
+
 ENTRYPOINT ["cohortextractor"]
