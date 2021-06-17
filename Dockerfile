@@ -2,7 +2,8 @@ FROM ghcr.io/opensafely-core/base-docker
 
 RUN \
   apt-get update --fix-missing && \
-  apt-get install -y python3.8 python3.8-dev python3-pip git curl unixodbc-dev && \
+  apt-get install -y \
+    python3.8 python3.8-dev python3-pip git curl unixodbc-dev default-jre-headless && \
   update-alternatives --install /usr/bin/python python /usr/bin/python3.8 1
 
 # Install mssql tools
@@ -15,9 +16,6 @@ RUN \
   ACCEPT_EULA=Y apt-get install -y mssql-tools
 
 ENV PATH=$PATH:/opt/mssql-tools/bin
-
-# Install java
-RUN apt-get update && apt-get install -y default-jre
 
 # Copy in app code and install requirements
 RUN \
