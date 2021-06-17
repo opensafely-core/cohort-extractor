@@ -1,7 +1,7 @@
 # For developers
 
 ## Run cohortextractor commands
-Run commands in docker with `./run.sh cohort-extractor --help`
+Run commands in docker with `./run.sh cohortextractor --help`
 
 
 ## Run tests
