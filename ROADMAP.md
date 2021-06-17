@@ -73,7 +73,7 @@ progress.
 
 We would like to improve this both via Github integrataion (for
 example, tagged releases should trigger model runs when merged to the
-master branch), and Slack integration (model runs can be triggered -
+main branch), and Slack integration (model runs can be triggered -
 and reported back - via Slack).
 
 ## Scheduling
