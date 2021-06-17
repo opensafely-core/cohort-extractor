@@ -2052,7 +2052,7 @@ def test_dynamic_index_dates():
         [
             Patient(
                 observations=[
-                    Observation(effective_date="2020-01-01", snomed_concept_id=123),
+                    Observation(effective_date="2020-01-15", snomed_concept_id=123),
                     Observation(effective_date="2020-02-01", snomed_concept_id=123),
                     Observation(effective_date="2020-03-01", snomed_concept_id=456),
                     Observation(effective_date="2020-04-20", snomed_concept_id=123),
@@ -2065,12 +2065,19 @@ def test_dynamic_index_dates():
     session.commit()
     study = StudyDefinition(
         population=patients.all(),
+        earliest_123=patients.with_these_clinical_events(
+            codelist(["123"], system="snomed"),
+            returning="date",
+            date_format="YYYY-MM-DD",
+            find_first_match_in_period=True,
+        ),
         earliest_456=patients.with_these_clinical_events(
             codelist(["456"], system="snomed"),
             returning="date",
             date_format="YYYY-MM-DD",
             find_first_match_in_period=True,
         ),
+        earliest_123_or_456=patients.minimum_of("earliest_123", "earliest_456"),
         latest_123_before_456=patients.with_these_clinical_events(
             codelist(["123"], system="snomed"),
             returning="date",
@@ -2085,12 +2092,22 @@ def test_dynamic_index_dates():
             find_last_match_in_period=True,
             on_or_before="last_day_of_month(earliest_456) + 1 month",
         ),
+        next_123=patients.with_these_clinical_events(
+            codelist(["123"], system="snomed"),
+            returning="date",
+            date_format="YYYY-MM-DD",
+            find_first_match_in_period=True,
+            on_or_after="earliest_123_or_456 + 1 day",
+        ),
     )
     assert_results(
         study.to_dicts(),
+        earliest_123=["2020-01-15"],
         earliest_456=["2020-03-01"],
+        earliest_123_or_456=["2020-01-15"],
         latest_123_before_456=["2020-02-01"],
         latest_123_in_month_after_456=["2020-04-20"],
+        next_123=["2020-02-01"],
     )
 
 

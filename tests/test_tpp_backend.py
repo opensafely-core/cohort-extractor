@@ -3228,7 +3228,7 @@ def test_dynamic_index_dates():
         [
             Patient(
                 CodedEvents=[
-                    CodedEvent(ConsultationDate="2020-01-01", CTV3Code="foo"),
+                    CodedEvent(ConsultationDate="2020-01-15", CTV3Code="foo"),
                     CodedEvent(ConsultationDate="2020-02-01", CTV3Code="foo"),
                     CodedEvent(ConsultationDate="2020-03-01", CTV3Code="bar"),
                     CodedEvent(ConsultationDate="2020-04-20", CTV3Code="foo"),
@@ -3257,12 +3257,19 @@ def test_dynamic_index_dates():
     session.commit()
     study = StudyDefinition(
         population=patients.all(),
+        earliest_foo=patients.with_these_clinical_events(
+            codelist(["foo"], system="ctv3"),
+            returning="date",
+            date_format="YYYY-MM-DD",
+            find_first_match_in_period=True,
+        ),
         earliest_bar=patients.with_these_clinical_events(
             codelist(["bar"], system="ctv3"),
             returning="date",
             date_format="YYYY-MM-DD",
             find_first_match_in_period=True,
         ),
+        earliest_foo_or_bar=patients.minimum_of("earliest_foo", "earliest_bar"),
         latest_foo_before_bar=patients.with_these_clinical_events(
             codelist(["foo"], system="ctv3"),
             returning="date",
@@ -3277,10 +3284,10 @@ def test_dynamic_index_dates():
             find_last_match_in_period=True,
             on_or_before="last_day_of_month(earliest_bar) + 1 month",
         ),
-        positive_test_after_bar=patients.with_test_result_in_sgss(
+        positive_test_after_foo_or_bar=patients.with_test_result_in_sgss(
             pathogen="SARS-CoV-2",
             test_result="positive",
-            on_or_after="earliest_bar",
+            on_or_after="earliest_foo_or_bar + 1 day",
             find_first_match_in_period=True,
             returning="date",
             date_format="YYYY-MM-DD",
@@ -3295,10 +3302,12 @@ def test_dynamic_index_dates():
     )
     assert_results(
         study.to_dicts(),
+        earliest_foo=["2020-01-15"],
         earliest_bar=["2020-03-01"],
+        earliest_foo_or_bar=["2020-01-15"],
         latest_foo_before_bar=["2020-02-01"],
         latest_foo_in_month_after_bar=["2020-04-20"],
-        positive_test_after_bar=["2020-05-01"],
+        positive_test_after_foo_or_bar=["2020-05-01"],
         practice_id_at_bar=["2"],
         deregistration_date=["2020-12-10"],
     )
