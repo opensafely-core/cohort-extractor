@@ -1,5 +1,9 @@
 # For developers
 
+## Run cohortextractor commands
+Run commands in docker with `./run.sh cohort-extractor --help`
+
+
 ## Run tests
 
 You can run everything in docker with `./run.sh pytest`.
@@ -7,8 +11,23 @@ You can run everything in docker with `./run.sh pytest`.
 You can also run the tests in your own virtualenv, but either way you
 will (probably) still want to use docker to run a SQL Server instance:
 
-* Start an mssql server with `docker-compose up`
-* Set up a virtualenv and `pip install -r requirements.txt`
+* Start an mssql and server with `docker-compose up`
+* Set up a Python 3.8 virtualenv and `pip install -r requirements.txt`
+* install system dependencies
+```
+# mssql tools
+sudo su
+apt-get install -y gnupg && \
+  curl https://packages.microsoft.com/keys/microsoft.asc | apt-key add - && \
+  curl https://packages.microsoft.com/config/ubuntu/20.04/prod.list > /etc/apt/sources.list.d/mssql-release.list && \
+  apt-get update && \
+  ACCEPT_EULA=Y apt-get install -y msodbcsql17 && \
+  ACCEPT_EULA=Y apt-get install -y mssql-tools
+export PATH=$PATH:/opt/mssql-tools/bin
+
+# java
+apt-get update && apt-get install -y default-jre
+```
 * `py.test tests/`
 
 Note: if you change the database schema

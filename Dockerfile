@@ -16,6 +16,9 @@ RUN \
 
 ENV PATH=$PATH:/opt/mssql-tools/bin
 
+# Install java
+RUN apt-get update && apt-get install -y default-jre
+
 # Copy in app code and install requirements
 RUN \
   mkdir /app && \
