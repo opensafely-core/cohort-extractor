@@ -314,7 +314,7 @@ class MSSQLDateFormatter(DateFormatter):
             else:
                 raise RuntimeError("Should never get here")
         else:
-            return f"try(date_parse({date_column}, '%Y-%m-%d'))"
+            return f"TRY_PARSE({date_column} AS date USING 'en-GB')"
 
     def date_function_first_day_of_month(self, date):
         return f"DATEADD(DAY, 1, EOMONTH({date}, -1))"
@@ -370,7 +370,7 @@ class PrestoDateFormatter(DateFormatter):
             else:
                 raise RuntimeError("Should never get here")
         else:
-            return f"TRY_PARSE({date_column} AS date USING 'en-GB')"
+            return f"try(date_parse({date_column}, '%Y-%m-%d'))"
         return date_column
 
     def date_function_first_day_of_month(self, date):
