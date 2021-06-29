@@ -14,12 +14,13 @@ import cohortextractor
 
 @pytest.mark.parametrize("format", ["csv", "csv.gz", "feather", "dta", "dta.gz"])
 def test_smoketest(tmp_path, format):
+    population_size = 100
     _cohortextractor(
         study="test_smoketest",
         args=[
             "generate_cohort",
             "--expectations-population",
-            "100",
+            str(population_size),
             "--index-date-range",
             "2020-01-01 to 2020-04-01 by month",
             "--output-dir",
@@ -36,6 +37,7 @@ def test_smoketest(tmp_path, format):
             tmp_path,
         ],
     )
+
     # liver_disease_by_stp
     with open(tmp_path / "measure_liver_disease_by_stp.csv") as f:
         contents = list(csv.reader(f))
@@ -49,6 +51,7 @@ def test_smoketest(tmp_path, format):
     assert len(contents) == 1 + (2 * 4)  # Header row + 2 STPs * 4 dates
     dates = set(row[4] for row in contents[1:])
     assert dates == {"2020-01-01", "2020-02-01", "2020-03-01", "2020-04-01"}
+
     # liver_disease_by_stp_and_sex
     with open(tmp_path / "measure_liver_disease_by_stp_and_sex.csv") as f:
         contents = list(csv.reader(f))
@@ -63,16 +66,30 @@ def test_smoketest(tmp_path, format):
     assert len(contents) == 1 + (2 * 2 * 4)  # Header row + 2 STPs * 2 sexes * 4 dates
     dates = set(row[5] for row in contents[1:])
     assert dates == {"2020-01-01", "2020-02-01", "2020-03-01", "2020-04-01"}
+
     # liver_disease
     with open(tmp_path / "measure_liver_disease.csv") as f:
         contents = list(csv.reader(f))
-
     assert contents[0] == [
         "has_chronic_liver_disease",
         "population",
         "value",
         "date",
     ]
+
+    # liver_disease_one_group
+    with open(tmp_path / "measure_liver_disease_one_group.csv") as f:
+        contents = list(csv.reader(f))
+    assert contents[0] == [
+        "has_chronic_liver_disease",
+        "population",
+        "value",
+        "date",
+    ]
+    dates = [row[3] for row in contents[1:]]
+    assert dates == ["2020-01-01", "2020-02-01", "2020-03-01", "2020-04-01"]
+    populations = [float(row[1]) for row in contents[1:]]
+    assert populations == [population_size] * 4
 
 
 def test_suppresses_small_numbers(tmp_path):
