@@ -21,19 +21,19 @@ ENV PATH=$PATH:/opt/mssql-tools/bin
 RUN \
   mkdir /app && \
   mkdir /workspace
+COPY ./requirements.txt /app/requirements.txt
+RUN \
+  python -m pip install --upgrade 'pip>=21,<22' && \
+  python -m pip install --requirement /app/requirements.txt
+
+# Install the application
 COPY . /app
-
-# We have to set this because requirements.txt contains relative path
-# references
-WORKDIR /app
-
 # We run `cohortextractor --help` at the end to force dependencies to import
 # because the first time we import matplotlib we get a "generated new
 # fontManager" message and we want to trigger that now rather than every time
 # we run the docker image
 RUN \
-  python -m pip install --upgrade 'pip>=21,<22' && \
-  python -m pip install --requirement requirements.txt && \
+  pip install --editable /app && \
   cohortextractor --help
 
 WORKDIR /workspace
