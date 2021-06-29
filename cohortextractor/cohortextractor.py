@@ -348,8 +348,8 @@ def _load_dataframe_for_measures(filename, measures):
         group_by_columns.update(measure.group_by)
     # This is a special column which we don't load from the CSV but whose value
     # is always set to 1 for every row
-    numeric_columns.discard("population")
-    group_by_columns.discard("population")
+    numeric_columns.discard(measure.POPULATION_COLUMN)
+    group_by_columns.discard(measure.POPULATION_COLUMN)
     dtype = {col: "category" for col in group_by_columns}
     for col in numeric_columns:
         dtype[col] = "float64"
@@ -363,7 +363,7 @@ def _load_dataframe_for_measures(filename, measures):
         df = pandas.read_stata(filename, columns=list(dtype.keys()))
     else:
         raise RuntimeError(f"Unsupported file format: {filename}")
-    df["population"] = 1
+    df[measure.POPULATION_COLUMN] = 1
     return df
 
 
