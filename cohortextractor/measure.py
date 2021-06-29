@@ -76,7 +76,11 @@ class Measure:
     def _group_rows(self, data):
         if not self.group_by:
             return data
-        return data.groupby(self.group_by).sum().reset_index()
+        elif self.group_by == ["population"]:
+            # Group by a function which assigns all rows to the same group
+            return data.groupby(lambda _: 0).sum()
+        else:
+            return data.groupby(self.group_by).sum().reset_index()
 
     def _suppress_small_numbers(self, data, reporter):
         if self.small_number_suppression:
