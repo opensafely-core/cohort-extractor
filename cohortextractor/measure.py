@@ -4,6 +4,9 @@ SMALL_NUMBER_THRESHOLD = 5
 
 
 class Measure:
+
+    POPULATION_COLUMN = "population"
+
     def __init__(
         self, id, denominator, numerator, group_by=None, small_number_suppression=False
     ):
@@ -57,7 +60,7 @@ class Measure:
         # exception to this is the "population" column (which we already handle
         # as a special case elsewhere). Grouping by the population column just
         # means: sum everthing together as one big group.
-        if self.group_by != ["population"]:
+        if self.group_by != [self.POPULATION_COLUMN]:
             bad_attr = None
             if self.numerator in self.group_by:
                 bad_attr = "numerator"
@@ -94,7 +97,7 @@ class Measure:
     def _group_rows(self, data):
         if not self.group_by:
             return data
-        elif self.group_by == ["population"]:
+        elif self.group_by == [self.POPULATION_COLUMN]:
             # Group by a function which assigns all rows to the same group
             return data.groupby(lambda _: 0).sum()
         else:
