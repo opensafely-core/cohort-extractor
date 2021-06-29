@@ -50,6 +50,24 @@ class Measure:
         else:
             self.group_by = group_by
         self.small_number_suppression = small_number_suppression
+        # In general we can't handle the case where a numerator or denominator
+        # column also appears in the group_by. While you can imagine some weird
+        # use cases, this is almost never going to be what you want and it's
+        # not worth the extra complexity in trying to support it. The one
+        # exception to this is the "population" column (which we already handle
+        # as a special case elsewhere). Grouping by the population column just
+        # means: sum everthing together as one big group.
+        if self.group_by != ["population"]:
+            bad_attr = None
+            if self.numerator in self.group_by:
+                bad_attr = "numerator"
+            if self.denominator in self.group_by:
+                bad_attr = "denominator"
+            if bad_attr:
+                raise ValueError(
+                    f"Column '{getattr(self, bad_attr)}' appears in both {bad_attr}"
+                    f" and group_by"
+                )
 
     def calculate(self, data, reporter):
         """
