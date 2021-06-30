@@ -1,5 +1,6 @@
 from datetime import datetime
 from functools import reduce
+from pathlib import Path
 
 from pyspark import SparkConf, SparkContext, SQLContext
 from pyspark.sql import DataFrame
@@ -15,7 +16,8 @@ class DatabricksBackend:
         """Create a session."""
 
         conf = SparkConf().set(
-            "spark.driver.extraClassPath", "sqljdbc_9.2/mssql-jdbc-9.2.1.jre11.jar"
+            "spark.driver.extraClassPath",
+            Path(__file__).parent.parent / "sqljdbc_9.2" / "mssql-jdbc-9.2.1.jre11.jar",
         )
         spark_context = SparkContext(conf=conf)
         return SQLContext(spark_context).sparkSession
