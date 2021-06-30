@@ -12,6 +12,8 @@ class DatabricksBackend:
         self.dataframes = self.build_dataframes(covariate_definitions)
 
     def create_spark_session(self):
+        """Create a session."""
+
         conf = SparkConf().set(
             "spark.driver.extraClassPath", "sqljdbc_9.2/mssql-jdbc-9.2.1.jre11.jar"
         )
@@ -19,6 +21,11 @@ class DatabricksBackend:
         return SQLContext(spark_context).sparkSession
 
     def build_dataframes(self, covariate_definitions):
+        """Lazily build the dataframes that will be used to extract the cohort.
+
+        We build one dataframe per covariate.
+        """
+
         self.create_view("patient")
 
         dataframes = {}
@@ -35,9 +42,18 @@ class DatabricksBackend:
         return dataframes
 
     def to_dicts(self):
+        """Return extracted cohort as list of dicts, with one dict per patient."""
+
         return [row.asDict() for row in self.execute()]
 
     def execute(self):
+        """Execute query to extract cohort.
+
+        Starting with the population dataframe, we build a new dataframe by successively
+        left-joining each of the other dataframes, and finally collecting the results.
+        No work is performed by Spark until the results are collected.
+        """
+
         result = self.dataframes["population"].drop("value")
         for name, df in self.dataframes.items():
             if name == "population":
@@ -49,6 +65,8 @@ class DatabricksBackend:
         return result.collect()
 
     def patients_all(self):
+        """Return SQL to return all patients."""
+
         return """
         SELECT
             patient_id,
@@ -57,6 +75,8 @@ class DatabricksBackend:
         """
 
     def patients_sex(self):
+        """Return SQL to return all patients with their sex."""
+
         return """
         SELECT
             patient_id,
@@ -65,6 +85,8 @@ class DatabricksBackend:
         """
 
     def patients_age_as_of(self, reference_date):
+        """Return SQL to return all patients with their age on reference_date."""
+
         return f"""
         SELECT
             patient_id,
@@ -73,6 +95,9 @@ class DatabricksBackend:
         """
 
     def patients_with_these_clinical_events(self, codelist, between, **kwargs):
+        """Return SQL to return all patients with a clinical event whose code is in the
+        codelist between the given dates."""
+
         codelist_view_name = self.create_codelist_view(codelist)
         codedevent_view_name = self.create_view_for_time_period("codedevent", between)
 
@@ -90,6 +115,12 @@ class DatabricksBackend:
         """
 
     def get_dataframe_for_table(self, table_name):
+        """Return a dataframe to allow us to query data in the given table.
+
+        This currently connects to a SQL Server database.  It is expected that this will
+        need to change for production!
+        """
+
         reader = (
             self.session.read.format("jdbc")
             .option("driver", "com.microsoft.sqlserver.jdbc.SQLServerDriver")
@@ -102,10 +133,18 @@ class DatabricksBackend:
         return reader.option("dbtable", table_name).load()
 
     def create_view(self, table_name):
+        """Create a view on a dataframe to allow us to query the dataframe with SQL."""
+
         df = self.get_dataframe_for_table(table_name)
         df.createTempView(table_name)
 
     def create_view_for_time_period(self, base_table_name, between):
+        """Create a view on dataframe that combines data from several single-year
+        tables.
+
+        Returns the name of the view, to allow it to be queried with SQL.
+        """
+
         min_date, max_date = between
         min_year = datetime.strptime(min_date, "%Y-%m-%d").year
         max_year = datetime.strptime(max_date, "%Y-%m-%d").year
@@ -121,6 +160,8 @@ class DatabricksBackend:
         return name
 
     def create_codelist_view(self, codelist):
+        """Create a view on a dataframe containing the codes from the given codelist."""
+
         data = [(code,) for code in codelist]
         df = self.session.createDataFrame(data, ["code"])
         name = self.get_view_name("codelist")
@@ -128,5 +169,7 @@ class DatabricksBackend:
         return name
 
     def get_view_name(self, base_name):
+        """Return the name of a view with a unique suffix."""
+
         self.next_temp_table_id += 1
         return f"{base_name}_{self.next_temp_table_id}"
