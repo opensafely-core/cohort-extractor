@@ -1,4 +1,8 @@
+from datetime import datetime
+from functools import reduce
+
 from pyspark import SparkConf, SparkContext, SQLContext
+from pyspark.sql import DataFrame
 
 
 class DatabricksBackend:
@@ -68,17 +72,20 @@ class DatabricksBackend:
         FROM patient
         """
 
-    def patients_with_these_clinical_events(self, codelist, **kwargs):
+    def patients_with_these_clinical_events(self, codelist, between, **kwargs):
         codelist_view_name = self.create_codelist_view(codelist)
-        self.create_view("codedevent")
+        codedevent_view_name = self.create_view_for_time_period("codedevent", between)
+
+        min_date, max_date = between
 
         return f"""
         SELECT
             patient_id,
             1 AS value
-        FROM codedevent
+        FROM {codedevent_view_name} AS codedevent
         INNER JOIN {codelist_view_name} AS codelist
             ON codedevent.ctv3code = codelist.code
+        WHERE codedevent.consultationdate BETWEEN '{min_date}' AND '{max_date}'
         GROUP BY patient_id
         """
 
@@ -97,6 +104,21 @@ class DatabricksBackend:
     def create_view(self, table_name):
         df = self.get_dataframe_for_table(table_name)
         df.createTempView(table_name)
+
+    def create_view_for_time_period(self, base_table_name, between):
+        min_date, max_date = between
+        min_year = datetime.strptime(min_date, "%Y-%m-%d").year
+        max_year = datetime.strptime(max_date, "%Y-%m-%d").year
+        years = list(range(min_year, max_year + 1))
+
+        dfs = [
+            self.get_dataframe_for_table(f"{base_table_name}_{year}") for year in years
+        ]
+        df = reduce(DataFrame.union, dfs)
+
+        name = self.get_view_name(base_table_name)
+        df.createTempView(name)
+        return name
 
     def create_codelist_view(self, codelist):
         data = [(code,) for code in codelist]

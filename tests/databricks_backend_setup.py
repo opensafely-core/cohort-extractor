@@ -31,12 +31,40 @@ def make_database():
     Base.metadata.create_all(make_engine())
 
 
-class CodedEvent(Base):
-    __tablename__ = "CodedEvent"
+class CodedEvent2018(Base):
+    __tablename__ = "CodedEvent_2018"
 
     Patient_ID = Column(Integer, ForeignKey("Patient.Patient_ID"))
     Patient = relationship(
-        "Patient", back_populates="CodedEvents", cascade="all, delete"
+        "Patient", back_populates="CodedEvents2018", cascade="all, delete"
+    )
+    CodedEvent_ID = Column(Integer, primary_key=True)
+    CTV3Code = Column(String(collation="Latin1_General_BIN"))
+    NumericValue = Column(Float)
+    ConsultationDate = Column(DateTime)
+    SnomedConceptId = Column(String)
+
+
+class CodedEvent2019(Base):
+    __tablename__ = "CodedEvent_2019"
+
+    Patient_ID = Column(Integer, ForeignKey("Patient.Patient_ID"))
+    Patient = relationship(
+        "Patient", back_populates="CodedEvents2019", cascade="all, delete"
+    )
+    CodedEvent_ID = Column(Integer, primary_key=True)
+    CTV3Code = Column(String(collation="Latin1_General_BIN"))
+    NumericValue = Column(Float)
+    ConsultationDate = Column(DateTime)
+    SnomedConceptId = Column(String)
+
+
+class CodedEvent2020(Base):
+    __tablename__ = "CodedEvent_2020"
+
+    Patient_ID = Column(Integer, ForeignKey("Patient.Patient_ID"))
+    Patient = relationship(
+        "Patient", back_populates="CodedEvents2020", cascade="all, delete"
     )
     CodedEvent_ID = Column(Integer, primary_key=True)
     CTV3Code = Column(String(collation="Latin1_General_BIN"))
@@ -53,6 +81,12 @@ class Patient(Base):
     DateOfDeath = Column(Date)
     Sex = Column(String)
 
-    CodedEvents = relationship(
-        "CodedEvent", back_populates="Patient", cascade="all, delete, delete-orphan"
+    CodedEvents2018 = relationship(
+        "CodedEvent2018", back_populates="Patient", cascade="all, delete, delete-orphan"
+    )
+    CodedEvents2019 = relationship(
+        "CodedEvent2019", back_populates="Patient", cascade="all, delete, delete-orphan"
+    )
+    CodedEvents2020 = relationship(
+        "CodedEvent2020", back_populates="Patient", cascade="all, delete, delete-orphan"
     )
