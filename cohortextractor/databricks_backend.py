@@ -89,7 +89,9 @@ class DatabricksBackend:
         reader = (
             session.read.format("jdbc")
             .option("driver", "com.microsoft.sqlserver.jdbc.SQLServerDriver")
-            .option("url", database_url)
+            .option(
+                "url", "jdbc:sqlserver://localhost:15785;databaseName=Test_OpenCorona"
+            )
             .option("user", "SA")
             .option("password", "Your_password123!")
         )

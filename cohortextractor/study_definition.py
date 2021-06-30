@@ -117,7 +117,7 @@ class StudyDefinition:
             from .emis_backend import EMISBackend
 
             return EMISBackend
-        elif database_url.startswith("jdbc:sqlserver://"):
+        elif database_url.startswith("databricks"):
             from .databricks_backend import DatabricksBackend
 
             return DatabricksBackend
