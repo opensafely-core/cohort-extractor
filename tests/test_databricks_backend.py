@@ -3,11 +3,12 @@ import os
 import pytest
 
 from cohortextractor import StudyDefinition, codelist, patients
-
-# Piggy-back off the TPP setup for now
-from tests.test_tpp_backend import setup_function as tpp_setup_function
-from tests.test_tpp_backend import setup_module as tpp_setup_module
-from tests.tpp_backend_setup import CodedEvent, Patient, make_session
+from tests.databricks_backend_setup import (
+    CodedEvent,
+    Patient,
+    make_database,
+    make_session,
+)
 
 
 @pytest.fixture(autouse=True)
@@ -16,11 +17,14 @@ def set_database_url(monkeypatch):
 
 
 def setup_module(module):
-    tpp_setup_module(module)
+    make_database()
 
 
 def setup_function(function):
-    tpp_setup_function(function)
+    session = make_session()
+    session.query(CodedEvent).delete()
+    session.query(Patient).delete()
+    session.commit()
 
 
 def test_minimal_study():
