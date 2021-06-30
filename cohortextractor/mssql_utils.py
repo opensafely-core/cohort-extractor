@@ -165,3 +165,19 @@ class BatchFetcher:
                     retries -= 1
                     time.sleep(self.sleep)
                     self.cursor = None
+
+
+def wait_for_mssql_to_be_ready(engine, timeout):
+    """Wait for the database to be ready if it isn't already"""
+
+    timeout = float(timeout) if timeout else 60
+    start = time.time()
+    while True:
+        try:
+            engine.connect()
+            break
+        except sqlalchemy.exc.DBAPIError:
+            if time.time() - start < timeout:
+                time.sleep(1)
+            else:
+                raise
