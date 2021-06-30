@@ -31,46 +31,25 @@ def make_database():
     Base.metadata.create_all(make_engine())
 
 
-class CodedEvent2018(Base):
-    __tablename__ = "CodedEvent_2018"
-
-    Patient_ID = Column(Integer, ForeignKey("Patient.Patient_ID"))
-    Patient = relationship(
-        "Patient", back_populates="CodedEvents2018", cascade="all, delete"
-    )
-    CodedEvent_ID = Column(Integer, primary_key=True)
-    CTV3Code = Column(String(collation="Latin1_General_BIN"))
-    NumericValue = Column(Float)
-    ConsultationDate = Column(DateTime)
-    SnomedConceptId = Column(String)
-
-
-class CodedEvent2019(Base):
-    __tablename__ = "CodedEvent_2019"
-
-    Patient_ID = Column(Integer, ForeignKey("Patient.Patient_ID"))
-    Patient = relationship(
-        "Patient", back_populates="CodedEvents2019", cascade="all, delete"
-    )
-    CodedEvent_ID = Column(Integer, primary_key=True)
-    CTV3Code = Column(String(collation="Latin1_General_BIN"))
-    NumericValue = Column(Float)
-    ConsultationDate = Column(DateTime)
-    SnomedConceptId = Column(String)
+def build_coded_event_table(year):
+    columns = {
+        "__tablename__": f"CodedEvent_{year}",
+        "Patient_ID": Column(Integer, ForeignKey("Patient.Patient_ID")),
+        "Patient": relationship(
+            "Patient", back_populates=f"CodedEvents{year}", cascade="all, delete"
+        ),
+        "CodedEvent_ID": Column(Integer, primary_key=True),
+        "CTV3Code": Column(String(collation="Latin1_General_BIN")),
+        "NumericValue": Column(Float),
+        "ConsultationDate": Column(DateTime),
+        "SnomedConceptId": Column(String),
+    }
+    return type(f"CodedEvent{year}", (Base,), columns)
 
 
-class CodedEvent2020(Base):
-    __tablename__ = "CodedEvent_2020"
-
-    Patient_ID = Column(Integer, ForeignKey("Patient.Patient_ID"))
-    Patient = relationship(
-        "Patient", back_populates="CodedEvents2020", cascade="all, delete"
-    )
-    CodedEvent_ID = Column(Integer, primary_key=True)
-    CTV3Code = Column(String(collation="Latin1_General_BIN"))
-    NumericValue = Column(Float)
-    ConsultationDate = Column(DateTime)
-    SnomedConceptId = Column(String)
+CodedEvent2018 = build_coded_event_table(2018)
+CodedEvent2019 = build_coded_event_table(2019)
+CodedEvent2020 = build_coded_event_table(2020)
 
 
 class Patient(Base):
