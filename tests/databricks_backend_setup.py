@@ -31,6 +31,10 @@ def make_database():
     Base.metadata.create_all(make_engine())
 
 
+def clear_database():
+    Base.metadata.drop_all(make_engine())
+
+
 def build_coded_event_table(year):
     columns = {
         "__tablename__": f"CodedEvent_{year}",

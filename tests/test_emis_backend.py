@@ -17,6 +17,7 @@ from tests.emis_backend_setup import (
     Observation,
     ONSDeaths,
     Patient,
+    clear_database,
     make_database,
     make_session,
 )
@@ -34,6 +35,10 @@ def set_database_url(monkeypatch):
 
 def setup_module(module):
     make_database()
+
+
+def teardown_module(module):
+    clear_database()
 
 
 def setup_function(function):

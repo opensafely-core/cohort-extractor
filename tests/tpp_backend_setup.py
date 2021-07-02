@@ -41,6 +41,10 @@ def make_database():
     Base.metadata.create_all(make_engine())
 
 
+def clear_database():
+    Base.metadata.drop_all(make_engine())
+
+
 class MedicationIssue(Base):
     __tablename__ = "MedicationIssue"
 
