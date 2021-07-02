@@ -1,7 +1,5 @@
 import os
-import time
 
-import sqlalchemy
 from sqlalchemy import (
     NVARCHAR,
     Boolean,
@@ -16,7 +14,10 @@ from sqlalchemy import (
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship, sessionmaker
 
-from cohortextractor.mssql_utils import mssql_sqlalchemy_engine_from_url
+from cohortextractor.mssql_utils import (
+    mssql_sqlalchemy_engine_from_url,
+    wait_for_mssql_to_be_ready,
+)
 
 Base = declarative_base()
 
@@ -24,18 +25,7 @@ Base = declarative_base()
 def make_engine():
     engine = mssql_sqlalchemy_engine_from_url(os.environ["TPP_DATABASE_URL"])
     timeout = os.environ.get("CONNECTION_RETRY_TIMEOUT")
-    timeout = float(timeout) if timeout else 60
-    # Wait for the database to be ready if it isn't already
-    start = time.time()
-    while True:
-        try:
-            engine.connect()
-            break
-        except sqlalchemy.exc.DBAPIError:
-            if time.time() - start < timeout:
-                time.sleep(1)
-            else:
-                raise
+    wait_for_mssql_to_be_ready(engine, timeout)
     return engine
 
 
@@ -49,6 +39,10 @@ def make_session():
 
 def make_database():
     Base.metadata.create_all(make_engine())
+
+
+def clear_database():
+    Base.metadata.drop_all(make_engine())
 
 
 class MedicationIssue(Base):
