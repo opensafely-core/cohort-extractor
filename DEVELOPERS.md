@@ -6,9 +6,13 @@ Run commands in docker with `./run.sh cohortextractor --help`
 
 ## Run tests
 
-### Linux
+### Docker
 
 You can run everything in docker with `./run.sh pytest`.
+
+If using MacOS Docker Desktop, you should increase Settings->Resources->Memory to at least 4GB.
+
+### Linux
 
 You can also run the tests in your own virtualenv, but either way you
 will (probably) still want to use docker to run a SQL Server instance:
