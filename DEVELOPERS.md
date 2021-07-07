@@ -6,7 +6,13 @@ Run commands in docker with `./run.sh cohortextractor --help`
 
 ## Run tests
 
+### Docker
+
 You can run everything in docker with `./run.sh pytest`.
+
+If using MacOS Docker Desktop, you should increase Settings->Resources->Memory to at least 4GB.
+
+### Linux
 
 You can also run the tests in your own virtualenv, but either way you
 will (probably) still want to use docker to run a SQL Server instance:
@@ -33,6 +39,16 @@ apt-get update && apt-get install -y default-jre
 Note: if you change the database schema
 be sure to `docker-compose stop && docker-compose rm` before re-running
 tests to ensure they are recreated.
+
+### MacOS
+
+You should broadly follow the Linux instructions above, but use brew to install msodbcsql17 as per [Microsoft's instructions](https://docs.microsoft.com/en-us/sql/connect/odbc/linux-mac/install-microsoft-odbc-driver-sql-server-macos?view=sql-server-ver15), copied here:
+
+```bash
+brew tap microsoft/mssql-release https://github.com/Microsoft/homebrew-mssql-release
+brew update
+HOMEBREW_NO_ENV_FILTERING=1 ACCEPT_EULA=Y brew install msodbcsql17 mssql-tools
+```
 
 ## Make releases
 
