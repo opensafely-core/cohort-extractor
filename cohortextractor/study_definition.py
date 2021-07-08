@@ -41,7 +41,7 @@ class StudyDefinition:
     def set_index_date(self, index_date):
         """
         Re-evaluate all date expressions in the covariate definitions and the
-        default expecations using the supplied index date and re-initialise the
+        default expectations using the supplied index date and re-initialise the
         backend with the new values
         """
         if index_date is not None:
