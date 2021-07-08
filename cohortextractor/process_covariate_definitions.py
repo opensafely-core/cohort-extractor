@@ -376,6 +376,7 @@ class GetColumnType:
             "duration_of_elective_wait": "str",
             "variant": "str",
             "variant_detection_method": "str",
+            "symptomatic": "str",
         }
         try:
             return mapping[returning]
