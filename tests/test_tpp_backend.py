@@ -2204,11 +2204,14 @@ def test_patients_with_test_result_in_sgss():
                         Specimen_Date="2020-05-15",
                         Variant="B.1.351",
                         VariantDetectionMethod="Private Lab Sequencing",
+                        Symptomatic="Y",
                     ),
                     SGSS_AllTests_Positive(Specimen_Date="2020-05-20"),
                 ],
                 SGSS_AllTests_Negatives=[
-                    SGSS_AllTests_Negative(Specimen_Date="2020-05-02"),
+                    SGSS_AllTests_Negative(
+                        Specimen_Date="2020-05-02", Symptomatic="false"
+                    ),
                     SGSS_AllTests_Negative(Specimen_Date="2020-07-10"),
                 ],
             ),
@@ -2229,6 +2232,7 @@ def test_patients_with_test_result_in_sgss():
                         Specimen_Date="2020-04-20",
                         Variant="VOC-20DEC-01 detected",
                         VariantDetectionMethod="Reflex Assay",
+                        Symptomatic="N",
                     ),
                     SGSS_AllTests_Positive(Specimen_Date="2020-05-02"),
                 ],
@@ -2306,6 +2310,20 @@ def test_patients_with_test_result_in_sgss():
             restrict_to_earliest_specimen_date=False,
             returning="variant_detection_method",
         ),
+        symptomatic_positive=patients.with_test_result_in_sgss(
+            pathogen="SARS-CoV-2",
+            test_result="positive",
+            find_first_match_in_period=True,
+            restrict_to_earliest_specimen_date=False,
+            returning="symptomatic",
+        ),
+        symptomatic_negative=patients.with_test_result_in_sgss(
+            pathogen="SARS-CoV-2",
+            test_result="negative",
+            find_first_match_in_period=True,
+            restrict_to_earliest_specimen_date=False,
+            returning="symptomatic",
+        ),
     )
     assert_results(
         study.to_dicts(),
@@ -2324,6 +2342,8 @@ def test_patients_with_test_result_in_sgss():
         sgtf_result=["9", "1", "", ""],
         variant=["B.1.351", "VOC-20DEC-01", "", ""],
         variant_detection_method=["Private Lab Sequencing", "Reflex Assay", "", ""],
+        symptomatic_positive=["Y", "N", "", ""],
+        symptomatic_negative=["N", "", "", ""],
     )
 
 
