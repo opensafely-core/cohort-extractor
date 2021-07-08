@@ -1684,7 +1684,7 @@ def maximum_of(*column_names, **extra_columns):
     """
     if "return_expectations" in extra_columns:
         raise ValueError(
-            "The `maximum_of` function does not accept `return_expecations` and "
+            "The `maximum_of` function does not accept `return_expectations` and "
             "instead derives dummy values from the values of its source columns"
         )
     aggregate_function = "MAX"
@@ -1716,7 +1716,7 @@ def minimum_of(*column_names, **extra_columns):
     """
     if "return_expectations" in extra_columns:
         raise ValueError(
-            "The `minimum_of` function does not accept `return_expecations` and "
+            "The `minimum_of` function does not accept `return_expectations` and "
             "instead derives dummy values from the values of its source columns"
         )
     aggregate_function = "MIN"
