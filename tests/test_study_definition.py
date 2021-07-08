@@ -1,4 +1,7 @@
 import csv
+import subprocess
+import sys
+import textwrap
 
 import pytest
 
@@ -70,6 +73,46 @@ def test_errors_are_triggered_without_database_url(monkeypatch):
                 "2020-01-01",
             ),
         )
+
+
+def test_drivers_not_accidentally_imported(tmp_path):
+    """
+    For now, we still have to support researchers importing their study
+    definitions in their analysis code to access details of their study
+    configuration (and avoid having to repeat this in two places). To enable
+    this we install a version of the cohortextractor inside the `python-docker`
+    image but without any of the driver packages (which are large and unused
+    and would bloat the image). But this means we need to make sure we don't
+    accidentally create a dependency on one of the driver packages when loading
+    a study definition. So this test ensures that we can import a basic study
+    definition and generate some dummy data without ever importing a driver.
+    """
+    # To track imports we need to execute a test script in a separate process
+    test_script = """
+        import sys
+
+        from cohortextractor import StudyDefinition, patients
+
+        study = StudyDefinition(
+            population=patients.all(),
+            sex=patients.sex(
+                return_expectations={
+                    "rate": "universal",
+                    "date": {"earliest": "1900-01-01", "latest": "today"},
+                    "category": {"ratios": {"M": 0.49, "F": 0.51}},
+                }
+            ),
+        )
+        study.to_file("{tmp_path}/dummy.csv", expectations_population=10)
+        drivers = ["pyodbc", "ctds", "pyspark", "prestodb"]
+        imported_drivers = [i for i in drivers if i in sys.modules]
+        print(f"imported_drivers={imported_drivers}")
+    """
+
+    source = textwrap.dedent(test_script)
+    source = source.replace("{tmp_path}", str(tmp_path))
+    result = subprocess.check_output([sys.executable, "-c", source]).strip()
+    assert result == b"imported_drivers=[]"
 
 
 def test_column_name_clashes_produce_errors():
