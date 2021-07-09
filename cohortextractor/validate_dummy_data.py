@@ -1,6 +1,8 @@
 from datetime import datetime
 import pandas as pd
 
+from .cohortextractor import DummyDataValidationError, SUPPORTED_FILE_FORMATS
+
 
 def validate_dummy_data(study_definition, dummy_data_file):
     """Validate that dummy data provided by user matches expected structure and format.
@@ -62,7 +64,8 @@ def read_into_dataframe(path):
     elif path.suffix == ".feather":
         return pd.read_feather(path)
     else:
-        assert False, path
+        msg = f"Dummy data must be in one of the following formats: {', '.join(SUPPORTED_FILE_FORMATS)}"
+        raise DummyDataValidationError(msg)
 
 
 def get_validator(col_name, query_args):
@@ -108,7 +111,3 @@ def date_validator_month(value):
 
 def date_validator_day(value):
     datetime.strptime(value, "%Y-%m-%d")
-
-
-class DummyDataValidationError(Exception):
-    pass

@@ -30,7 +30,7 @@ from pandas.api.types import (
 )
 
 import cohortextractor
-from cohortextractor.validate_dummy_data import DummyDataValidationError
+from cohortextractor.exceptions import DummyDataValidationError
 
 logger = structlog.get_logger()
 

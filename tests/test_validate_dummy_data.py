@@ -71,3 +71,8 @@ def test_validate_dummy_data_invalid_data(subtests):
         with subtests.test(filename):
             with pytest.raises(DummyDataValidationError, match=error_fragment):
                 validate_dummy_data(study, fixtures_path / f"{filename}.csv")
+
+
+def test_validate_dummy_data_unknown_file_extension():
+    with pytest.raises(DummyDataValidationError):
+        validate_dummy_data(study, fixtures_path / "data.txt")
