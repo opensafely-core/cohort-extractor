@@ -144,6 +144,9 @@ def generate_cohort(
             if study_name == selected_study_name:
                 study_definitions = [(study_name, suffix)]
                 break
+    if dummy_data_file and len(study_definitions) > 1:
+        msg = "You can only provide dummy data for a single study definition"
+        raise DummyDataValidationError(msg)
     for study_name, suffix in study_definitions:
         _generate_cohort(
             output_dir,
@@ -670,7 +673,7 @@ def main():
                 output_format=options.output_format,
             )
         except DummyDataValidationError as e:
-            print(f"Dummy data validation error: {e}")
+            print(f"Dummy data error: {e}")
             sys.exit(1)
     elif options.which == "generate_measures":
         generate_measures(
