@@ -15,6 +15,7 @@ from .date_expressions import (
 from .expectation_generators import generate
 from .pandas_utils import dataframe_to_file
 from .process_covariate_definitions import process_covariate_definitions
+from .validate_dummy_data import validate_dummy_data
 
 
 class StudyDefinition:
@@ -71,6 +72,7 @@ class StudyDefinition:
             )
             dataframe_to_file(df, filename)
         elif dummy_data_file:
+            validate_dummy_data(self, dummy_data_file)
             shutil.copyfile(dummy_data_file, filename)
         else:
             self.assert_backend_is_configured()

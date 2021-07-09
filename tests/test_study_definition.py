@@ -2,11 +2,11 @@ import csv
 import subprocess
 import sys
 import textwrap
-from pathlib import Path
 
 import pytest
 
-from cohortextractor import StudyDefinition, patients
+from cohortextractor import StudyDefinition, codelist, patients
+from cohortextractor.cohortextractor import SUPPORTED_FILE_FORMATS
 
 
 def test_create_dummy_data_works_without_database_url(tmp_path, monkeypatch):
@@ -39,21 +39,66 @@ def test_create_dummy_data_works_without_database_url(tmp_path, monkeypatch):
     assert "age" in columns
 
 
-def test_to_file_with_dummy_data_file(tmp_path):
+@pytest.mark.parametrize("file_format", SUPPORTED_FILE_FORMATS)
+def test_to_file_with_dummy_data_file(tmp_path, file_format):
+    cl = codelist(["12345"], system="snomed")
     study = StudyDefinition(
+        default_expectations={"date": {"earliest": "2020-01-01", "latest": "today"}},
         population=patients.all(),
-        sex=patients.sex(),
-        age=patients.age_as_of("2020-01-01",),
+        sex=patients.sex(
+            return_expectations={
+                "category": {"ratios": {"F": 0.5, "M": 0.5}},
+                "rate": "universal",
+            },
+        ),
+        age=patients.age_as_of(
+            "2020-01-01",
+            return_expectations={
+                "int": {"distribution": "population_ages"},
+                "rate": "universal",
+            },
+        ),
+        has_event=patients.with_these_clinical_events(
+            cl,
+            returning="binary_flag",
+            return_expectations={"rate": "uniform", "incidence": 0.5},
+        ),
+        event_date_day=patients.with_these_clinical_events(
+            cl,
+            returning="date",
+            date_format="YYYY-MM-DD",
+            return_expectations={"rate": "uniform", "incidence": 0.5},
+        ),
+        event_date_month=patients.with_these_clinical_events(
+            cl,
+            returning="date",
+            date_format="YYYY-MM",
+            return_expectations={"rate": "uniform", "incidence": 0.5},
+        ),
+        event_date_year=patients.with_these_clinical_events(
+            cl,
+            returning="date",
+            date_format="YYYY",
+            return_expectations={"rate": "uniform", "incidence": 0.5},
+        ),
     )
-    output_file = tmp_path / "dummy_data.csv"
-    dummy_data_file = Path(__file__).parent / "fixtures" / "dummy-data.csv"
+
+    # Generate dummy data using the expectations framework
+    dummy_data_file = tmp_path / f"dummy-data.{file_format}"
+    study.to_file(dummy_data_file, expectations_population=10)
+
+    # Use this dummy data
+    output_file = tmp_path / f"output.{file_format}"
     study.to_file(output_file, dummy_data_file=dummy_data_file)
-    with open(output_file) as f:
-        results = list(csv.DictReader(f))
-    assert len(results) == 2
-    columns = results[0].keys()
-    assert "sex" in columns
-    assert "age" in columns
+
+    # Check results
+    with open(dummy_data_file, "rb") as f:
+        dummy_data = f.read()
+
+    with open(output_file, "rb") as f:
+        expected_output = f.read()
+
+    assert dummy_data == expected_output
 
 
 def test_export_data_without_database_url_raises_error(tmp_path, monkeypatch):

@@ -30,6 +30,7 @@ from pandas.api.types import (
 )
 
 import cohortextractor
+from cohortextractor.validate_dummy_data import DummyDataValidationError
 
 logger = structlog.get_logger()
 
@@ -658,15 +659,19 @@ def main():
                 "generate_cohort: error: one of the arguments "
                 "--expectations-population --dummy-data-file --database-url is required"
             )
-        generate_cohort(
-            options.output_dir,
-            options.expectations_population,
-            options.dummy_data_file,
-            selected_study_name=options.study_definition,
-            index_date_range=options.index_date_range,
-            skip_existing=options.skip_existing,
-            output_format=options.output_format,
-        )
+        try:
+            generate_cohort(
+                options.output_dir,
+                options.expectations_population,
+                options.dummy_data_file,
+                selected_study_name=options.study_definition,
+                index_date_range=options.index_date_range,
+                skip_existing=options.skip_existing,
+                output_format=options.output_format,
+            )
+        except DummyDataValidationError as e:
+            print(f"Dummy data validation error: {e}")
+            sys.exit(1)
     elif options.which == "generate_measures":
         generate_measures(
             options.output_dir,
