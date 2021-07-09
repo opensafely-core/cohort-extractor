@@ -15,9 +15,7 @@ setup(
     python_requires=">=3.7",
     install_requires=[
         "lz4",
-        "opensafely-jobrunner>=2.0,<3.0",
         "pandas",
-        "prettytable",
         "pyarrow",
         "pyyaml",
         "requests",
