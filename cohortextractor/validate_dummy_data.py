@@ -4,17 +4,16 @@ import pandas as pd
 from .cohortextractor import DummyDataValidationError, SUPPORTED_FILE_FORMATS
 
 
-def validate_dummy_data(study_definition, dummy_data_file):
+def validate_dummy_data(covariate_definitions, dummy_data_file):
     """Validate that dummy data provided by user matches expected structure and format.
 
     Raises DummyDataValidationError if dummy data is not valid.
     """
 
     df = read_into_dataframe(dummy_data_file)
+    validate_expected_columns(df, covariate_definitions)
 
-    validate_expected_columns(df, study_definition)
-
-    for (col_name, (_, query_args)) in study_definition.covariate_definitions.items():
+    for (col_name, (_, query_args)) in covariate_definitions.items():
         if col_name == "population":
             # Ignore the population definition, since it is not used as a column in the
             # output
@@ -56,12 +55,12 @@ def read_into_dataframe(path):
         raise DummyDataValidationError(f"Dummy data file not found: {path}")
 
 
-def validate_expected_columns(df, study_definition):
+def validate_expected_columns(df, covariate_definitions):
     """Raise DummyDataValidationError if dataframe does not have expected columns."""
 
     expected_columns = {
         col_name
-        for col_name, (_, query_args) in study_definition.covariate_definitions.items()
+        for col_name, (_, query_args) in covariate_definitions.items()
         if not (col_name == "population" or query_args["hidden"])
     }
     expected_columns.add("patient_id")

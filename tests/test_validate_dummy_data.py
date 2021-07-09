@@ -52,6 +52,8 @@ study = StudyDefinition(
     ),
 )
 
+covariate_definitions = study.covariate_definitions
+
 fixtures_path = Path(__file__).parent / "fixtures" / "dummy-data"
 
 
@@ -71,15 +73,19 @@ def test_validate_dummy_data_invalid_data(subtests):
     ]:
         with subtests.test(filename):
             with pytest.raises(DummyDataValidationError, match=error_fragment):
-                validate_dummy_data(study, fixtures_path / f"{filename}.csv")
+                validate_dummy_data(
+                    covariate_definitions, fixtures_path / f"{filename}.csv"
+                )
 
 
 def test_validate_dummy_data_unknown_file_extension():
     with pytest.raises(DummyDataValidationError):
-        validate_dummy_data(study, fixtures_path / "data.txt")
+        validate_dummy_data(covariate_definitions, fixtures_path / "data.txt")
 
 
 @pytest.mark.parametrize("file_format", SUPPORTED_FILE_FORMATS)
 def test_validate_dummy_data_missing_data_file(file_format):
     with pytest.raises(DummyDataValidationError):
-        validate_dummy_data(study, fixtures_path / f"missing.{file_format}")
+        validate_dummy_data(
+            covariate_definitions, fixtures_path / f"missing.{file_format}"
+        )

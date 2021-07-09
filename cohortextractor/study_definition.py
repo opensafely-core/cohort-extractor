@@ -72,7 +72,7 @@ class StudyDefinition:
             )
             dataframe_to_file(df, filename)
         elif dummy_data_file:
-            validate_dummy_data(self, dummy_data_file)
+            validate_dummy_data(self.covariate_definitions, dummy_data_file)
             shutil.copyfile(dummy_data_file, filename)
         else:
             self.assert_backend_is_configured()
