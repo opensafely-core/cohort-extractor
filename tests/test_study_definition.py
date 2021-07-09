@@ -7,6 +7,7 @@ import pytest
 
 from cohortextractor import StudyDefinition, codelist, patients
 from cohortextractor.cohortextractor import SUPPORTED_FILE_FORMATS
+from cohortextractor.exceptions import DummyDataValidationError
 from cohortextractor.validate_dummy_data import validate_dummy_data
 
 
@@ -151,6 +152,14 @@ def test_to_file_with_dummy_data_file(tmp_path, file_format):
         expected_output = f.read()
 
     assert dummy_data == expected_output
+
+
+def test_to_file_with_dummy_data_file_incorrect_extension(tmp_path):
+    study = StudyDefinition(population=patients.all())
+    with pytest.raises(DummyDataValidationError):
+        study.to_file(
+            tmp_path / "output.csv.gz", dummy_data_file=tmp_path / "dummy-data-csv"
+        )
 
 
 def test_export_data_without_database_url_raises_error(tmp_path, monkeypatch):

@@ -15,6 +15,7 @@ from .date_expressions import (
     evaluate_date_expressions_in_expectations_definition,
     validate_date,
 )
+from .exceptions import DummyDataValidationError
 from .expectation_generators import generate
 from .pandas_utils import dataframe_from_rows, dataframe_to_file
 from .process_covariate_definitions import process_covariate_definitions
@@ -84,6 +85,10 @@ class StudyDefinition:
                 df = dataframe_from_rows(self.covariate_definitions, rows)
             dataframe_to_file(df, filename)
         elif dummy_data_file:
+            if filename.suffixes != dummy_data_file.suffixes:
+                expected_extension = "".join(filename.suffixes)
+                msg = f"Expected dummy data file with extension {expected_extension}; got {dummy_data_file}"
+                raise DummyDataValidationError(msg)
             validate_dummy_data(self.covariate_definitions, dummy_data_file)
             shutil.copyfile(dummy_data_file, filename)
         else:
