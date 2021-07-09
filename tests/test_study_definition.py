@@ -2,6 +2,7 @@ import csv
 import subprocess
 import sys
 import textwrap
+from pathlib import Path
 
 import pytest
 
@@ -33,6 +34,23 @@ def test_create_dummy_data_works_without_database_url(tmp_path, monkeypatch):
     with open(filename) as f:
         results = list(csv.DictReader(f))
     assert len(results) == 10
+    columns = results[0].keys()
+    assert "sex" in columns
+    assert "age" in columns
+
+
+def test_to_file_with_dummy_data_file(tmp_path):
+    study = StudyDefinition(
+        population=patients.all(),
+        sex=patients.sex(),
+        age=patients.age_as_of("2020-01-01",),
+    )
+    output_file = tmp_path / "dummy_data.csv"
+    dummy_data_file = Path(__file__).parent / "fixtures" / "dummy-data.csv"
+    study.to_file(output_file, dummy_data_file=dummy_data_file)
+    with open(output_file) as f:
+        results = list(csv.DictReader(f))
+    assert len(results) == 2
     columns = results[0].keys()
     assert "sex" in columns
     assert "age" in columns

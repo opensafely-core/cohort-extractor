@@ -2,6 +2,7 @@ import collections
 import copy
 import os
 import re
+import shutil
 
 import pandas as pd
 from numpy.random import default_rng
@@ -58,7 +59,9 @@ class StudyDefinition:
         if self.backend:
             self.recreate_backend()
 
-    def to_file(self, filename, expectations_population=False, **kwargs):
+    def to_file(
+        self, filename, expectations_population=False, dummy_data_file=None, **kwargs
+    ):
         if expectations_population:
             df = self.make_df_from_expectations(expectations_population)
             # Add a patient ID - a randomly generated integer from an
@@ -67,6 +70,8 @@ class StudyDefinition:
                 (len(df) * 10), size=len(df), replace=False
             )
             dataframe_to_file(df, filename)
+        elif dummy_data_file:
+            shutil.copyfile(dummy_data_file, filename)
         else:
             self.assert_backend_is_configured()
             self.backend.to_file(filename, **kwargs)

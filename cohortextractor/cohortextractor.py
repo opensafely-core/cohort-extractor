@@ -8,6 +8,7 @@ import base64
 import csv
 import datetime
 import importlib
+import pathlib
 import os
 import re
 import sys
@@ -129,6 +130,7 @@ def preflight_generation_check():
 def generate_cohort(
     output_dir,
     expectations_population,
+    dummy_data_file,
     selected_study_name=None,
     index_date_range=None,
     skip_existing=False,
@@ -147,6 +149,7 @@ def generate_cohort(
             study_name,
             suffix,
             expectations_population,
+            dummy_data_file,
             index_date_range=index_date_range,
             skip_existing=skip_existing,
             output_format=output_format,
@@ -158,6 +161,7 @@ def _generate_cohort(
     study_name,
     suffix,
     expectations_population,
+    dummy_data_file,
     index_date_range=None,
     skip_existing=False,
     output_format=SUPPORTED_FILE_FORMATS[0],
@@ -169,6 +173,7 @@ def _generate_cohort(
         "args:",
         suffix=suffix,
         expectations_population=expectations_population,
+        dummy_data_file=dummy_data_file,
         index_date_range=index_date_range,
         skip_existing=skip_existing,
         output_format=output_format,
@@ -193,6 +198,7 @@ def _generate_cohort(
             study.to_file(
                 output_file,
                 expectations_population=expectations_population,
+                dummy_data_file=dummy_data_file,
             )
             logger.info(f"Successfully created cohort and covariates at {output_file}")
 
@@ -604,6 +610,9 @@ def main():
         default=0,
     )
     cohort_method_group.add_argument(
+        "--dummy-data-file", help="Use dummy data from file", type=pathlib.Path,
+    )
+    cohort_method_group.add_argument(
         "--database-url",
         help="Database URL to query (can be supplied as DATABASE_URL environment variable)",
         type=str,
@@ -640,14 +649,19 @@ def main():
             os.environ["DATABASE_URL"] = options.database_url
         if options.temp_database_name:
             os.environ["TEMP_DATABASE_NAME"] = options.temp_database_name
-        if not options.expectations_population and not os.environ.get("DATABASE_URL"):
+        if not (
+            options.expectations_population
+            or options.dummy_data_file
+            or os.environ.get("DATABASE_URL")
+        ):
             parser.error(
                 "generate_cohort: error: one of the arguments "
-                "--expectations-population --database-url is required"
+                "--expectations-population --dummy-data-file --database-url is required"
             )
         generate_cohort(
             options.output_dir,
             options.expectations_population,
+            options.dummy_data_file,
             selected_study_name=options.study_definition,
             index_date_range=options.index_date_range,
             skip_existing=options.skip_existing,
