@@ -3,6 +3,7 @@ from pathlib import Path
 import pytest
 
 from cohortextractor import StudyDefinition, codelist, patients
+from cohortextractor.cohortextractor import SUPPORTED_FILE_FORMATS
 from cohortextractor.validate_dummy_data import (
     DummyDataValidationError,
     validate_dummy_data,
@@ -76,3 +77,9 @@ def test_validate_dummy_data_invalid_data(subtests):
 def test_validate_dummy_data_unknown_file_extension():
     with pytest.raises(DummyDataValidationError):
         validate_dummy_data(study, fixtures_path / "data.txt")
+
+
+@pytest.mark.parametrize("file_format", SUPPORTED_FILE_FORMATS)
+def test_validate_dummy_data_missing_data_file(file_format):
+    with pytest.raises(DummyDataValidationError):
+        validate_dummy_data(study, fixtures_path / f"missing.{file_format}")

@@ -57,15 +57,18 @@ def validate_dummy_data(study_definition, dummy_data_file):
 def read_into_dataframe(path):
     """Read data from path into a Pandas DataFrame."""
 
-    if path.suffixes in [[".csv"], [".csv", ".gz"]]:
-        return pd.read_csv(path)
-    elif path.suffixes in [[".dta"], [".dta", ".gz"]]:
-        return pd.read_stata(path)
-    elif path.suffix == ".feather":
-        return pd.read_feather(path)
-    else:
-        msg = f"Dummy data must be in one of the following formats: {', '.join(SUPPORTED_FILE_FORMATS)}"
-        raise DummyDataValidationError(msg)
+    try:
+        if path.suffixes in [[".csv"], [".csv", ".gz"]]:
+            return pd.read_csv(path)
+        elif path.suffixes in [[".dta"], [".dta", ".gz"]]:
+            return pd.read_stata(path)
+        elif path.suffix == ".feather":
+            return pd.read_feather(path)
+        else:
+            msg = f"Dummy data must be in one of the following formats: {', '.join(SUPPORTED_FILE_FORMATS)}"
+            raise DummyDataValidationError(msg)
+    except FileNotFoundError:
+        raise DummyDataValidationError(f"Dummy data file not found: {path}")
 
 
 def get_validator(col_name, query_args):
