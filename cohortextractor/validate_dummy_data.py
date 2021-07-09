@@ -12,19 +12,9 @@ def validate_dummy_data(study_definition, dummy_data_file):
 
     df = read_into_dataframe(dummy_data_file)
 
-    covariate_definitions = study_definition.covariate_definitions
+    validate_expected_columns(df, study_definition)
 
-    for col_name in df:
-        if col_name == "patient_id":
-            # patient_id is not present in covariate_definitions
-            continue
-
-        if col_name not in covariate_definitions:
-            raise DummyDataValidationError(
-                f"Unexpected column {col_name} in dummy data"
-            )
-
-    for (col_name, (_, query_args)) in covariate_definitions.items():
+    for (col_name, (_, query_args)) in study_definition.covariate_definitions.items():
         if col_name == "population":
             # Ignore the population definition, since it is not used as a column in the
             # output
@@ -33,11 +23,6 @@ def validate_dummy_data(study_definition, dummy_data_file):
         if query_args["hidden"]:
             # Ignore hidden covariates
             continue
-
-        if col_name not in df:
-            raise DummyDataValidationError(
-                f"Column {col_name} is missing from dummy data"
-            )
 
         validator = get_validator(col_name, query_args)
 
@@ -69,6 +54,33 @@ def read_into_dataframe(path):
             raise DummyDataValidationError(msg)
     except FileNotFoundError:
         raise DummyDataValidationError(f"Dummy data file not found: {path}")
+
+
+def validate_expected_columns(df, study_definition):
+    """Raise DummyDataValidationError if dataframe does not have expected columns."""
+
+    expected_columns = {
+        col_name
+        for col_name, (_, query_args) in study_definition.covariate_definitions.items()
+        if not (col_name == "population" or query_args["hidden"])
+    }
+    expected_columns.add("patient_id")
+
+    extra_columns = set(df.columns) - expected_columns
+    if extra_columns:
+        if len(extra_columns) == 1:
+            msg = f"Unexpected column in dummy data: {list(extra_columns)[0]}"
+        else:
+            msg = f"Unexpected columns in dummy data: {', '.join(extra_columns)}"
+        raise DummyDataValidationError(msg)
+
+    missing_columns = expected_columns - set(df.columns)
+    if missing_columns:
+        if len(missing_columns) == 1:
+            msg = f"Missing column in dummy data: {list(missing_columns)[0]}"
+        else:
+            msg = f"Missing columns in dummy data: {', '.join(missing_columns)}"
+        raise DummyDataValidationError(msg)
 
 
 def get_validator(col_name, query_args):

@@ -61,8 +61,8 @@ def test_validate_dummy_data_valid_data():
 
 def test_validate_dummy_data_invalid_data(subtests):
     for filename, error_fragment in [
-        ("missing-column", "event_date_year is missing"),
-        ("extra-column", "Unexpected column extra_col"),
+        ("missing-column", "Missing column in dummy data: event_date_year"),
+        ("extra-column", "Unexpected column in dummy data: extra_col"),
         ("invalid-int", "Invalid value `XX` for age"),
         ("invalid-bool", "Invalid value `X` for has_event"),
         ("invalid-date-yyyy", "Invalid value `20210.0` for event_date_year"),
