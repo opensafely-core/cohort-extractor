@@ -8,8 +8,8 @@ import base64
 import csv
 import datetime
 import importlib
-import pathlib
 import os
+import pathlib
 import re
 import sys
 from argparse import ArgumentParser
@@ -614,7 +614,9 @@ def main():
         default=0,
     )
     cohort_method_group.add_argument(
-        "--dummy-data-file", help="Use dummy data from file", type=pathlib.Path,
+        "--dummy-data-file",
+        help="Use dummy data from file",
+        type=pathlib.Path,
     )
     cohort_method_group.add_argument(
         "--database-url",

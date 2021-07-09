@@ -1,7 +1,8 @@
 from datetime import datetime
+
 import pandas as pd
 
-from .cohortextractor import DummyDataValidationError, SUPPORTED_FILE_FORMATS
+from .cohortextractor import SUPPORTED_FILE_FORMATS, DummyDataValidationError
 from .csv_utils import is_csv_filename
 
 
