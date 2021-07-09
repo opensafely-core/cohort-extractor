@@ -4,6 +4,8 @@ import pytest
 
 from cohortextractor import StudyDefinition, codelist, patients
 from cohortextractor.cohortextractor import SUPPORTED_FILE_FORMATS
+from cohortextractor.csv_utils import is_csv_filename, write_rows_to_csv
+from cohortextractor.pandas_utils import dataframe_from_rows, dataframe_to_file
 from cohortextractor.validate_dummy_data import (
     DummyDataValidationError,
     validate_dummy_data,
@@ -57,11 +59,27 @@ covariate_definitions = study.covariate_definitions
 fixtures_path = Path(__file__).parent / "fixtures" / "dummy-data"
 
 
-def test_validate_dummy_data_valid_data():
-    validate_dummy_data(study, fixtures_path / "dummy-data.csv")
+@pytest.mark.parametrize("file_format", SUPPORTED_FILE_FORMATS)
+def test_validate_dummy_data_valid(file_format, tmpdir):
+    rows = zip(
+        ["patient_id", "11", "22"],
+        ["sex", "F", "M"],
+        ["age", 40, 50],
+        ["has_event", True, False],
+        ["event_date_day", "2021-01-01", None],
+        ["event_date_month", "2021-01", None],
+        ["event_date_year", "2021", None],
+    )
+    path = Path(tmpdir) / f"dummy-data.{file_format}"
+    if is_csv_filename(path):
+        write_rows_to_csv(rows, path)
+    else:
+        df = dataframe_from_rows(covariate_definitions, rows)
+        dataframe_to_file(df, path)
+    validate_dummy_data(covariate_definitions, path)
 
 
-def test_validate_dummy_data_invalid_data(subtests):
+def test_validate_dummy_data_invalid_csv(subtests):
     for filename, error_fragment in [
         ("missing-column", "Missing column in dummy data: event_date_year"),
         ("extra-column", "Unexpected column in dummy data: extra_col"),
@@ -76,6 +94,53 @@ def test_validate_dummy_data_invalid_data(subtests):
                 validate_dummy_data(
                     covariate_definitions, fixtures_path / f"{filename}.csv"
                 )
+
+
+@pytest.mark.parametrize(
+    "file_format", [ff for ff in SUPPORTED_FILE_FORMATS if "csv" not in ff]
+)
+def test_validate_dummy_data_invalid_binary(file_format, subtests, tmpdir):
+    # Create some dummy data based on the covariate definitions at the top of the
+    # module.
+    rows = zip(
+        ["patient_id", "11", "22"],
+        ["sex", "F", "M"],
+        ["age", 40, 50],
+        ["has_event", True, False],
+        ["event_date_day", "2021-02-03", None],
+        ["event_date_month", "2021-02", None],
+        ["event_date_year", "2021", None],
+    )
+    df = dataframe_from_rows(covariate_definitions, rows)
+    path = Path(tmpdir) / f"dummy-data.{file_format}"
+    dataframe_to_file(df, path)
+
+    # This checks that the dummy data containing the rows above is valid for our study
+    # definition, which ensures that the DummyDataValidationErrors caught below are
+    # legit.
+    validate_dummy_data(covariate_definitions, path)
+
+    # Create some invalid dummy data by taking the valid dummy data created above and
+    # changing the covariate_definitions definitions by switching each pair of
+    # covariates in turn.  The data doesn't change, but the covariates do.  This works
+    # because each column of the dummy data has a different validator.
+    for key1 in df.columns:
+        if key1 == "patient_id":
+            continue
+
+        for key2 in df.columns:
+            if key2 == "patient_id":
+                continue
+
+            if key1 >= key2:
+                continue
+
+            with subtests.test(f"{key1} {key2}"):
+                new_covariate_definitions = covariate_definitions.copy()
+                new_covariate_definitions[key1] = covariate_definitions[key2]
+                new_covariate_definitions[key2] = covariate_definitions[key1]
+                with pytest.raises(DummyDataValidationError, match="Invalid value"):
+                    validate_dummy_data(new_covariate_definitions, path)
 
 
 def test_validate_dummy_data_unknown_file_extension():

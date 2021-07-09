@@ -2,6 +2,7 @@ from datetime import datetime
 import pandas as pd
 
 from .cohortextractor import DummyDataValidationError, SUPPORTED_FILE_FORMATS
+from .csv_utils import is_csv_filename
 
 
 def validate_dummy_data(covariate_definitions, dummy_data_file):
@@ -23,10 +24,13 @@ def validate_dummy_data(covariate_definitions, dummy_data_file):
             # Ignore hidden covariates
             continue
 
-        validator = get_validator(col_name, query_args)
+        if is_csv_filename(dummy_data_file):
+            validator = get_csv_validator(col_name, query_args)
+        else:
+            validator = get_binary_validator(col_name, query_args)
 
         for ix, value in enumerate(df[col_name]):
-            if pd.isna(value) or value == "":
+            if pd.isna(value) or not value:
                 # Ignore null or missing values
                 continue
 
@@ -82,11 +86,24 @@ def validate_expected_columns(df, covariate_definitions):
         raise DummyDataValidationError(msg)
 
 
-def get_validator(col_name, query_args):
+def get_csv_validator(col_name, query_args):
     """Return function that validates that value is valid to appear in column.
 
     A validator is a single-argument function that raises a ValueError on invalid input.
     """
+
+    def bool_validator(value):
+        if value not in [True, False]:
+            raise ValueError
+
+    def date_validator_year(value):
+        datetime.strptime(str(int(value)), "%Y")
+
+    def date_validator_month(value):
+        datetime.strptime(value, "%Y-%m")
+
+    def date_validator_day(value):
+        datetime.strptime(value, "%Y-%m-%d")
 
     column_type = query_args["column_type"]
     if column_type == "date":
@@ -110,18 +127,58 @@ def get_validator(col_name, query_args):
         assert False, f"Unknown column type {column_type} for column {col_name}"
 
 
-def bool_validator(value):
-    if value not in [True, False]:
-        raise ValueError
+def get_binary_validator(col_name, query_args):
+    def date_validator_year(value):
+        if not isinstance(value, pd.Timestamp):
+            raise ValueError
+        if not (value.month == 1 and value.day == 1):
+            raise ValueError
 
+    def date_validator_month(value):
+        if not isinstance(value, pd.Timestamp):
+            raise ValueError
+        if not value.day == 1:
+            raise ValueError
 
-def date_validator_year(value):
-    datetime.strptime(str(int(value)), "%Y")
+    def date_validator_day(value):
+        if not isinstance(value, pd.Timestamp):
+            raise ValueError
 
+    def bool_validator(value):
+        # We cannot use isinstance(value, bool) because Stata uses 0 and 1 which are
+        # equal to False and True but are not bools.
+        if value not in [True, False]:
+            raise ValueError
 
-def date_validator_month(value):
-    datetime.strptime(value, "%Y-%m")
+    def int_validator(value):
+        if not isinstance(value, int):
+            raise ValueError
 
+    def float_validator(value):
+        if not isinstance(value, float):
+            raise ValueError
 
-def date_validator_day(value):
-    datetime.strptime(value, "%Y-%m-%d")
+    def str_validator(value):
+        if not isinstance(value, str):
+            raise ValueError
+
+    column_type = query_args["column_type"]
+    if column_type == "date":
+        if query_args["date_format"] == "YYYY":
+            return date_validator_year
+        elif query_args["date_format"] == "YYYY-MM":
+            return date_validator_month
+        elif query_args["date_format"] == "YYYY-MM-DD":
+            return date_validator_day
+        else:
+            assert False, query_args["date_format"]
+    elif column_type == "bool":
+        return bool_validator
+    elif column_type == "int":
+        return int_validator
+    elif column_type == "str":
+        return str_validator
+    elif column_type == "float":
+        return float_validator
+    else:
+        assert False, f"Unknown column type {column_type} for column {col_name}"
