@@ -82,8 +82,10 @@ def get_pandas_convertor(funcname, column_type=None, returning=None, **kwargs):
         return bool
     elif column_type == "str":
         return Categoriser()
-    elif column_type in ("int", "float"):
-        return identity
+    elif column_type == "int":
+        return lambda val: int(val) if val else val
+    elif column_type == "float":
+        return lambda val: float(val) if val else val
     else:
         raise ValueError(f"Unable to impute Pandas type for {column_type} ({funcname})")
 

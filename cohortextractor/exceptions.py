@@ -1,0 +1,2 @@
+class DummyDataValidationError(Exception):
+    pass
