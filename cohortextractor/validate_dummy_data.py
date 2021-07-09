@@ -34,7 +34,7 @@ def validate_dummy_data(covariate_definitions, dummy_data_file):
                 validator(value)
             except ValueError:
                 raise DummyDataValidationError(
-                    f"Invalid value `{value}` for {col_name} in row {ix + 2}"
+                    f"Invalid value `{value!r}` for {col_name} in row {ix + 2}"
                 )
 
 
