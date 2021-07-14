@@ -39,7 +39,7 @@ def dataframe_from_rows(covariate_definitions, rows):
     }
     # `patient_id` isn't included in `covariate_definitions` so we need to add
     # it manually
-    convertors["patient_id"] = identity
+    convertors["patient_id"] = int
 
     # First row is expected to be header row
     headers = next(rows)
@@ -108,10 +108,6 @@ class Categoriser(dict):
     def get_categories(self):
         enumerated = sorted((index, key) for (key, index) in self.items())
         return [key for (index, key) in enumerated if index > -1]
-
-
-def identity(value):
-    return value
 
 
 def memoize(fn):
