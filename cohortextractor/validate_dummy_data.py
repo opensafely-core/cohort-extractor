@@ -42,6 +42,12 @@ def validate_dummy_data(covariate_definitions, dummy_data_file):
                     f"Invalid value `{value!r}` for {col_name} in row {ix + 2}"
                 )
 
+    for ix, value in enumerate(df["patient_id"]):
+        if not isinstance(value, int):
+            raise DummyDataValidationError(
+                f"Invalid value `{value!r}` for patient_id in row {ix + 2}"
+            )
+
 
 def read_into_dataframe(path):
     """Read data from path into a Pandas DataFrame."""
