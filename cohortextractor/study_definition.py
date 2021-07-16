@@ -5,6 +5,7 @@ import os
 import re
 import shutil
 from io import StringIO
+from pathlib import Path
 
 import pandas as pd
 from numpy.random import default_rng
@@ -85,7 +86,7 @@ class StudyDefinition:
                 df = dataframe_from_rows(self.covariate_definitions, rows)
             dataframe_to_file(df, filename)
         elif dummy_data_file:
-            if filename.suffixes != dummy_data_file.suffixes:
+            if Path(filename).suffixes != dummy_data_file.suffixes:
                 expected_extension = "".join(filename.suffixes)
                 msg = f"Expected dummy data file with extension {expected_extension}; got {dummy_data_file}"
                 raise DummyDataValidationError(msg)
