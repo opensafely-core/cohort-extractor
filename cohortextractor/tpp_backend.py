@@ -510,7 +510,7 @@ class TPPBackend:
         The condition is SQL which evaluates true when `date_expr` is in the
         supplied period.
 
-        The join provides the (possibly empty) JOINs which need to be appened
+        The join provides the (possibly empty) JOINs which need to be appended
         to "table" in order to evaluate the condition.
         """
         if between is None:
