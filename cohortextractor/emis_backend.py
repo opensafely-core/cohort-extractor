@@ -2,7 +2,6 @@ import datetime
 import os
 import re
 import uuid
-import warnings
 
 import structlog
 
@@ -1119,7 +1118,6 @@ class EMISBackend:
 
     def patients_registered_practice_as_of(self, date, returning=None):
         # At the moment we can only return current values for the fields in question.
-        self.validate_recent_date(date)
 
         if returning == "stp_code":
             column = "stp_code"
@@ -1310,7 +1308,6 @@ class EMISBackend:
 
     def patients_address_as_of(self, date, returning=None, round_to_nearest=None):
         # At the moment we can only return current values for the fields in question.
-        self.validate_recent_date(date)
 
         if returning == "index_of_multiple_deprivation":
             assert round_to_nearest == 100
@@ -1490,14 +1487,6 @@ class EMISBackend:
         if self._db_connection:
             self._db_connection.close()
         self._db_connection = None
-
-    def validate_recent_date(self, date, max_delta_days=30):
-        pass
-        date = datetime.datetime.strptime(date, "%Y-%m-%d").date()
-        delta = datetime.date.today() - date
-        if delta.days > max_delta_days:
-            msg = f"{self._current_column_name} should be passed a date more recent than {max_delta_days} days in the past"
-            warnings.warn(msg)
 
 
 class ColumnExpression:
