@@ -4,9 +4,9 @@ import tempfile
 import time
 from urllib.parse import unquote, urlparse
 
-import prestodb
 import requests
 import structlog
+import trino
 
 # TODO remove this when certificate verification reinstated
 import urllib3
@@ -22,7 +22,7 @@ def presto_connection_from_url(url):
     """Return a connection to Presto instance at given URL."""
 
     conn_params = presto_connection_params_from_url(url)
-    conn = prestodb.dbapi.connect(**conn_params)
+    conn = trino.dbapi.connect(**conn_params)
     if "PFX_PATH" in os.environ or "PRESTO_TLS_CERT" in os.environ:
         adapt_connection(conn, conn_params)
 
@@ -111,9 +111,7 @@ def presto_connection_params_from_url(url):
         connection_params["user"] = user
         if parsed.password:
             password = unquote(parsed.password)
-            connection_params["auth"] = prestodb.auth.BasicAuthentication(
-                user, password
-            )
+            connection_params["auth"] = trino.auth.BasicAuthentication(user, password)
     else:
         connection_params["user"] = "ignored"
 
@@ -130,13 +128,13 @@ def wait_for_presto_to_be_ready(url, test_query, timeout):
     start = time.time()
     while True:
         try:
-            connection = prestodb.dbapi.connect(**connection_params)
+            connection = trino.dbapi.connect(**connection_params)
             cursor = connection.cursor()
             cursor.execute(test_query)
             cursor.fetchall()
             break
         except (
-            prestodb.exceptions.PrestoQueryError,
+            trino.exceptions.TrinoQueryError,
             requests.exceptions.ConnectionError,
         ):
             if time.time() - start < timeout:
@@ -146,7 +144,7 @@ def wait_for_presto_to_be_ready(url, test_query, timeout):
 
 
 class ConnectionProxy:
-    """Proxy for prestodb.dbapi.Connection, with a more useful cursor."""
+    """Proxy for trino.dbapi.Connection, with a more useful cursor."""
 
     def __init__(self, connection):
         self.connection = connection
@@ -163,9 +161,9 @@ class ConnectionProxy:
 
 
 class CursorProxy:
-    """Proxy for prestodb.dbapi.Cursor.
+    """Proxy for trino.dbapi.Cursor.
 
-    Unlike prestodb.dbapi.Cursor:
+    Unlike trino.dbapi.Cursor:
 
     * any exceptions caused by an invalid query are raised by .execute() (and
       not later when you fetch the results)
@@ -180,7 +178,7 @@ class CursorProxy:
     def __init__(self, cursor, batch_size=10 ** 6):
         """Initialise proxy.
 
-        cursor: the presto.dbapi.Cursor to be proxied
+        cursor: the trino.dbapi.Cursor to be proxied
         batch_size: the number of records to fetch at a time (this will need to
             be tuned)
         """
@@ -252,7 +250,7 @@ def read_eval_print(cursor):
     sql = "\n".join(lines)[:-1]
     try:
         cursor.execute(sql)
-    except prestodb.exceptions.PrestoUserError as e:
+    except trino.exceptions.TrinoUserError as e:
         print(e.message)
         return True
     headers = [col[0] for col in cursor.description]
