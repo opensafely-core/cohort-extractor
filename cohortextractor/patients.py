@@ -1583,6 +1583,14 @@ def with_test_result_in_sgss(
 
         "Reflex Assay" and "Private Lab Sequencing"
 
+    ### Symptomatic
+
+    The `returning="symptomatic"` option (only available in the "All Tests" data)
+    returns details on whether patients are symptomatic of SARS-CoV-2 or not. This
+    option is available regardless of the test result outcome.
+
+    Possible values are "", "Y", "N".
+
     For more detail on SGSS in general see [PHE_Laboratory_Reporting_Guidelines.pdf][PHE_LRG]
 
     [PHE_LRG]: https://assets.publishing.service.gov.uk/government/uploads/system/uploads/attachment_data/file/739854/PHE_Laboratory_Reporting_Guidelines.pdf
@@ -1618,6 +1626,7 @@ def with_test_result_in_sgss(
             * `case_category` (see above)
             * `variant` (see above)
             * `variant_detection_method` (see above)
+            * `symptomatic` (see above)
 
         date_format: a string detailing the format of the dates to be returned.
             It can be `YYYY-MM-DD`, `YYYY-MM` or `YYYY` and wherever possible
