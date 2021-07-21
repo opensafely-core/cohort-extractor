@@ -93,9 +93,9 @@ def presto_connection_params_from_url(url):
     parsed = urlparse(url)
     http_scheme = "https" if parsed.port == 443 else "http"
     parts = parsed.path.strip("/").split("/")
-    if len(parts) != 2 or not all(parts) or parsed.scheme != "presto":
+    if len(parts) != 2 or not all(parts) or parsed.scheme != "trino":
         raise ValueError(
-            f"Presto URL not of the form 'presto://host.name/catalog/schema': {url}"
+            f"Trino URL not of the form 'trino://host.name/catalog/schema': {url}"
         )
     catalog, schema = parts
     connection_params = {

@@ -9,7 +9,7 @@ from cohortextractor.presto_utils import (
 
 
 def test_presto_connection_params_from_url_with_auth():
-    url = "presto://user:password@host:80/catalog/schema"
+    url = "trino://user:password@host:80/catalog/schema"
     params = presto_connection_params_from_url(url)
 
     auth = params.pop("auth")
@@ -27,7 +27,7 @@ def test_presto_connection_params_from_url_with_auth():
 
 
 def test_presto_connection_params_from_url_with_port_443():
-    url = "presto://host:443/catalog/schema"
+    url = "trino://host:443/catalog/schema"
     assert presto_connection_params_from_url(url) == {
         "http_scheme": "https",
         "user": "ignored",
@@ -39,7 +39,7 @@ def test_presto_connection_params_from_url_with_port_443():
 
 
 def test_presto_connection_params_from_url_with_no_port():
-    url = "presto://host/catalog/schema"
+    url = "trino://host/catalog/schema"
     assert presto_connection_params_from_url(url) == {
         "http_scheme": "http",
         "user": "ignored",

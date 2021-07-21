@@ -138,7 +138,7 @@ class StudyDefinition:
             from .tpp_backend import TPPBackend
 
             return TPPBackend
-        elif database_url.startswith("presto://"):
+        elif database_url.startswith("trino://"):
             from .emis_backend import EMISBackend
 
             return EMISBackend
