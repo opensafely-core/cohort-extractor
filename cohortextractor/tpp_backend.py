@@ -2353,6 +2353,43 @@ class TPPBackend:
           patient_id
         """
 
+    def patients_outpatient_appointment_date(
+        self,
+        # attended = None,
+        # is_first_attendance = True,
+        # with_these_treatment_function_codes=tfc_codelist,
+        # with_these_procedure_codes=OPCS_codelist,
+        # referral_request_received_date="YYYY-MM-DD",
+        between=None, # maybe this should be `between` (but how does that work?)
+        date_format="YYYY-MM-DD",
+        returning="binary_flag"
+    ):
+
+        if returning == "binary_flag":
+            return """
+            SELECT
+              Patient_ID as patient_id,
+              1 as binary_flag
+            FROM
+              OPA
+            GROUP BY
+              patient_id
+            """
+        elif returning == "date":
+            column_definition = "Appointment_Date"
+        else:
+            raise ValueError(f"Unsupported `returning` value: {returning}")
+
+        return f"""
+        SELECT
+          Patient_ID AS patient_id,
+          {column_definition} AS {returning}
+        FROM
+          OPA
+        GROUP BY
+          Patient_ID, {column_definition}
+        """
+
 
 class ColumnExpression:
     def __init__(

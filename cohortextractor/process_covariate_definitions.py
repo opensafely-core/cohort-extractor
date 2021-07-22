@@ -327,6 +327,9 @@ class GetColumnType:
     ):
         return self._type_from_return_value(returning)
 
+    def type_of_outpatient_appointment_date(self, returning, **kwargs):
+        return self._type_from_return_value(returning)
+
     def _type_from_return_value(self, returning):
         if returning == "nhse_region_name":
             raise ValueError(

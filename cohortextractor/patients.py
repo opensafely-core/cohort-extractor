@@ -2135,3 +2135,35 @@ def with_healthcare_worker_flag_on_covid_vaccine_record(
         return_expectations: as described elsewhere.
     """
     return "with_healthcare_worker_flag_on_covid_vaccine_record", locals()
+
+def outpatient_appointment_date(
+	returning = "date",
+    # attended = None,
+    # is_first_attendance = True,
+    # with_these_treatment_function_codes=tfc_codelist,
+    # with_these_procedure_codes=OPCS_codelist,
+    # referral_request_received_date="YYYY-MM-DD",
+	on_or_after=None,
+    between=None,
+	date_format="YYYY-MM-DD"
+):
+    """
+    Return when the patient had an out-patient appointment
+
+    Args:
+        returning: "date",
+        # attended: True,
+        # is_first_attendance: True,
+        # with_these_treatment_function_codes: tfc_codelist,
+        # with_these_procedure_codes: OPCS_codelist,
+        # referral_request_received_date: "YYYY-MM-DD",
+        on_or_after: date of interest as a string with the format `YYYY-MM-DD`.
+            Filters results to on or after the given date. The default value is
+            `None`.
+        between: ...
+        date_format: a string detailing the format of the dates to be returned.
+            It can be `YYYY-MM-DD`, `YYYY-MM` or `YYYY` and wherever possible
+            the least disclosive data should be returned. i.e returning only
+            year is less disclosive than a date with day, month and year.
+    """
+    return "outpatient_appointment_date", locals()
