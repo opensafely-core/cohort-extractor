@@ -9,45 +9,57 @@ from cohortextractor.trino_utils import (
 
 
 def test_trino_connection_params_from_url_with_auth():
-    url = "trino://user:password@host:80/catalog/schema"
-    params = trino_connection_params_from_url(url)
+    urls = [
+        "trino://user:password@host:80/catalog/schema",
+        "presto://user:password@host:80/catalog/schema",
+    ]
+    for url in urls:
+        params = trino_connection_params_from_url(url)
 
-    auth = params.pop("auth")
-    assert auth._username == "user"
-    assert auth._password == "password"
+        auth = params.pop("auth")
+        assert auth._username == "user"
+        assert auth._password == "password"
 
-    assert params == {
-        "http_scheme": "http",
-        "user": "user",
-        "host": "host",
-        "port": 80,
-        "catalog": "catalog",
-        "schema": "schema",
-    }
+        assert params == {
+            "http_scheme": "http",
+            "user": "user",
+            "host": "host",
+            "port": 80,
+            "catalog": "catalog",
+            "schema": "schema",
+        }
 
 
 def test_trino_connection_params_from_url_with_port_443():
-    url = "trino://host:443/catalog/schema"
-    assert trino_connection_params_from_url(url) == {
-        "http_scheme": "https",
-        "user": "ignored",
-        "host": "host",
-        "port": 443,
-        "catalog": "catalog",
-        "schema": "schema",
-    }
+    urls = [
+        "trino://host:443/catalog/schema",
+        "presto://host:443/catalog/schema",
+    ]
+    for url in urls:
+        assert trino_connection_params_from_url(url) == {
+            "http_scheme": "https",
+            "user": "ignored",
+            "host": "host",
+            "port": 443,
+            "catalog": "catalog",
+            "schema": "schema",
+        }
 
 
 def test_trino_connection_params_from_url_with_no_port():
-    url = "trino://host/catalog/schema"
-    assert trino_connection_params_from_url(url) == {
-        "http_scheme": "http",
-        "user": "ignored",
-        "host": "host",
-        "port": 8080,
-        "catalog": "catalog",
-        "schema": "schema",
-    }
+    urls = [
+        "trino://host/catalog/schema",
+        "presto://host/catalog/schema",
+    ]
+    for url in urls:
+        assert trino_connection_params_from_url(url) == {
+            "http_scheme": "http",
+            "user": "ignored",
+            "host": "host",
+            "port": 8080,
+            "catalog": "catalog",
+            "schema": "schema",
+        }
 
 
 class MockConn:
