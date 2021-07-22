@@ -93,10 +93,22 @@ def trino_connection_params_from_url(url):
     parsed = urlparse(url)
     http_scheme = "https" if parsed.port == 443 else "http"
     parts = parsed.path.strip("/").split("/")
-    if len(parts) != 2 or not all(parts) or parsed.scheme != "trino":
+    # presto:// is now legacy and replaced with trino://
+    # presto:// is included for backwards compatibilty only and can be
+    # removed in future.
+    if len(parts) != 2 or not all(parts) or parsed.scheme not in ("trino", "presto"):
         raise ValueError(
-            f"Trino URL not of the form 'trino://host.name/catalog/schema': {url}"
+            f"Trino URL not of the form 'trino://host.name/catalog/schema'"
+            " or 'presto://host.name/catalog.schema': {url}"
         )
+
+    if parsed.scheme == "presto":
+        warnings.warn(
+            "presto:// will be removed in a future cohort-extractor version;"
+            " use trino:// instead.",
+            DeprecationWarning,
+        )
+
     catalog, schema = parts
     connection_params = {
         "http_scheme": http_scheme,
