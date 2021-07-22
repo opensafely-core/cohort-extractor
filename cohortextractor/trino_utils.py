@@ -18,10 +18,10 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 sql_logger = structlog.get_logger("cohortextractor.sql")
 
 
-def presto_connection_from_url(url):
-    """Return a connection to Presto instance at given URL."""
+def trino_connection_from_url(url):
+    """Return a connection to Trino instance at given URL."""
 
-    conn_params = presto_connection_params_from_url(url)
+    conn_params = trino_connection_params_from_url(url)
     conn = trino.dbapi.connect(**conn_params)
     if "PFX_PATH" in os.environ or "PRESTO_TLS_CERT" in os.environ:
         adapt_connection(conn, conn_params)
@@ -81,13 +81,13 @@ def adapt_connection(conn, conn_params, env=os.environ):
         session.mount(mount_prefix, mount_adaptor)
     else:
         raise Exception(
-            "Could not load certificate for presto connection from environment"
+            "Could not load certificate for Trino connection from environment"
         )
 
     conn._http_session = session
 
 
-def presto_connection_params_from_url(url):
+def trino_connection_params_from_url(url):
     """Return connection params for given URL."""
 
     parsed = urlparse(url)
@@ -118,13 +118,13 @@ def presto_connection_params_from_url(url):
     return connection_params
 
 
-def wait_for_presto_to_be_ready(url, test_query, timeout):
+def wait_for_trino_to_be_ready(url, test_query, timeout):
     """
-    Waits for Presto to be ready to execute queries by repeatedly attempting to
+    Waits for Trino to be ready to execute queries by repeatedly attempting to
     connect and run `test_query`, raising the last received error after
     `timeout` seconds
     """
-    connection_params = presto_connection_params_from_url(url)
+    connection_params = trino_connection_params_from_url(url)
     start = time.time()
     while True:
         try:
@@ -223,9 +223,9 @@ class CursorProxy:
 
 
 def repl(url):
-    """Run a simple REPL against a Presto database at given URL."""
+    """Run a simple REPL against a Trino database at given URL."""
 
-    conn = presto_connection_from_url(url)
+    conn = trino_connection_from_url(url)
     cursor = conn.cursor()
     while read_eval_print(cursor):
         pass
@@ -264,7 +264,7 @@ if __name__ == "__main__":
     import sys
 
     if len(sys.argv) != 2:
-        print("Usage: python -m cohortextractor.presto_utils DATABASE_URL")
+        print("Usage: python -m cohortextractor.trino_utils DATABASE_URL")
         sys.exit(1)
 
     repl(sys.argv[1])

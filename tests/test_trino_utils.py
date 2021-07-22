@@ -2,15 +2,15 @@ from pathlib import Path
 
 import pytest
 
-from cohortextractor.presto_utils import (
+from cohortextractor.trino_utils import (
     adapt_connection,
-    presto_connection_params_from_url,
+    trino_connection_params_from_url,
 )
 
 
-def test_presto_connection_params_from_url_with_auth():
+def test_trino_connection_params_from_url_with_auth():
     url = "trino://user:password@host:80/catalog/schema"
-    params = presto_connection_params_from_url(url)
+    params = trino_connection_params_from_url(url)
 
     auth = params.pop("auth")
     assert auth._username == "user"
@@ -26,9 +26,9 @@ def test_presto_connection_params_from_url_with_auth():
     }
 
 
-def test_presto_connection_params_from_url_with_port_443():
+def test_trino_connection_params_from_url_with_port_443():
     url = "trino://host:443/catalog/schema"
-    assert presto_connection_params_from_url(url) == {
+    assert trino_connection_params_from_url(url) == {
         "http_scheme": "https",
         "user": "ignored",
         "host": "host",
@@ -38,9 +38,9 @@ def test_presto_connection_params_from_url_with_port_443():
     }
 
 
-def test_presto_connection_params_from_url_with_no_port():
+def test_trino_connection_params_from_url_with_no_port():
     url = "trino://host/catalog/schema"
-    assert presto_connection_params_from_url(url) == {
+    assert trino_connection_params_from_url(url) == {
         "http_scheme": "http",
         "user": "ignored",
         "host": "host",
