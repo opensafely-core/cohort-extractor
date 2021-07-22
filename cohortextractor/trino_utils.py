@@ -2,6 +2,7 @@ import os
 import readline  # noqa -- importing this adds readline behaviour to input()
 import tempfile
 import time
+import warnings
 from urllib.parse import unquote, urlparse
 
 import requests
@@ -54,16 +55,35 @@ def adapt_connection(conn, conn_params, env=os.environ):
     """
 
     session = requests.Session()
-    crt = env.get("PRESTO_TLS_CERT")
-    key = env.get("PRESTO_TLS_KEY")
+    # PRESTO_TLS_CERT and PRESTO_TLS_KEY are now legacy.
+    # These environment variables are included for backwards compatibility only and will
+    # be removed in future.
+    # If both environment variable pairs (PRESTO_TLS_CERT and PRESTO_TLS_KEY;
+    # TRINO_TLS_CERT and TRINO_TLS_KEY) are specified, then the TRINO environment
+    # variables take priority.
+    presto_crt = env.get("PRESTO_TLS_CERT")
+    presto_key = env.get("PRESTO_TLS_KEY")
+    trino_crt = env.get("TRINO_TLS_CERT")
+    trino_key = env.get("TRINO_TLS_KEY")
     pfx_pass = env.get("PFX_PASSWORD_PATH")
     pfx_path = env.get("PFX_PATH")
 
     # unencrypted cert in env
-    if crt and key:
+    if trino_crt and trino_key:
         session.cert = (
-            write_to_temp_file(crt, prefix="presto_cert"),
-            write_to_temp_file(key, prefix="presto_key"),
+            write_to_temp_file(trino_crt, prefix="trino_cert"),
+            write_to_temp_file(trino_key, prefix="trino_key"),
+        )
+
+    elif presto_crt and presto_key:
+        warnings.warn(
+            "PRESTO_TLS_CERT and PRESTO_TLS_KEY will be removed in a future"
+            " cohort-extractor version; use TRINO_TLS_CERT and TRINO_TLS_KEY instead.",
+            DeprecationWarning,
+        )
+        session.cert = (
+            write_to_temp_file(presto_crt, prefix="presto_cert"),
+            write_to_temp_file(presto_key, prefix="presto_key"),
         )
 
     # support encyrpted cert
@@ -98,8 +118,8 @@ def trino_connection_params_from_url(url):
     # removed in future.
     if len(parts) != 2 or not all(parts) or parsed.scheme not in ("trino", "presto"):
         raise ValueError(
-            f"Trino URL not of the form 'trino://host.name/catalog/schema'"
-            " or 'presto://host.name/catalog.schema': {url}"
+            "Trino URL not of the form 'trino://host.name/catalog/schema'"
+            f" or 'presto://host.name/catalog.schema': {url}"
         )
 
     if parsed.scheme == "presto":
