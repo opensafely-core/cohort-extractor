@@ -68,15 +68,38 @@ class MockConn:
 
 def test_adapt_connection_plain_keypair():
     conn = MockConn()
+    envs = [
+        {
+            "TRINO_TLS_KEY": "key",
+            "TRINO_TLS_CERT": "cert",
+        },
+        {
+            "PRESTO_TLS_KEY": "key",
+            "PRESTO_TLS_CERT": "cert",
+        },
+    ]
+    for env in envs:
+        adapt_connection(conn, {}, env)
+
+        cert_path, key_path = conn._http_session.cert
+        assert Path(cert_path).read_text() == "cert"
+        assert Path(key_path).read_text() == "key"
+
+
+def test_adapt_connection_trino_env_precedence():
+    conn = MockConn()
     env = {
-        "PRESTO_TLS_KEY": "key",
-        "PRESTO_TLS_CERT": "cert",
+        "TRINO_TLS_KEY": "newkey",
+        "TRINO_TLS_CERT": "newcert",
+        "PRESTO_TLS_KEY": "oldkey",
+        "PRESTO_TLS_CERT": "oldcert",
     }
+
     adapt_connection(conn, {}, env)
 
     cert_path, key_path = conn._http_session.cert
-    assert Path(cert_path).read_text() == "cert"
-    assert Path(key_path).read_text() == "key"
+    assert Path(cert_path).read_text() == "newcert"
+    assert Path(key_path).read_text() == "newkey"
 
 
 def test_adapt_connection_no_cert_configured():
