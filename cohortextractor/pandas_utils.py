@@ -29,6 +29,11 @@ def dataframe_to_file(df, filename):
         raise RuntimeError(f"Unsupported file format: {filename}")
 
 
+def dataframe_to_rows(df):
+    yield df.columns
+    yield from df.to_records(index=False)
+
+
 def dataframe_from_rows(covariate_definitions, rows):
     """
     Create a DataFrame from an iterator of rows
