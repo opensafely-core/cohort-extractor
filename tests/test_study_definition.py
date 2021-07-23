@@ -3,6 +3,7 @@ import subprocess
 import sys
 import textwrap
 
+import pandas
 import pytest
 
 from cohortextractor import StudyDefinition, codelist, patients
@@ -271,3 +272,37 @@ def test_syntax_errors_in_expressions_are_raised():
                 age=patients.age_as_of("2010-01-01"),
             ),
         )
+
+
+@pytest.mark.parametrize("file_format", SUPPORTED_FILE_FORMATS)
+def test_booleans_correctly_handled_in_dummy_data(tmp_path, file_format):
+    cl = codelist(["12345"], system="snomed")
+    study = StudyDefinition(
+        default_expectations={"date": {"earliest": "2020-01-01", "latest": "today"}},
+        population=patients.all(),
+        has_event=patients.with_these_clinical_events(
+            cl,
+            returning="binary_flag",
+            return_expectations={"rate": "uniform", "incidence": 0.5},
+        ),
+    )
+
+    filename = tmp_path / f"dummy-data.{file_format}"
+    study.to_file(filename, expectations_population=100)
+
+    if file_format in ("csv", "csv.gz"):
+        df = pandas.read_csv(filename, dtype=str)
+        bools = ("0", "1")
+    elif file_format == "feather":
+        df = pandas.read_feather(filename)
+        bools = (True, False)
+    elif file_format in ("dta", "dta.gz"):
+        df = pandas.read_stata(filename)
+        bools = (0, 1)
+    else:
+        assert False, f"Unhandled format: {file_format}"
+
+    # Check we've got at least some of each value
+    counts = df.has_event.value_counts()
+    assert counts[bools[0]] > 10
+    assert counts[bools[1]] > 10
