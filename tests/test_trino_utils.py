@@ -8,67 +8,73 @@ from cohortextractor.trino_utils import (
 )
 
 
-def test_trino_connection_params_from_url_with_auth():
-    urls = [
+@pytest.mark.parametrize(
+    "url",
+    [
         "trino://user:password@host:80/catalog/schema",
         "presto://user:password@host:80/catalog/schema",
-    ]
-    for url in urls:
-        params = trino_connection_params_from_url(url)
+    ],
+)
+def test_trino_connection_params_from_url_with_auth(url):
+    params = trino_connection_params_from_url(url)
 
-        auth = params.pop("auth")
-        assert auth._username == "user"
-        assert auth._password == "password"
+    auth = params.pop("auth")
+    assert auth._username == "user"
+    assert auth._password == "password"
 
-        assert params == {
-            "http_scheme": "http",
-            "user": "user",
-            "host": "host",
-            "port": 80,
-            "catalog": "catalog",
-            "schema": "schema",
-        }
+    assert params == {
+        "http_scheme": "http",
+        "user": "user",
+        "host": "host",
+        "port": 80,
+        "catalog": "catalog",
+        "schema": "schema",
+    }
 
 
-def test_trino_connection_params_from_url_with_port_443():
-    urls = [
+@pytest.mark.parametrize(
+    "url",
+    [
         "trino://host:443/catalog/schema",
         "presto://host:443/catalog/schema",
-    ]
-    for url in urls:
-        assert trino_connection_params_from_url(url) == {
-            "http_scheme": "https",
-            "user": "ignored",
-            "host": "host",
-            "port": 443,
-            "catalog": "catalog",
-            "schema": "schema",
-        }
+    ],
+)
+def test_trino_connection_params_from_url_with_port_443(url):
+    assert trino_connection_params_from_url(url) == {
+        "http_scheme": "https",
+        "user": "ignored",
+        "host": "host",
+        "port": 443,
+        "catalog": "catalog",
+        "schema": "schema",
+    }
 
 
-def test_trino_connection_params_from_url_with_no_port():
-    urls = [
+@pytest.mark.parametrize(
+    "url",
+    [
         "trino://host/catalog/schema",
         "presto://host/catalog/schema",
-    ]
-    for url in urls:
-        assert trino_connection_params_from_url(url) == {
-            "http_scheme": "http",
-            "user": "ignored",
-            "host": "host",
-            "port": 8080,
-            "catalog": "catalog",
-            "schema": "schema",
-        }
+    ],
+)
+def test_trino_connection_params_from_url_with_no_port(url):
+    assert trino_connection_params_from_url(url) == {
+        "http_scheme": "http",
+        "user": "ignored",
+        "host": "host",
+        "port": 8080,
+        "catalog": "catalog",
+        "schema": "schema",
+    }
 
 
 class MockConn:
     pass
 
 
-def test_adapt_connection_plain_keypair():
-    conn = MockConn()
-    envs = [
+@pytest.mark.parametrize(
+    "env",
+    [
         {
             "TRINO_TLS_KEY": "key",
             "TRINO_TLS_CERT": "cert",
@@ -77,13 +83,16 @@ def test_adapt_connection_plain_keypair():
             "PRESTO_TLS_KEY": "key",
             "PRESTO_TLS_CERT": "cert",
         },
-    ]
-    for env in envs:
-        adapt_connection(conn, {}, env)
+    ],
+)
+def test_adapt_connection_plain_keypair(env):
+    conn = MockConn()
 
-        cert_path, key_path = conn._http_session.cert
-        assert Path(cert_path).read_text() == "cert"
-        assert Path(key_path).read_text() == "key"
+    adapt_connection(conn, {}, env)
+
+    cert_path, key_path = conn._http_session.cert
+    assert Path(cert_path).read_text() == "cert"
+    assert Path(key_path).read_text() == "key"
 
 
 def test_adapt_connection_trino_env_precedence():
