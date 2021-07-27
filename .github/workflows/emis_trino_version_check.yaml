@@ -1,0 +1,29 @@
+name: Check Trino version on EMIS and in docker-compose.yml match
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 8 * * 1-5'
+
+jobs:
+  check-starburst-version:
+    name: Check Starburst version
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-python@v2
+        with:
+          python-version: "3.8"
+      - name: Install
+        run: |
+          set -xe
+          python -m pip install --upgrade pip
+          python -m venv venv
+          # Save time by only installing the necessary requirements for the single test.
+          venv/bin/pip install --progress-bar=off --requirement <(grep -E "^(requests|pyyaml|pytest)==" requirements.txt)
+
+      - name: Run version check test
+        run: |
+          source ${{ github.workspace }}/venv/bin/activate
+          PYTHONPATH=. pytest -vvv tests/test_trino_docker_version.py
