@@ -2371,6 +2371,8 @@ class TPPBackend:
             column_definition = "1"
         elif returning == "date":
             column_definition = "MIN(Appointment_Date)"
+        elif returning == "number_of_matches_in_period":
+            column_definition = "COUNT(OPA_Ident)"
         else:
             raise ValueError(f"Unsupported `returning` value: {returning}")
 
