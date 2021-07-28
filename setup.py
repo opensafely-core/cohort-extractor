@@ -33,7 +33,7 @@ setup(
             # Used by the Databricks backend
             "pyspark",
             # Used by the EMIS backend
-            "trino",
+            "presto-python-client",
             # Used by the TPP backend
             "ctds",
             "pyodbc",
