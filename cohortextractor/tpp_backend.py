@@ -2360,7 +2360,7 @@ class TPPBackend:
         # with_these_treatment_function_codes=tfc_codelist,
         # with_these_procedure_codes=OPCS_codelist,
         # referral_request_received_date="YYYY-MM-DD",
-        between=None, # maybe this should be `between` (but how does that work?)
+        between=None,
         returning="binary_flag"
     ):
         date_condition, date_joins = self.get_date_condition(
