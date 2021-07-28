@@ -2324,6 +2324,13 @@ def test_patients_with_test_result_in_sgss():
             restrict_to_earliest_specimen_date=False,
             returning="symptomatic",
         ),
+        symptomatic_any=patients.with_test_result_in_sgss(
+            pathogen="SARS-CoV-2",
+            test_result="any",
+            find_first_match_in_period=True,
+            restrict_to_earliest_specimen_date=False,
+            returning="symptomatic",
+        ),
     )
     assert_results(
         study.to_dicts(),
@@ -2344,6 +2351,7 @@ def test_patients_with_test_result_in_sgss():
         variant_detection_method=["Private Lab Sequencing", "Reflex Assay", "", ""],
         symptomatic_positive=["Y", "N", "", ""],
         symptomatic_negative=["N", "", "", ""],
+        symptomatic_any=["N", "", "", ""],
     )
 
 
