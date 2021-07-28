@@ -7,10 +7,10 @@ import structlog
 
 from .codelistlib import codelist
 from .csv_utils import is_csv_filename, write_rows_to_csv
-from .date_expressions import PrestoDateFormatter
+from .date_expressions import TrinoDateFormatter
 from .expressions import format_expression
 from .pandas_utils import dataframe_from_rows, dataframe_to_file
-from .presto_utils import presto_connection_from_url
+from .trino_utils import trino_connection_from_url
 
 logger = structlog.get_logger()
 sql_logger = structlog.get_logger("cohortextractor.sql")
@@ -554,7 +554,7 @@ class EMISBackend:
         if is_iso_date(date):
             return quote(date), []
         # More complicated date expressions which reference other tables
-        formatter = PrestoDateFormatter(self.output_columns)
+        formatter = TrinoDateFormatter(self.output_columns)
         date_expr = formatter(date)
         date_expr, column_name = formatter(date)
         tables = self.output_columns[column_name].source_tables
@@ -870,7 +870,7 @@ class EMISBackend:
         codelist_table, codelist_queries = self.create_codelist_table(codelist)
         # Using COALESCE like this has the potential to produce very
         # inefficient queries by scuppering use of indices. However, my
-        # understanding is there are no indicies anyway in the current Presto
+        # understanding is there are no indicies anyway in the current Trino
         # setup so this shouldn't actually make much difference
         date_condition, date_joins = self.get_date_condition(
             from_table, f"COALESCE(effective_date, {quote(EARLIEST_DATE)})", between
@@ -1482,7 +1482,7 @@ class EMISBackend:
     def get_db_connection(self):
         if self._db_connection:
             return self._db_connection
-        self._db_connection = presto_connection_from_url(self.database_url)
+        self._db_connection = trino_connection_from_url(self.database_url)
         return self._db_connection
 
     def close(self):

@@ -11,7 +11,7 @@ import yaml
 )
 def test_docker_version():
     with open("docker-compose.yml") as f:
-        our_version = yaml.safe_load(f)["services"]["presto"]["image"].split(":")[1]
+        our_version = yaml.safe_load(f)["services"]["trino"]["image"].split(":")[1]
 
     rsp = requests.get("https://explorerplus.emishealthinsights.co.uk/v1/info")
     their_version = rsp.json()["nodeVersion"]["version"]

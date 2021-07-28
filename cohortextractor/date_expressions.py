@@ -343,7 +343,7 @@ class MSSQLDateFormatter(DateFormatter):
     date_unit_day = date_unit_days
 
 
-class PrestoDateFormatter(DateFormatter):
+class TrinoDateFormatter(DateFormatter):
     def get_date_expression(self, date_column):
         """
         In order to use a date column in a query we need to cast it to an

@@ -137,7 +137,12 @@ class StudyDefinition:
             from .tpp_backend import TPPBackend
 
             return TPPBackend
-        elif database_url.startswith("presto://"):
+        # presto:// is now legacy and replaced with trino://
+        # presto:// is included for backwards compatibilty only and can be
+        # removed in future.
+        elif database_url.startswith("trino://") or database_url.startswith(
+            "presto://"
+        ):
             from .emis_backend import EMISBackend
 
             return EMISBackend
