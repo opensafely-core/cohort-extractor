@@ -3697,19 +3697,19 @@ def _make_patient_with_outpatient_appointment():
         [
             Patient(
                 OPAEpisodes=[
-                    OPA(Appointment_Date='2020-01-01 00:00:00.000'),
+                    OPA(Appointment_Date='2021-01-01 12:00:00.000'),
                 ]
             ),
             Patient(
                 OPAEpisodes=[
-                    OPA(Appointment_Date='2020-01-01 00:00:00.000'),
-                    OPA(Appointment_Date='2020-01-02 00:00:00.000'),
+                    OPA(Appointment_Date='2021-01-01 12:00:00.000'),
+                    OPA(Appointment_Date='2021-01-02 12:00:00.000'),
                 ]
             ),
             Patient(
                 OPAEpisodes=[
-                    OPA(Appointment_Date='2020-01-02 00:00:00.000', Ethnic_Category="GF"),
-                    OPA(Appointment_Date='2020-01-03 00:00:00.000', Ethnic_Category="GF"),
+                    OPA(Appointment_Date='2021-01-02 12:00:00.000', Ethnic_Category="GF"),
+                    OPA(Appointment_Date='2021-01-03 12:00:00.000', Ethnic_Category="GF"),
                 ],
             ),
             Patient(),
@@ -3736,6 +3736,7 @@ def test_outpatient_appointment_date_returning_binary_flag_on_or_after():
         ),
     )
     assert_results(study.to_dicts(), opa=["0", "1", "1", "0"])
+
 
 def test_outpatient_appointment_date_returning_dates():
     _make_patient_with_outpatient_appointment()

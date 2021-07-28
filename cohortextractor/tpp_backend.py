@@ -2364,19 +2364,14 @@ class TPPBackend:
         date_format="YYYY-MM-DD",
         returning="binary_flag"
     ):
+        date_condition, date_joins = self.get_date_condition(
+            "OPA", "Appointment_Date", between
+        )
 
         if returning == "binary_flag":
-            return """
-            SELECT
-              Patient_ID as patient_id,
-              1 as binary_flag
-            FROM
-              OPA
-            GROUP BY
-              patient_id
-            """
+            column_definition = "1"
         elif returning == "date":
-            column_definition = "Appointment_Date"
+            column_definition = "MIN(Appointment_Date)"
         else:
             raise ValueError(f"Unsupported `returning` value: {returning}")
 
@@ -2386,8 +2381,10 @@ class TPPBackend:
           {column_definition} AS {returning}
         FROM
           OPA
+          {date_joins}
+        WHERE {date_condition}
         GROUP BY
-          Patient_ID, {column_definition}
+          Patient_ID
         """
 
 
