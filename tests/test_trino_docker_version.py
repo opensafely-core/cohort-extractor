@@ -6,8 +6,8 @@ import yaml
 
 
 @pytest.mark.skipif(
-    os.environ.get("TEST_PRESTO_DOCKER_VERSION") != "1",
-    reason="TEST_PRESTO_DOCKER_VERSION=1 not set in environment",
+    os.environ.get("TEST_TRINO_DOCKER_VERSION") != "1",
+    reason="TEST_TRINO_DOCKER_VERSION=1 not set in environment",
 )
 def test_docker_version():
     with open("docker-compose.yml") as f:
