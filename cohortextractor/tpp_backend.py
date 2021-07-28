@@ -2361,7 +2361,7 @@ class TPPBackend:
         # with_these_procedure_codes=OPCS_codelist,
         # referral_request_received_date="YYYY-MM-DD",
         between=None,
-        returning="binary_flag"
+        returning="binary_flag",
     ):
         date_condition, date_joins = self.get_date_condition(
             "OPA", "Appointment_Date", between
