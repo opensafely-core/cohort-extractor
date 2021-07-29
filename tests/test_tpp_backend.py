@@ -3698,22 +3698,39 @@ def _make_patient_with_outpatient_appointment():
         [
             Patient(
                 OPAEpisodes=[
-                    OPA(Appointment_Date="2021-01-01 12:00:00.000", Attendance_Status="6"),
-                ]
-            ),
-            Patient(
-                OPAEpisodes=[
-                    OPA(Appointment_Date="2021-01-01 12:00:00.000", Attendance_Status="7"),
-                    OPA(Appointment_Date="2021-01-02 12:00:00.000", Attendance_Status="5"),
+                    OPA(
+                        Appointment_Date="2021-01-01 12:00:00.000",
+                        Attendance_Status="6",
+                        First_Attendance="1",
+                    ),
                 ]
             ),
             Patient(
                 OPAEpisodes=[
                     OPA(
-                        Appointment_Date="2021-01-02 12:00:00.000", Ethnic_Category="GF", Attendance_Status="3"
+                        Appointment_Date="2021-01-01 12:00:00.000",
+                        Attendance_Status="7",
+                        First_Attendance="4",
                     ),
                     OPA(
-                        Appointment_Date="2021-01-03 12:00:00.000", Ethnic_Category="GF"
+                        Appointment_Date="2021-01-02 12:00:00.000",
+                        Attendance_Status="5",
+                        First_Attendance="2",
+                    ),
+                ]
+            ),
+            Patient(
+                OPAEpisodes=[
+                    OPA(
+                        Appointment_Date="2021-01-02 12:00:00.000",
+                        Ethnic_Category="GF",
+                        Attendance_Status="3",
+                        First_Attendance="3",
+                    ),
+                    OPA(
+                        Appointment_Date="2021-01-03 12:00:00.000",
+                        Ethnic_Category="GF",
+                        First_Attendance="4",
                     ),
                 ],
             ),
@@ -3755,6 +3772,18 @@ def test_outpatient_appointment_date_returning_binary_flag_attended():
         ),
     )
     assert_results(study.to_dicts(), opa=["1", "1", "0", "0"])
+
+
+def test_outpatient_appointment_date_returning_binary_flag_first_attendance():
+    _make_patient_with_outpatient_appointment()
+
+    study = StudyDefinition(
+        population=patients.all(),
+        opa=patients.outpatient_appointment_date(
+            returning="binary_flag", is_first_attendance=True
+        ),
+    )
+    assert_results(study.to_dicts(), opa=["1", "0", "1", "0"])
 
 
 def test_outpatient_appointment_date_returning_dates():

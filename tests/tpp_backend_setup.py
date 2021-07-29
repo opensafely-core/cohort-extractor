@@ -734,6 +734,7 @@ class OPA(Base):
     Appointment_Date = Column(Date)
     Attendance_Status = Column(String)
     Ethnic_Category = Column(String)
+    First_Attendance = Column(String)
 
 
 class DecisionSupportValue(Base):

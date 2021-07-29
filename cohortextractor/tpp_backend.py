@@ -2356,7 +2356,7 @@ class TPPBackend:
     def patients_outpatient_appointment_date(
         self,
         attended = None,
-        # is_first_attendance = True,
+        is_first_attendance = None,
         # with_these_treatment_function_codes=tfc_codelist,
         # with_these_procedure_codes=OPCS_codelist,
         # referral_request_received_date="YYYY-MM-DD",
@@ -2375,6 +2375,13 @@ class TPPBackend:
                 "Attendance_Status = 6",
             ]
             conditions.append("(" + " OR ".join(attended_conditions) + ")")
+
+        if is_first_attendance:
+            is_first_attendance_conditions = [
+                "First_Attendance = 1",
+                "First_Attendance = 3",
+            ]
+            conditions.append("(" + " OR ".join(is_first_attendance_conditions) + ")")
 
         conditions = " AND ".join(conditions)
 
