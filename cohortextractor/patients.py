@@ -2150,6 +2150,7 @@ def outpatient_appointment_date(
     is_first_attendance=None,
     with_these_treatment_function_codes=None,
     with_these_procedures=None,
+    referral_request_received_date=None,
     on_or_after=None,
     between=None,
     date_format="YYYY-MM-DD",
@@ -2177,6 +2178,8 @@ def outpatient_appointment_date(
             period of care" matches the supplied codelist.
         with_these_procedures: Filter the appointments to those whose
             `Primary_Procedure_Code` matches the specified OPCS-4 codes.
+        referral_request_received_date: Filter the appointments to those with
+            a matching `Referral_Request_Received_Date`
         on_or_after: date of interest as a string with the format `YYYY-MM-DD`.
             Filters results to on or after the given date. The default value is
             `None`.

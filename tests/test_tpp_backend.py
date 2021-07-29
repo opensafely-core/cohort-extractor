@@ -3768,6 +3768,7 @@ def _make_patient_with_outpatient_appointment():
                         Attendance_Status="6",
                         First_Attendance="1",
                         Treatment_Function_Code="130",
+                        Referral_Request_Received_Date="2020-12-15 12:00:00.000",
                     ),
                 ]
             ),
@@ -3778,6 +3779,7 @@ def _make_patient_with_outpatient_appointment():
                         Attendance_Status="7",
                         First_Attendance="4",
                         Treatment_Function_Code="180",
+                        Referral_Request_Received_Date="2020-12-31 12:00:00.000",
                     ),
                     OPA(
                         Appointment_Date="2021-01-02 12:00:00.000",
@@ -3868,6 +3870,17 @@ def test_outpatient_appointment_date_returning_binary_flag_with_these_treatment_
         ),
     )
     assert_results(study.to_dicts(), opa=["0", "1", "0", "0"])
+
+def test_outpatient_appointment_date_returning_binary_flag_referral_request_received_date():
+    _make_patient_with_outpatient_appointment()
+
+    study = StudyDefinition(
+        population=patients.all(),
+        opa=patients.outpatient_appointment_date(
+            returning="binary_flag", referral_request_received_date="2020-12-15"
+        ),
+    )
+    assert_results(study.to_dicts(), opa=["1", "0", "0", "0"])
 
 
 def test_outpatient_appointment_date_returning_binary_flag_with_these_procedure_codes_exact():

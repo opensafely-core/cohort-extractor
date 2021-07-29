@@ -2386,6 +2386,7 @@ class TPPBackend:
         is_first_attendance=None,
         with_these_treatment_function_codes=None,
         with_these_procedures=None,
+        referral_request_received_date=None,
         between=None,
         returning="binary_flag",
     ):
@@ -2432,6 +2433,10 @@ class TPPBackend:
             ]
             conditions.append("(" + " OR ".join(fragments) + ")")
             procedures_joins = "JOIN OPA_Proc ON OPA.OPA_Ident = OPA_Proc.OPA_Ident"
+
+        if referral_request_received_date:
+            referral_request_received_date_condition = f"""Referral_Request_Received_Date = {referral_request_received_date}"""
+            conditions.append(referral_request_received_date_condition)
 
         conditions = " AND ".join(conditions)
 
