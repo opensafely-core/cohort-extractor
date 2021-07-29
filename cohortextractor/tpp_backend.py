@@ -2355,7 +2355,7 @@ class TPPBackend:
 
     def patients_outpatient_appointment_date(
         self,
-        # attended = None,
+        attended = None,
         # is_first_attendance = True,
         # with_these_treatment_function_codes=tfc_codelist,
         # with_these_procedure_codes=OPCS_codelist,
@@ -2366,6 +2366,17 @@ class TPPBackend:
         date_condition, date_joins = self.get_date_condition(
             "OPA", "Appointment_Date", between
         )
+
+        conditions = [date_condition]
+
+        if attended:
+            attended_conditions = [
+                "Attendance_Status = 5",
+                "Attendance_Status = 6",
+            ]
+            conditions.append("(" + " OR ".join(attended_conditions) + ")")
+
+        conditions = " AND ".join(conditions)
 
         if returning == "binary_flag":
             column_definition = "1"
@@ -2383,7 +2394,7 @@ class TPPBackend:
         FROM
           OPA
           {date_joins}
-        WHERE {date_condition}
+        WHERE {conditions}
         GROUP BY
           Patient_ID
         """

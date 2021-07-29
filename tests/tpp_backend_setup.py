@@ -732,6 +732,7 @@ class OPA(Base):
     )
     OPA_Ident = Column(Integer, primary_key=True)
     Appointment_Date = Column(Date)
+    Attendance_Status = Column(String)
     Ethnic_Category = Column(String)
 
 

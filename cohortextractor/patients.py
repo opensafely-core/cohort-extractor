@@ -2139,7 +2139,7 @@ def with_healthcare_worker_flag_on_covid_vaccine_record(
 
 def outpatient_appointment_date(
     returning="binary_flag",
-    # attended = None,
+    attended = None,
     # is_first_attendance = True,
     # with_these_treatment_function_codes=tfc_codelist,
     # with_these_procedure_codes=OPCS_codelist,
@@ -2158,7 +2158,9 @@ def outpatient_appointment_date(
             * `date`: date of out-patient appointment
             * `number_of_matches_in_period`: number of out-patient appointments in period
 
-        # attended: True,
+        attended: if True, filters appointments to only those where the patient
+            was recorded as being seen. If it is not known whether they attended
+            (e.g. NULL value), it is assumed that they did not attend.
         # is_first_attendance: True,
         # with_these_treatment_function_codes: tfc_codelist,
         # with_these_procedure_codes: OPCS_codelist,
@@ -2166,7 +2168,9 @@ def outpatient_appointment_date(
         on_or_after: date of interest as a string with the format `YYYY-MM-DD`.
             Filters results to on or after the given date. The default value is
             `None`.
-        between: two dates of interest as a list with each date as a string with the format `YYYY-MM-DD`. Filters matches to between the two dates. The default value is `None`.
+        between: two dates of interest as a list with each date as a string
+            with the format `YYYY-MM-DD`. Filters matches to between the two
+            dates. The default value is `None`.
         date_format: a string detailing the format of the dates to be returned.
             It can be `YYYY-MM-DD`, `YYYY-MM` or `YYYY` and wherever possible
             the least disclosive data should be returned. i.e returning only
