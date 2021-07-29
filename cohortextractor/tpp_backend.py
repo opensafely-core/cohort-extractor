@@ -2357,7 +2357,7 @@ class TPPBackend:
         self,
         attended = None,
         is_first_attendance = None,
-        # with_these_treatment_function_codes=tfc_codelist,
+        with_these_treatment_function_codes=None,
         # with_these_procedure_codes=OPCS_codelist,
         # referral_request_received_date="YYYY-MM-DD",
         between=None,
@@ -2382,6 +2382,10 @@ class TPPBackend:
                 "First_Attendance = 3",
             ]
             conditions.append("(" + " OR ".join(is_first_attendance_conditions) + ")")
+
+        if with_these_treatment_function_codes:
+            with_these_treatment_function_codes_conditions = codelist_to_sql(with_these_treatment_function_codes)
+            conditions.append(f"""Treatment_Function_Code IN ({with_these_treatment_function_codes_conditions})""")
 
         conditions = " AND ".join(conditions)
 

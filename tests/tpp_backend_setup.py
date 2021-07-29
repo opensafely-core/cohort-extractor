@@ -735,6 +735,7 @@ class OPA(Base):
     Attendance_Status = Column(String)
     Ethnic_Category = Column(String)
     First_Attendance = Column(String)
+    Treatment_Function_Code = Column(String)
 
 
 class DecisionSupportValue(Base):

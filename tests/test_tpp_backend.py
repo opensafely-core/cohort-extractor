@@ -3702,6 +3702,7 @@ def _make_patient_with_outpatient_appointment():
                         Appointment_Date="2021-01-01 12:00:00.000",
                         Attendance_Status="6",
                         First_Attendance="1",
+                        Treatment_Function_Code="130",
                     ),
                 ]
             ),
@@ -3716,6 +3717,7 @@ def _make_patient_with_outpatient_appointment():
                         Appointment_Date="2021-01-02 12:00:00.000",
                         Attendance_Status="5",
                         First_Attendance="2",
+                        Treatment_Function_Code="812",
                     ),
                 ]
             ),
@@ -3784,6 +3786,18 @@ def test_outpatient_appointment_date_returning_binary_flag_first_attendance():
         ),
     )
     assert_results(study.to_dicts(), opa=["1", "0", "1", "0"])
+
+
+def test_outpatient_appointment_date_returning_binary_flag_with_these_treatment_function_codes():
+    _make_patient_with_outpatient_appointment()
+
+    study = StudyDefinition(
+        population=patients.all(),
+        opa=patients.outpatient_appointment_date(
+            returning="binary_flag", with_these_treatment_function_codes=['812', '813']
+        ),
+    )
+    assert_results(study.to_dicts(), opa=["0", "1", "0", "0"])
 
 
 def test_outpatient_appointment_date_returning_dates():

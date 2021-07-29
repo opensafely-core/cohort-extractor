@@ -2141,7 +2141,7 @@ def outpatient_appointment_date(
     returning="binary_flag",
     attended = None,
     is_first_attendance = None,
-    # with_these_treatment_function_codes=tfc_codelist,
+    with_these_treatment_function_codes=None,
     # with_these_procedure_codes=OPCS_codelist,
     # referral_request_received_date="YYYY-MM-DD",
     on_or_after=None,
@@ -2164,7 +2164,9 @@ def outpatient_appointment_date(
         is_first_attendance: if True, filter appointments to only those where
             it is known whether it is a first attendance. If it is not known
             (e.g. NULL value), it is assumed that it is not a first attendance.
-        # with_these_treatment_function_codes: tfc_codelist,
+        with_these_treatment_function_codes: Filter the appointments to those
+            whose "specialty in which the consultant was working during the
+            period of care" matches the supplied codelist.
         # with_these_procedure_codes: OPCS_codelist,
         # referral_request_received_date: "YYYY-MM-DD",
         on_or_after: date of interest as a string with the format `YYYY-MM-DD`.
