@@ -3711,6 +3711,7 @@ def _make_patient_with_outpatient_appointment():
                         Appointment_Date="2021-01-01 12:00:00.000",
                         Attendance_Status="7",
                         First_Attendance="4",
+                        Treatment_Function_Code="180",
                     ),
                     OPA(
                         Appointment_Date="2021-01-02 12:00:00.000",
@@ -3727,11 +3728,13 @@ def _make_patient_with_outpatient_appointment():
                         Ethnic_Category="GF",
                         Attendance_Status="3",
                         First_Attendance="3",
+                        Treatment_Function_Code="180",
                     ),
                     OPA(
                         Appointment_Date="2021-01-03 12:00:00.000",
                         Ethnic_Category="GF",
                         First_Attendance="4",
+                        Treatment_Function_Code="320",
                     ),
                 ],
             ),
