@@ -3404,7 +3404,6 @@ def test_ethnicity_from_sus():
                 ],
                 OPAEpisodes=[
                     OPA(Ethnic_Category="D*"),
-                    OPA(Ethnic_Category="D*"),
                 ],
             ),
             # G by most recent and most common
