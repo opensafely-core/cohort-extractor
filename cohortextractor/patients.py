@@ -2139,8 +2139,8 @@ def with_healthcare_worker_flag_on_covid_vaccine_record(
 
 def outpatient_appointment_date(
     returning="binary_flag",
-    attended = None,
-    is_first_attendance = None,
+    attended=None,
+    is_first_attendance=None,
     with_these_treatment_function_codes=None,
     # with_these_procedure_codes=OPCS_codelist,
     # referral_request_received_date="YYYY-MM-DD",

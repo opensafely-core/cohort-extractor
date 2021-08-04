@@ -3794,7 +3794,7 @@ def test_outpatient_appointment_date_returning_binary_flag_with_these_treatment_
     study = StudyDefinition(
         population=patients.all(),
         opa=patients.outpatient_appointment_date(
-            returning="binary_flag", with_these_treatment_function_codes=['812', '813']
+            returning="binary_flag", with_these_treatment_function_codes=["812", "813"]
         ),
     )
     assert_results(study.to_dicts(), opa=["0", "1", "0", "0"])

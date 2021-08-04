@@ -2355,8 +2355,8 @@ class TPPBackend:
 
     def patients_outpatient_appointment_date(
         self,
-        attended = None,
-        is_first_attendance = None,
+        attended=None,
+        is_first_attendance=None,
         with_these_treatment_function_codes=None,
         # with_these_procedure_codes=OPCS_codelist,
         # referral_request_received_date="YYYY-MM-DD",
@@ -2384,8 +2384,12 @@ class TPPBackend:
             conditions.append("(" + " OR ".join(is_first_attendance_conditions) + ")")
 
         if with_these_treatment_function_codes:
-            with_these_treatment_function_codes_conditions = codelist_to_sql(with_these_treatment_function_codes)
-            conditions.append(f"""Treatment_Function_Code IN ({with_these_treatment_function_codes_conditions})""")
+            with_these_treatment_function_codes_conditions = codelist_to_sql(
+                with_these_treatment_function_codes
+            )
+            conditions.append(
+                f"""Treatment_Function_Code IN ({with_these_treatment_function_codes_conditions})"""
+            )
 
         conditions = " AND ".join(conditions)
 
