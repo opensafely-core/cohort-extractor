@@ -168,9 +168,10 @@ class BatchFetcher:
 
 
 def wait_for_mssql_to_be_ready(engine, timeout):
-    """Wait for the database to be ready if it isn't already"""
-
-    timeout = float(timeout) if timeout else 60
+    """
+    Waits for the MS SQL database to be ready by repeatedly attempting to
+    connect, raising the last received error after `timeout` seconds.
+    """
     start = time.time()
     while True:
         try:
