@@ -14,7 +14,7 @@ Base = declarative_base()
 
 def make_engine():
     engine = mssql_sqlalchemy_engine_from_url(os.environ["TPP_DATABASE_URL"])
-    timeout = os.environ.get("CONNECTION_RETRY_TIMEOUT")
+    timeout = float(os.environ.get("CONNECTION_RETRY_TIMEOUT", "60"))
     wait_for_mssql_to_be_ready(engine, timeout)
     return engine
 
