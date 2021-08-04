@@ -3871,6 +3871,7 @@ def test_outpatient_appointment_date_returning_binary_flag_with_these_treatment_
     )
     assert_results(study.to_dicts(), opa=["0", "1", "0", "0"])
 
+
 def test_outpatient_appointment_date_returning_binary_flag_referral_request_received_date():
     _make_patient_with_outpatient_appointment()
 
