@@ -2358,8 +2358,6 @@ class TPPBackend:
         attended=None,
         is_first_attendance=None,
         with_these_treatment_function_codes=None,
-        # with_these_procedure_codes=OPCS_codelist,
-        # referral_request_received_date="YYYY-MM-DD",
         between=None,
         returning="binary_flag",
     ):

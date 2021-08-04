@@ -2142,8 +2142,6 @@ def outpatient_appointment_date(
     attended=None,
     is_first_attendance=None,
     with_these_treatment_function_codes=None,
-    # with_these_procedure_codes=OPCS_codelist,
-    # referral_request_received_date="YYYY-MM-DD",
     on_or_after=None,
     between=None,
     date_format="YYYY-MM-DD",
@@ -2167,8 +2165,6 @@ def outpatient_appointment_date(
         with_these_treatment_function_codes: Filter the appointments to those
             whose "specialty in which the consultant was working during the
             period of care" matches the supplied codelist.
-        # with_these_procedure_codes: OPCS_codelist,
-        # referral_request_received_date: "YYYY-MM-DD",
         on_or_after: date of interest as a string with the format `YYYY-MM-DD`.
             Filters results to on or after the given date. The default value is
             `None`.
