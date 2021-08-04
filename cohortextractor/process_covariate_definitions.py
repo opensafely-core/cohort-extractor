@@ -350,7 +350,6 @@ class GetColumnType:
             "date_discharged": "date",
             "date_of_death": "date",
             "days_in_critical_care": "str",
-            "dischage_destination": "str",
             "discharge_destination": "str",
             "duration_of_elective_wait": "str",
             "group_16": "str",
