@@ -2147,14 +2147,14 @@ def outpatient_appointment_date(
     date_format="YYYY-MM-DD",
 ):
     """
-    Return when the patient had an out-patient appointment
+    Return when the patient had an outpatient appointment
 
     Args:
         returning: string indicating value to be returned. Options are:
 
-            * `binary_flag`: indicates if they have had an out-patient appointment or not
-            * `date`: earliest date of out-patient appointment within the specified period
-            * `number_of_matches_in_period`: number of out-patient appointments in period
+            * `binary_flag`: indicates if they have had an outpatient appointment or not
+            * `date`: earliest date of outpatient appointment within the specified period
+            * `number_of_matches_in_period`: number of outpatient appointments in period
 
         attended: if True, filters appointments to only those where the patient
             was recorded as being seen. If it is not known whether they attended
