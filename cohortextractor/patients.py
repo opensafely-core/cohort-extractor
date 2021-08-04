@@ -2149,6 +2149,8 @@ def outpatient_appointment_date(
     """
     Return when the patient had an outpatient appointment
 
+    See https://github.com/opensafely-core/cohort-extractor/issues/492 for in-depth discussion and background.
+
     Args:
         returning: string indicating value to be returned. Options are:
 
