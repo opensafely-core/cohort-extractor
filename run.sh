@@ -25,5 +25,6 @@ exec docker-compose run \
   -e EMIS_DATABASE_URL=presto://presto:8080/mssql/dbo \
   -e EMIS_DATASOURCE_DATABASE_URL='mssql://SA:Your_password123!@mssql:1433/Test_EMIS' \
   -e DATABRICKS_DATABASE_URL='databricks' \
+  -e DATABRICKS_TEST_DATABASE_URL='jdbc:sqlserver://mssql:1433;databaseName=Test_OpenCorona' \
   app \
   -- "$@"
