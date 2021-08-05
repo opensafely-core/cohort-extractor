@@ -44,7 +44,7 @@ def test_create_dummy_data_works_without_database_url(tmp_path, monkeypatch):
 
 @pytest.mark.parametrize("file_format", SUPPORTED_FILE_FORMATS)
 def test_to_file_with_expectations_population(tmp_path, file_format):
-    cl = codelist(["12345"], system="snomed")
+    cl = codelist([("12345", "foo"), ("67890", "bar")], system="snomed")
     study = StudyDefinition(
         default_expectations={"date": {"earliest": "2020-01-01", "latest": "today"}},
         population=patients.all(),
@@ -83,6 +83,15 @@ def test_to_file_with_expectations_population(tmp_path, file_format):
             returning="date",
             date_format="YYYY",
             return_expectations={"rate": "uniform", "incidence": 0.5},
+        ),
+        incomplete_categories=patients.with_these_clinical_events(
+            cl,
+            returning="category",
+            return_expectations={
+                "category": {"ratios": {"foo": 0.5, "bar": 0.5}},
+                # Half the values here should be null
+                "incidence": 0.5,
+            },
         ),
     )
 
