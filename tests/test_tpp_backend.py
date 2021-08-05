@@ -3869,10 +3869,23 @@ def test_outpatient_appointment_date_returning_binary_flag_with_these_treatment_
     assert_results(study.to_dicts(), opa=["0", "1", "0", "0"])
 
 
-def test_outpatient_appointment_date_returning_binary_flag_with_these_procedure_codes():
+def test_outpatient_appointment_date_returning_binary_flag_with_these_procedure_codes_exact():
     _make_patient_with_outpatient_appointment()
 
     procedures_codelist = codelist(["D07.1", "F17.2"], system="opcs4")
+    study = StudyDefinition(
+        population=patients.all(),
+        opa=patients.outpatient_appointment_date(
+            returning="binary_flag", with_these_procedures=procedures_codelist
+        ),
+    )
+    assert_results(study.to_dicts(), opa=["0", "0", "1", "0"])
+
+
+def test_outpatient_appointment_date_returning_binary_flag_with_these_procedure_codes_like():
+    _make_patient_with_outpatient_appointment()
+
+    procedures_codelist = codelist(["D07", "F17"], system="opcs4")
     study = StudyDefinition(
         population=patients.all(),
         opa=patients.outpatient_appointment_date(

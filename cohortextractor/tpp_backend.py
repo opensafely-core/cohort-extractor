@@ -2424,10 +2424,13 @@ class TPPBackend:
         procedures_joins = ""
         if with_these_procedures:
             assert with_these_procedures.system == "opcs4"
-            with_these_procedures_conditions = codelist_to_sql(with_these_procedures)
-            conditions.append(
-                f"""OPA_Proc.Primary_Procedure_Code IN ({with_these_procedures_conditions})"""
-            )
+            fragments = [
+                f"OPA_Proc.Primary_Procedure_Code LIKE {pattern} ESCAPE '\\'"
+                for pattern in codelist_to_like_patterns(
+                    with_these_procedures, prefix="%", suffix="%"
+                )
+            ]
+            conditions.append("(" + " OR ".join(fragments) + ")")
             procedures_joins = "JOIN OPA_Proc ON OPA.OPA_Ident = OPA_Proc.OPA_Ident"
 
         conditions = " AND ".join(conditions)
