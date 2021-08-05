@@ -227,6 +227,11 @@ class Patient(Base):
         back_populates="Patient",
         cascade="all, delete, delete-orphan",
     )
+    OPA_Proc = relationship(
+        "OPA_Proc",
+        back_populates="Patient",
+        cascade="all, delete, delete-orphan",
+    )
     DecisionSupportValue = relationship(
         "DecisionSupportValue",
         back_populates="Patient",
@@ -736,6 +741,25 @@ class OPA(Base):
     Ethnic_Category = Column(String)
     First_Attendance = Column(String)
     Treatment_Function_Code = Column(String)
+
+    OPA_Proc = relationship(
+        "OPA_Proc", back_populates="OPA", cascade="all, delete, delete-orphan"
+    )
+
+
+class OPA_Proc(Base):
+    __tablename__ = "OPA_Proc"
+
+    Patient_ID = Column(Integer, ForeignKey("Patient.Patient_ID"))
+    Patient = relationship("Patient", back_populates="OPA_Proc")
+    OPA_Ident = Column(Integer, ForeignKey("OPA.OPA_Ident"), primary_key=True)
+    OPA = relationship(
+        "OPA",
+        back_populates="OPA_Proc",
+        cascade="all, delete, delete-orphan",
+        single_parent=True,
+    )
+    Primary_Procedure_Code = Column(String)
 
 
 class DecisionSupportValue(Base):

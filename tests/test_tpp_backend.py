@@ -23,6 +23,7 @@ from tests.tpp_backend_setup import (
     EC,
     ICNARC,
     OPA,
+    OPA_Proc,
     APCS_Der,
     Appointment,
     CodedEvent,
@@ -97,6 +98,7 @@ def setup_function(function):
     session.query(EC).delete()
     session.query(APCS_Der).delete()
     session.query(APCS).delete()
+    session.query(OPA_Proc).delete()
     session.query(OPA).delete()
     session.query(HighCostDrugs).delete()
     session.query(DecisionSupportValue).delete()
@@ -3766,6 +3768,7 @@ def _make_patient_with_outpatient_appointment():
                         Attendance_Status="6",
                         First_Attendance="1",
                         Treatment_Function_Code="130",
+                        OPA_Proc=[OPA_Proc(Primary_Procedure_Code="D07.1")],
                     ),
                 ]
             ),
