@@ -2385,6 +2385,7 @@ class TPPBackend:
         attended=None,
         is_first_attendance=None,
         with_these_treatment_function_codes=None,
+        with_these_procedures=None,
         between=None,
         returning="binary_flag",
     ):
@@ -2420,6 +2421,15 @@ class TPPBackend:
                 f"""Treatment_Function_Code IN ({with_these_treatment_function_codes_conditions})"""
             )
 
+        procedures_joins = ""
+        if with_these_procedures:
+            assert with_these_procedures.system == "opcs4"
+            with_these_procedures_conditions = codelist_to_sql(with_these_procedures)
+            conditions.append(
+                f"""OPA_Proc.Primary_Procedure_Code IN ({with_these_procedures_conditions})"""
+            )
+            procedures_joins = "JOIN OPA_Proc ON OPA.OPA_Ident = OPA_Proc.OPA_Ident"
+
         conditions = " AND ".join(conditions)
 
         if returning == "binary_flag":
@@ -2433,14 +2443,15 @@ class TPPBackend:
 
         return f"""
         SELECT
-          Patient_ID AS patient_id,
+          OPA.Patient_ID AS patient_id,
           {column_definition} AS {returning}
         FROM
           OPA
           {date_joins}
+          {procedures_joins}
         WHERE {conditions}
         GROUP BY
-          Patient_ID
+          OPA.Patient_ID
         """
 
 
