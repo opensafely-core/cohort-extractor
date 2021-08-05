@@ -1,3 +1,5 @@
+import math
+
 import pandas
 
 
@@ -102,7 +104,7 @@ class Categoriser(dict):
     __call__ = dict.__getitem__
 
     def __missing__(self, value):
-        if value:
+        if is_not_empty(value):
             index = self.counter
             self.counter += 1
         else:
@@ -113,6 +115,17 @@ class Categoriser(dict):
     def get_categories(self):
         enumerated = sorted((index, key) for (key, index) in self.items())
         return [key for (index, key) in enumerated if index > -1]
+
+
+def is_not_empty(value):
+    """
+    We regard falsey and NaN values as empty
+    """
+    if not value:
+        return False
+    if isinstance(value, float) and math.isnan(value):
+        return False
+    return True
 
 
 def memoize(fn):
