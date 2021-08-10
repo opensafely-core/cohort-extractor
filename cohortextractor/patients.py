@@ -693,6 +693,7 @@ def satisfying(expression, return_expectations=None, **extra_columns):
                 \"\"\",
                 has_asthma=patients.with_these_clinical_events(
                     asthma_codes, between=["2017-02-28", "2020-02-29"],
+                ),
                 has_copd=patients.with_these_clinical_events(
                     copd_codes, between=["2017-02-28", "2020-02-29"],
                 ),
