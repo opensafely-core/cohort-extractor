@@ -1,3 +1,4 @@
+import os
 from datetime import datetime
 from functools import reduce
 from pathlib import Path
@@ -122,13 +123,23 @@ class DatabricksBackend:
         This currently connects to a SQL Server database.  It is expected that this will
         need to change for production!
         """
+        # The default JDBC URL works for tests when they are run directly on
+        # the host, with the database servers running in Docker Compose.
+        #
+        # If running the cohort-extractor tests *in* Docker Compose, e.g. as
+        # run.sh does, for the connection to succeed, this URL needs to be:
+        # jdbc:sqlserver://mssql:1433;databaseName=Test_OpenCorona
+        # as this connection is from one container to another, not from host
+        # to container.
+        database_url = os.environ.get(
+            "DATABRICKS_DATASOURCE_DATABASE_URL",
+            "jdbc:sqlserver://localhost:15785;databaseName=Test_OpenCorona",
+        )
 
         reader = (
             self.session.read.format("jdbc")
             .option("driver", "com.microsoft.sqlserver.jdbc.SQLServerDriver")
-            .option(
-                "url", "jdbc:sqlserver://localhost:15785;databaseName=Test_OpenCorona"
-            )
+            .option("url", database_url)
             .option("user", "SA")
             .option("password", "Your_password123!")
         )
