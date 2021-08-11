@@ -351,7 +351,9 @@ class StudyDefinition:
                 method_name = "max"
             else:
                 raise ValueError(f"Unsupported aggregate function '{fn}'")
-            columns = df[list(definition_args["column_names"])]
+            columns = self.get_columns_for_aggregation(
+                population, df, list(definition_args["column_names"])
+            )
             aggregate_method = getattr(columns, method_name)
             df[colname] = aggregate_method(axis=1)
 
@@ -363,6 +365,31 @@ class StudyDefinition:
                 df[colname], **definition_args
             )
         return df
+
+    def get_columns_for_aggregation(self, population, df, column_names):
+        extra_columns = {
+            k: v
+            for (k, v) in self.covariate_definitions.items()
+            if k in column_names and v[1]["hidden"]
+        }
+        if extra_columns:
+            extra_study = StudyDefinition(
+                self._original_covariates["population"],
+                self.default_expectations,
+                self.index_date,
+                **extra_columns,
+            )
+            extra_df = extra_study.make_df_from_expectations(population)
+            non_extra_columns = [
+                c for c in column_names if c not in extra_columns.keys()
+            ]
+            dt = df.dtypes[non_extra_columns[0]]
+            extra_df = extra_df.astype(dt)
+            extra_df = pd.concat([df[non_extra_columns], extra_df], ignore_index=True)
+            columns = extra_df[column_names]
+        else:
+            columns = df[column_names]
+        return columns
 
     def validate_category_expectations(
         self,
@@ -428,7 +455,7 @@ class StudyDefinition:
 
 
 def merge(dict1, dict2):
-    """ Return a new dictionary by merging two dictionaries recursively. """
+    """Return a new dictionary by merging two dictionaries recursively."""
 
     result = copy.deepcopy(dict1)
 
