@@ -132,7 +132,7 @@ class DatabricksBackend:
         # as this connection is from one container to another, not from host
         # to container.
         database_url = os.environ.get(
-            "DATABRICKS_TEST_DATABASE_URL",
+            "DATABRICKS_DATASOURCE_DATABASE_URL",
             "jdbc:sqlserver://localhost:15785;databaseName=Test_OpenCorona",
         )
 
