@@ -383,9 +383,15 @@ class StudyDefinition:
             non_extra_columns = [
                 c for c in column_names if c not in extra_columns.keys()
             ]
-            dt = df.dtypes[non_extra_columns[0]]
-            extra_df = extra_df.astype(dt)
-            extra_df = pd.concat([df[non_extra_columns], extra_df], ignore_index=True)
+            dt = extra_study.pandas_csv_args["args"][list(extra_columns.keys())[0]][
+                "column_type"
+            ]
+            if dt == "date":
+                extra_df = extra_df.apply(pd.to_datetime)
+            if non_extra_columns:
+                extra_df = pd.concat(
+                    [df[non_extra_columns], extra_df], ignore_index=True
+                )
             columns = extra_df[column_names]
         else:
             columns = df[column_names]
