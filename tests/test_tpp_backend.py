@@ -2225,7 +2225,10 @@ def test_patients_with_test_result_in_sgss():
                     )
                 ],
                 SGSS_AllTests_Negatives=[
-                    SGSS_AllTests_Negative(Specimen_Date="2020-04-01")
+                    SGSS_AllTests_Negative(
+                        Specimen_Date="2020-04-01",
+                        Symptomatic="false",
+                    ),
                 ],
                 SGSS_AllTests_Positives=[
                     SGSS_AllTests_Positive(
@@ -2241,6 +2244,31 @@ def test_patients_with_test_result_in_sgss():
                 SGSS_Negatives=[SGSS_Negative(Earliest_Specimen_Date="2020-04-01")],
                 SGSS_AllTests_Negatives=[
                     SGSS_AllTests_Negative(Specimen_Date="2020-04-01")
+                ],
+            ),
+            Patient(
+                SGSS_Negatives=[SGSS_Negative(Earliest_Specimen_Date="2020-04-01")],
+                SGSS_Positives=[SGSS_Positive(Earliest_Specimen_Date="2020-04-20")],
+                SGSS_AllTests_Negatives=[
+                    SGSS_AllTests_Negative(
+                        Specimen_Date="2020-04-01",
+                        Symptomatic="NULL",
+                    ),
+                ],
+                SGSS_AllTests_Positives=[
+                    SGSS_AllTests_Positive(
+                        Specimen_Date="2020-04-20",
+                        Symptomatic="U",
+                    ),
+                ],
+            ),
+            Patient(
+                SGSS_Negatives=[SGSS_Negative(Earliest_Specimen_Date="2020-04-01")],
+                SGSS_AllTests_Negatives=[
+                    SGSS_AllTests_Negative(
+                        Specimen_Date="2020-04-01",
+                        Symptomatic="true",
+                    )
                 ],
             ),
             Patient(),
@@ -2334,24 +2362,33 @@ def test_patients_with_test_result_in_sgss():
     )
     assert_results(
         study.to_dicts(),
-        positive_covid_test_ever=["1", "1", "0", "0"],
-        negative_covid_test_ever=["1", "1", "1", "0"],
-        tested_before_may=["0", "1", "1", "0"],
+        positive_covid_test_ever=["1", "1", "0", "1", "0", "0"],
+        negative_covid_test_ever=["1", "1", "1", "1", "1", "0"],
+        tested_before_may=["0", "1", "1", "1", "1", "0"],
         first_positive_test_date=[
             "2020-05-15",
             "2020-04-20",
             "",
+            "2020-04-20",
+            "",
             "",
         ],
-        case_category=["PCR_Only", "LFT_WithPCR", "", ""],
-        first_negative_after_a_positive=["2020-07-10", "", "", ""],
-        last_positive_test_date=["2020-05-20", "2020-05-02", "", ""],
-        sgtf_result=["9", "1", "", ""],
-        variant=["B.1.351", "VOC-20DEC-01", "", ""],
-        variant_detection_method=["Private Lab Sequencing", "Reflex Assay", "", ""],
-        symptomatic_positive=["Y", "N", "", ""],
-        symptomatic_negative=["N", "", "", ""],
-        symptomatic_any=["N", "", "", ""],
+        case_category=["PCR_Only", "LFT_WithPCR", "", "", "", ""],
+        first_negative_after_a_positive=["2020-07-10", "", "", "", "", ""],
+        last_positive_test_date=["2020-05-20", "2020-05-02", "", "2020-04-20", "", ""],
+        sgtf_result=["9", "1", "", "", "", ""],
+        variant=["B.1.351", "VOC-20DEC-01", "", "", "", ""],
+        variant_detection_method=[
+            "Private Lab Sequencing",
+            "Reflex Assay",
+            "",
+            "",
+            "",
+            "",
+        ],
+        symptomatic_positive=["Y", "N", "", "", "", ""],
+        symptomatic_negative=["N", "N", "", "", "Y", ""],
+        symptomatic_any=["N", "N", "", "", "Y", ""],
     )
 
 
