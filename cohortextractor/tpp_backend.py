@@ -1790,7 +1790,7 @@ class TPPBackend:
             )
 
         if (
-            returning in ("variant", "variant_detection_method")
+            returning in ("variant", "variant_detection_method", "symptomatic")
             and restrict_to_earliest_specimen_date
         ):
             raise ValueError(
@@ -1830,6 +1830,31 @@ class TPPBackend:
             column = f"CASE {case_clauses} ELSE {raw_column} END"
         elif returning == "variant_detection_method":
             column = "t2.variant_detection_method"
+        elif returning == "symptomatic":
+            raw_column = "t2.symptomatic"
+            transforms = {
+                # From SGSS_AllTests_Positive table.
+                "N": "N",
+                "U": "",
+                "Y": "Y",
+                # From SGSS_AllTests_Negative table.
+                "false": "N",
+                "true": "Y",
+            }
+            case_clauses = "\n".join(
+                [
+                    f"WHEN {raw_column} = {quote(key)} THEN {quote(value)}"
+                    for (key, value) in transforms.items()
+                ]
+                # As per #581, we only have nulls in the SGSS_AllTests_Negative table.
+                # However, it seems reasonable to apply this condition to both the
+                # SGSS_AllTests_Positive and SGSS_AllTests_Negative table.
+                # If nulls did appear in the SGSS_AllTests_Negative table, presumably
+                # we would want the same behaviour. Therefore, we can just add this
+                # extra clause unconditionally.
+                + [f"WHEN {raw_column} IS NULL THEN {quote('')}"]
+            )
+            column = f"CASE {case_clauses} ELSE {raw_column} END"
         else:
             raise ValueError(f"Unsupported `returning` value: {returning}")
 
@@ -1856,7 +1881,8 @@ class TPPBackend:
               Patient_ID AS patient_id,
               Specimen_Date AS date,
               Variant AS variant,
-              VariantDetectionMethod AS variant_detection_method
+              VariantDetectionMethod AS variant_detection_method,
+              Symptomatic AS symptomatic
             FROM SGSS_AllTests_Positive
             """
             negative_query = """
@@ -1864,7 +1890,8 @@ class TPPBackend:
               Patient_ID AS patient_id,
               Specimen_Date AS date,
               '' AS variant,
-              '' AS variant_detection_method
+              '' AS variant_detection_method,
+              Symptomatic AS symptomatic
             FROM SGSS_AllTests_Negative
             """
 
