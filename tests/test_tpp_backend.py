@@ -2252,7 +2252,6 @@ def test_patients_with_test_result_in_sgss():
                 SGSS_AllTests_Negatives=[
                     SGSS_AllTests_Negative(
                         Specimen_Date="2020-04-01",
-                        Symptomatic="NULL",
                     ),
                 ],
                 SGSS_AllTests_Positives=[

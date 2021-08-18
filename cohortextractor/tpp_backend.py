@@ -1838,7 +1838,6 @@ class TPPBackend:
                 "U": "",
                 "Y": "Y",
                 # From SGSS_AllTests_Negative table.
-                "NULL": "",
                 "false": "N",
                 "true": "Y",
             }
@@ -1847,6 +1846,13 @@ class TPPBackend:
                     f"WHEN {raw_column} = {quote(key)} THEN {quote(value)}"
                     for (key, value) in transforms.items()
                 ]
+                # As per #581, we only have nulls in the SGSS_AllTests_Negative table.
+                # However, it seems reasonable to apply this condition to both the
+                # SGSS_AllTests_Positive and SGSS_AllTests_Negative table.
+                # If nulls did appear in the SGSS_AllTests_Negative table, presumably
+                # we would want the same behaviour. Therefore, we can just add this
+                # extra clause unconditionally.
+                + [f"WHEN {raw_column} IS NULL THEN {quote('')}"]
             )
             column = f"CASE {case_clauses} ELSE {raw_column} END"
         else:
