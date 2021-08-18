@@ -1210,6 +1210,9 @@ def test_patients_registered_practice_as_of():
         population=patients.all(),
         stp=patients.registered_practice_as_of("2020-02-01", returning="stp_code"),
         msoa=patients.registered_practice_as_of("2020-02-01", returning="msoa"),
+        deprecated_msoa=patients.registered_practice_as_of(
+            "2020-01-01", returning="msoa_code"
+        ),
         region=patients.registered_practice_as_of(
             "2020-02-01", returning="nuts1_region_name"
         ),
@@ -1220,6 +1223,7 @@ def test_patients_registered_practice_as_of():
     results = study.to_dicts()
     assert [i["stp"] for i in results] == ["789"]
     assert [i["msoa"] for i in results] == ["E0203"]
+    assert [i["deprecated_msoa"] for i in results] == ["E0203"]
     assert [i["region"] for i in results] == ["London"]
     assert [i["pseudo_id"] for i in results] == ["abc"]
 
