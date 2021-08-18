@@ -1121,7 +1121,9 @@ class EMISBackend:
 
         if returning == "stp_code":
             column = "stp_code"
-        elif returning == "msoa_code":
+        # "msoa" is the correct option here, "msoa_code" is supported for
+        # backwards compatibility
+        elif returning in ("msoa", "msoa_code"):
             column = "msoa"
         elif returning == "nuts1_region_name":
             column = "english_region_name"
