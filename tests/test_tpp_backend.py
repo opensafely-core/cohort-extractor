@@ -3795,7 +3795,7 @@ def _make_patient_with_outpatient_appointment():
                         Attendance_Status="3",
                         First_Attendance="3",
                         Treatment_Function_Code="180",
-                        OPA_Proc=[OPA_Proc(Primary_Procedure_Code="D07.1")],
+                        OPA_Proc=[OPA_Proc(Primary_Procedure_Code="D071")],
                     ),
                     OPA(
                         Appointment_Date="2021-01-03 12:00:00.000",
@@ -3872,7 +3872,7 @@ def test_outpatient_appointment_date_returning_binary_flag_with_these_treatment_
 def test_outpatient_appointment_date_returning_binary_flag_with_these_procedure_codes_exact():
     _make_patient_with_outpatient_appointment()
 
-    procedures_codelist = codelist(["D07.1", "F17.2"], system="opcs4")
+    procedures_codelist = codelist(["D071", "F172"], system="opcs4")
     study = StudyDefinition(
         population=patients.all(),
         opa=patients.outpatient_appointment_date(
