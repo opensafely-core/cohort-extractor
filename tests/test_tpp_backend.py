@@ -3934,13 +3934,12 @@ def test_outpatient_appointment_date_returning_number_of_matches_in_period():
     )
     assert_results(study.to_dicts(), opa=["1", "2", "2", "0"])
 
+
 def test_outpatient_appointment_date_returning_consultation_medium_used():
     _make_patient_with_outpatient_appointment()
 
     study = StudyDefinition(
         population=patients.all(),
-        opa=patients.outpatient_appointment_date(
-            returning="consultation_medium_used"
-        ),
+        opa=patients.outpatient_appointment_date(returning="consultation_medium_used"),
     )
     assert_results(study.to_dicts(), opa=["10", "20", "40", ""])
