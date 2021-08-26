@@ -2435,27 +2435,54 @@ class TPPBackend:
 
         conditions = " AND ".join(conditions)
 
+        use_partition_query = False
+
         if returning == "binary_flag":
             column_definition = "1"
         elif returning == "date":
             column_definition = "MIN(Appointment_Date)"
         elif returning == "number_of_matches_in_period":
             column_definition = "COUNT(OPA_Ident)"
+        elif returning == "consultation_medium_used":
+            column_definition = "Consultation_Medium_Used"
+            use_partition_query = True
         else:
             raise ValueError(f"Unsupported `returning` value: {returning}")
 
-        return f"""
-        SELECT
-          OPA.Patient_ID AS patient_id,
-          {column_definition} AS {returning}
-        FROM
-          OPA
-          {date_joins}
-          {procedures_joins}
-        WHERE {conditions}
-        GROUP BY
-          OPA.Patient_ID
-        """
+
+        if use_partition_query:
+            return f"""
+            SELECT
+              t.Patient_ID AS patient_id,
+              t.{column_definition} AS {returning}
+            FROM (
+              SELECT
+                OPA.Patient_ID,
+                {column_definition} AS {returning},
+                ROW_NUMBER() OVER (
+                  PARTITION BY OPA.Patient_ID
+                  ORDER BY Appointment_Date ASC
+                ) AS rownum
+              FROM OPA
+              {date_joins}
+              {procedures_joins}
+              WHERE {conditions}
+            ) t
+            WHERE rownum = 1
+            """
+        else:
+            return f"""
+            SELECT
+              OPA.Patient_ID AS patient_id,
+              {column_definition} AS {returning}
+            FROM
+              OPA
+              {date_joins}
+              {procedures_joins}
+            WHERE {conditions}
+            GROUP BY
+              OPA.Patient_ID
+            """
 
 
 class ColumnExpression:
