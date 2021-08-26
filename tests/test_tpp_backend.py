@@ -3784,6 +3784,7 @@ def _make_patient_with_outpatient_appointment():
                         Attendance_Status="5",
                         First_Attendance="2",
                         Treatment_Function_Code="812",
+                        OPA_Proc=[OPA_Proc(Primary_Procedure_Code="S603")],
                     ),
                 ]
             ),
