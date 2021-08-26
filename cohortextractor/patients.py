@@ -2142,3 +2142,47 @@ def with_healthcare_worker_flag_on_covid_vaccine_record(
         return_expectations: as described elsewhere.
     """
     return "with_healthcare_worker_flag_on_covid_vaccine_record", locals()
+
+
+def outpatient_appointment_date(
+    returning="binary_flag",
+    attended=None,
+    is_first_attendance=None,
+    with_these_treatment_function_codes=None,
+    on_or_after=None,
+    between=None,
+    date_format="YYYY-MM-DD",
+):
+    """
+    Return when the patient had an outpatient appointment
+
+    See https://github.com/opensafely-core/cohort-extractor/issues/492 for in-depth discussion and background.
+
+    Args:
+        returning: string indicating value to be returned. Options are:
+
+            * `binary_flag`: indicates if they have had an outpatient appointment or not
+            * `date`: earliest date of outpatient appointment within the specified period
+            * `number_of_matches_in_period`: number of outpatient appointments in period
+
+        attended: if True, filters appointments to only those where the patient
+            was recorded as being seen. If it is not known whether they attended
+            (e.g. NULL value), it is assumed that they did not attend.
+        is_first_attendance: if True, filter appointments to only those where
+            it is known whether it is a first attendance. If it is not known
+            (e.g. NULL value), it is assumed that it is not a first attendance.
+        with_these_treatment_function_codes: Filter the appointments to those
+            whose "specialty in which the consultant was working during the
+            period of care" matches the supplied codelist.
+        on_or_after: date of interest as a string with the format `YYYY-MM-DD`.
+            Filters results to on or after the given date. The default value is
+            `None`.
+        between: two dates of interest as a list with each date as a string
+            with the format `YYYY-MM-DD`. Filters matches to between the two
+            dates. The default value is `None`.
+        date_format: a string detailing the format of the dates to be returned.
+            It can be `YYYY-MM-DD`, `YYYY-MM` or `YYYY` and wherever possible
+            the least disclosive data should be returned. i.e returning only
+            year is less disclosive than a date with day, month and year.
+    """
+    return "outpatient_appointment_date", locals()

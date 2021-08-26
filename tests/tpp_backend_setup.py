@@ -732,7 +732,10 @@ class OPA(Base):
     )
     OPA_Ident = Column(Integer, primary_key=True)
     Appointment_Date = Column(Date)
+    Attendance_Status = Column(String)
     Ethnic_Category = Column(String)
+    First_Attendance = Column(String)
+    Treatment_Function_Code = Column(String)
 
 
 class DecisionSupportValue(Base):

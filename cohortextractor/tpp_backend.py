@@ -2380,6 +2380,69 @@ class TPPBackend:
           patient_id
         """
 
+    def patients_outpatient_appointment_date(
+        self,
+        attended=None,
+        is_first_attendance=None,
+        with_these_treatment_function_codes=None,
+        between=None,
+        returning="binary_flag",
+    ):
+        date_condition, date_joins = self.get_date_condition(
+            "OPA", "Appointment_Date", between
+        )
+
+        conditions = [date_condition]
+
+        if attended:
+            # codes from `ATTENDED` field in HES data dictionary
+            # https://github.com/opensafely-core/cohort-extractor/issues/492#issuecomment-888961963
+            attended_conditions = [
+                "Attendance_Status = 5",
+                "Attendance_Status = 6",
+            ]
+            conditions.append("(" + " OR ".join(attended_conditions) + ")")
+
+        if is_first_attendance:
+            # codes from `FIRSTATT` field in HES data dictionary
+            # https://github.com/opensafely-core/cohort-extractor/issues/492#issuecomment-889017544
+            is_first_attendance_conditions = [
+                "First_Attendance = 1",
+                "First_Attendance = 3",
+            ]
+            conditions.append("(" + " OR ".join(is_first_attendance_conditions) + ")")
+
+        if with_these_treatment_function_codes:
+            with_these_treatment_function_codes_conditions = codelist_to_sql(
+                with_these_treatment_function_codes
+            )
+            conditions.append(
+                f"""Treatment_Function_Code IN ({with_these_treatment_function_codes_conditions})"""
+            )
+
+        conditions = " AND ".join(conditions)
+
+        if returning == "binary_flag":
+            column_definition = "1"
+        elif returning == "date":
+            column_definition = "MIN(Appointment_Date)"
+        elif returning == "number_of_matches_in_period":
+            column_definition = "COUNT(OPA_Ident)"
+        else:
+            raise ValueError(f"Unsupported `returning` value: {returning}")
+
+        return f"""
+        SELECT
+          Patient_ID AS patient_id,
+          {column_definition} AS {returning}
+        FROM
+          OPA
+          {date_joins}
+        WHERE {conditions}
+        GROUP BY
+          Patient_ID
+        """
+
 
 class ColumnExpression:
     def __init__(

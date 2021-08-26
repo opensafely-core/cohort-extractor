@@ -3752,3 +3752,149 @@ def test_with_healthcare_worker_flag_on_covid_vaccine_record():
         hcw=patients.with_healthcare_worker_flag_on_covid_vaccine_record(),
     )
     assert_results(study.to_dicts(), hcw=["1", "1", "0", "0"])
+
+
+def _make_patient_with_outpatient_appointment():
+    """Makes patients with Outpatient Appointments"""
+    session = make_session()
+    session.add_all(
+        [
+            Patient(
+                OPAEpisodes=[
+                    OPA(
+                        Appointment_Date="2021-01-01 12:00:00.000",
+                        Attendance_Status="6",
+                        First_Attendance="1",
+                        Treatment_Function_Code="130",
+                    ),
+                ]
+            ),
+            Patient(
+                OPAEpisodes=[
+                    OPA(
+                        Appointment_Date="2021-01-01 12:00:00.000",
+                        Attendance_Status="7",
+                        First_Attendance="4",
+                        Treatment_Function_Code="180",
+                    ),
+                    OPA(
+                        Appointment_Date="2021-01-02 12:00:00.000",
+                        Attendance_Status="5",
+                        First_Attendance="2",
+                        Treatment_Function_Code="812",
+                    ),
+                ]
+            ),
+            Patient(
+                OPAEpisodes=[
+                    OPA(
+                        Appointment_Date="2021-01-02 12:00:00.000",
+                        Ethnic_Category="GF",
+                        Attendance_Status="3",
+                        First_Attendance="3",
+                        Treatment_Function_Code="180",
+                    ),
+                    OPA(
+                        Appointment_Date="2021-01-03 12:00:00.000",
+                        Ethnic_Category="GF",
+                        First_Attendance="4",
+                        Treatment_Function_Code="320",
+                    ),
+                ],
+            ),
+            Patient(),
+        ]
+    )
+    session.commit()
+
+
+def test_outpatient_appointment_date_returning_binary_flag():
+    _make_patient_with_outpatient_appointment()
+
+    study = StudyDefinition(
+        population=patients.all(),
+        opa=patients.outpatient_appointment_date(returning="binary_flag"),
+    )
+    assert_results(study.to_dicts(), opa=["1", "1", "1", "0"])
+
+
+def test_outpatient_appointment_date_returning_binary_flag_on_or_after():
+    _make_patient_with_outpatient_appointment()
+
+    study = StudyDefinition(
+        population=patients.all(),
+        opa=patients.outpatient_appointment_date(
+            returning="binary_flag", on_or_after="2021-01-02"
+        ),
+    )
+    assert_results(study.to_dicts(), opa=["0", "1", "1", "0"])
+
+
+def test_outpatient_appointment_date_returning_binary_flag_attended():
+    _make_patient_with_outpatient_appointment()
+
+    study = StudyDefinition(
+        population=patients.all(),
+        opa=patients.outpatient_appointment_date(
+            returning="binary_flag", attended=True
+        ),
+    )
+    assert_results(study.to_dicts(), opa=["1", "1", "0", "0"])
+
+
+def test_outpatient_appointment_date_returning_binary_flag_first_attendance():
+    _make_patient_with_outpatient_appointment()
+
+    study = StudyDefinition(
+        population=patients.all(),
+        opa=patients.outpatient_appointment_date(
+            returning="binary_flag", is_first_attendance=True
+        ),
+    )
+    assert_results(study.to_dicts(), opa=["1", "0", "1", "0"])
+
+
+def test_outpatient_appointment_date_returning_binary_flag_with_these_treatment_function_codes():
+    _make_patient_with_outpatient_appointment()
+
+    study = StudyDefinition(
+        population=patients.all(),
+        opa=patients.outpatient_appointment_date(
+            returning="binary_flag", with_these_treatment_function_codes=["812", "813"]
+        ),
+    )
+    assert_results(study.to_dicts(), opa=["0", "1", "0", "0"])
+
+
+def test_outpatient_appointment_date_returning_dates():
+    _make_patient_with_outpatient_appointment()
+
+    study = StudyDefinition(
+        population=patients.all(),
+        opa=patients.outpatient_appointment_date(returning="date"),
+    )
+    assert_results(study.to_dicts(), opa=["2021-01-01", "2021-01-01", "2021-01-02", ""])
+
+
+def test_outpatient_appointment_date_returning_dates_formatted():
+    _make_patient_with_outpatient_appointment()
+
+    study = StudyDefinition(
+        population=patients.all(),
+        opa=patients.outpatient_appointment_date(
+            returning="date", date_format="YYYY-MM"
+        ),
+    )
+    assert_results(study.to_dicts(), opa=["2021-01", "2021-01", "2021-01", ""])
+
+
+def test_outpatient_appointment_date_returning_number_of_matches_in_period():
+    _make_patient_with_outpatient_appointment()
+
+    study = StudyDefinition(
+        population=patients.all(),
+        opa=patients.outpatient_appointment_date(
+            returning="number_of_matches_in_period"
+        ),
+    )
+    assert_results(study.to_dicts(), opa=["1", "2", "2", "0"])
