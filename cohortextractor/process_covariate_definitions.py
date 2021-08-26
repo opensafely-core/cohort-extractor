@@ -375,10 +375,10 @@ class GetColumnType:
             "s_gene_target_failure": "str",
             "source_of_admission": "str",
             "stp_code": "str",
+            "symptomatic": "str",
             "underlying_cause_of_death": "str",
             "variant": "str",
             "variant_detection_method": "str",
-            "symptomatic": "str",
         }
         try:
             return mapping[returning]
