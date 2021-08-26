@@ -344,6 +344,7 @@ class GetColumnType:
             "case_category": "str",
             "category": "str",
             "code": "str",
+            "consultation_medium_used": "str",
             "date": "date",
             "date_admitted": "date",
             "date_arrived": "date",

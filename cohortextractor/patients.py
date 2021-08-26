@@ -2165,6 +2165,7 @@ def outpatient_appointment_date(
             * `binary_flag`: indicates if they have had an outpatient appointment or not
             * `date`: earliest date of outpatient appointment within the specified period
             * `number_of_matches_in_period`: number of outpatient appointments in period
+            * `consultation_medium_used`: consultation medium code for the earliest outpatient appointment within the specified period
 
         attended: if True, filters appointments to only those where the patient
             was recorded as being seen. If it is not known whether they attended
