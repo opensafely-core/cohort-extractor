@@ -36,6 +36,7 @@ from tests.tpp_backend_setup import (
     MedicationDictionary,
     MedicationIssue,
     ONSDeaths,
+    OPA_Proc,
     Organisation,
     Patient,
     PatientAddress,
@@ -97,6 +98,7 @@ def setup_function(function):
     session.query(EC).delete()
     session.query(APCS_Der).delete()
     session.query(APCS).delete()
+    session.query(OPA_Proc).delete()
     session.query(OPA).delete()
     session.query(HighCostDrugs).delete()
     session.query(DecisionSupportValue).delete()
@@ -3782,6 +3784,7 @@ def _make_patient_with_outpatient_appointment():
                         Attendance_Status="5",
                         First_Attendance="2",
                         Treatment_Function_Code="812",
+                        OPA_Proc=[OPA_Proc(Primary_Procedure_Code="S603")],
                     ),
                 ]
             ),
@@ -3793,6 +3796,7 @@ def _make_patient_with_outpatient_appointment():
                         Attendance_Status="3",
                         First_Attendance="3",
                         Treatment_Function_Code="180",
+                        OPA_Proc=[OPA_Proc(Primary_Procedure_Code="D071")],
                     ),
                     OPA(
                         Appointment_Date="2021-01-03 12:00:00.000",
@@ -3864,6 +3868,32 @@ def test_outpatient_appointment_date_returning_binary_flag_with_these_treatment_
         ),
     )
     assert_results(study.to_dicts(), opa=["0", "1", "0", "0"])
+
+
+def test_outpatient_appointment_date_returning_binary_flag_with_these_procedure_codes_exact():
+    _make_patient_with_outpatient_appointment()
+
+    procedures_codelist = codelist(["D071", "F172"], system="opcs4")
+    study = StudyDefinition(
+        population=patients.all(),
+        opa=patients.outpatient_appointment_date(
+            returning="binary_flag", with_these_procedures=procedures_codelist
+        ),
+    )
+    assert_results(study.to_dicts(), opa=["0", "0", "1", "0"])
+
+
+def test_outpatient_appointment_date_returning_binary_flag_with_these_procedure_codes_like():
+    _make_patient_with_outpatient_appointment()
+
+    procedures_codelist = codelist(["D07", "F17"], system="opcs4")
+    study = StudyDefinition(
+        population=patients.all(),
+        opa=patients.outpatient_appointment_date(
+            returning="binary_flag", with_these_procedures=procedures_codelist
+        ),
+    )
+    assert_results(study.to_dicts(), opa=["0", "0", "1", "0"])
 
 
 def test_outpatient_appointment_date_returning_dates():

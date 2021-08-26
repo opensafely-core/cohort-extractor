@@ -2149,6 +2149,7 @@ def outpatient_appointment_date(
     attended=None,
     is_first_attendance=None,
     with_these_treatment_function_codes=None,
+    with_these_procedures=None,
     on_or_after=None,
     between=None,
     date_format="YYYY-MM-DD",
@@ -2174,6 +2175,8 @@ def outpatient_appointment_date(
         with_these_treatment_function_codes: Filter the appointments to those
             whose "specialty in which the consultant was working during the
             period of care" matches the supplied codelist.
+        with_these_procedures: Filter the appointments to those whose
+            `Primary_Procedure_Code` matches the specified OPCS-4 codes.
         on_or_after: date of interest as a string with the format `YYYY-MM-DD`.
             Filters results to on or after the given date. The default value is
             `None`.
