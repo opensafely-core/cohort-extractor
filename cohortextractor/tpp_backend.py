@@ -2368,6 +2368,8 @@ class TPPBackend:
         conditions = [date_condition]
 
         if attended:
+            # codes from `ATTENDED` field in HES data dictionary
+            # https://github.com/opensafely-core/cohort-extractor/issues/492#issuecomment-888961963
             attended_conditions = [
                 "Attendance_Status = 5",
                 "Attendance_Status = 6",
@@ -2375,6 +2377,8 @@ class TPPBackend:
             conditions.append("(" + " OR ".join(attended_conditions) + ")")
 
         if is_first_attendance:
+            # codes from `FIRSTATT` field in HES data dictionary
+            # https://github.com/opensafely-core/cohort-extractor/issues/492#issuecomment-889017544
             is_first_attendance_conditions = [
                 "First_Attendance = 1",
                 "First_Attendance = 3",
