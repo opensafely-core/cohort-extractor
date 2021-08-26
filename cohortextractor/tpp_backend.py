@@ -2449,7 +2449,6 @@ class TPPBackend:
         else:
             raise ValueError(f"Unsupported `returning` value: {returning}")
 
-
         if use_partition_query:
             return f"""
             SELECT
