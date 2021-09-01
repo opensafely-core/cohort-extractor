@@ -2449,7 +2449,7 @@ class TPPBackend:
         if returning == "binary_flag":
             column_definition = "1"
         elif returning == "date":
-            column_definition = "{date_aggregate}(Appointment_Date)"
+            column_definition = f"""{date_aggregate}(Appointment_Date)"""
         elif returning == "number_of_matches_in_period":
             column_definition = "COUNT(OPA_Ident)"
         elif returning == "consultation_medium_used":
