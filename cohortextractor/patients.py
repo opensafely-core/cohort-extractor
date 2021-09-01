@@ -2166,7 +2166,7 @@ def outpatient_appointment_date(
             * `binary_flag`: indicates if they have had an outpatient appointment or not
             * `date`: latest date of outpatient appointment within the specified period
             * `number_of_matches_in_period`: number of outpatient appointments in period
-            * `consultation_medium_used`: consultation medium code for the latest outpatient appointment within the specified period
+            * `consultation_medium_used`: consultation medium code for the latest outpatient appointment within the specified period (see https://www.datadictionary.nhs.uk/attributes/consultation_medium_used.html?hl=consultation%2Cmedium )
             * `find_first_match_in_period`: return earliest values for `date` or `consultation_medium_used` (instead of latest)
 
         attended: if True, filters appointments to only those where the patient
