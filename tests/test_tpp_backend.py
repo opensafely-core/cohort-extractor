@@ -3943,3 +3943,13 @@ def test_outpatient_appointment_date_returning_consultation_medium_used():
         opa=patients.outpatient_appointment_date(returning="consultation_medium_used"),
     )
     assert_results(study.to_dicts(), opa=["10", "20", "40", ""])
+
+
+def test_outpatient_appointment_date_returning_consultation_medium_used_last_match():
+    _make_patient_with_outpatient_appointment()
+
+    study = StudyDefinition(
+        population=patients.all(),
+        opa=patients.outpatient_appointment_date(returning="consultation_medium_used"),
+    )
+    assert_results(study.to_dicts(), opa=["10", "30", "50", ""])
