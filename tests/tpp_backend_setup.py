@@ -741,6 +741,7 @@ class OPA(Base):
     Ethnic_Category = Column(String)
     First_Attendance = Column(String)
     Treatment_Function_Code = Column(String)
+    Consultation_Medium_Used = Column(String)
 
     OPA_Proc = relationship(
         "OPA_Proc", back_populates="OPA", cascade="all, delete, delete-orphan"
