@@ -2153,6 +2153,7 @@ def outpatient_appointment_date(
     on_or_after=None,
     between=None,
     date_format="YYYY-MM-DD",
+    find_first_match_in_period=None,
 ):
     """
     Return when the patient had an outpatient appointment
@@ -2163,9 +2164,10 @@ def outpatient_appointment_date(
         returning: string indicating value to be returned. Options are:
 
             * `binary_flag`: indicates if they have had an outpatient appointment or not
-            * `date`: earliest date of outpatient appointment within the specified period
+            * `date`: latest date of outpatient appointment within the specified period
             * `number_of_matches_in_period`: number of outpatient appointments in period
-            * `consultation_medium_used`: consultation medium code for the earliest outpatient appointment within the specified period
+            * `consultation_medium_used`: consultation medium code for the latest outpatient appointment within the specified period
+            * `find_first_match_in_period`: return earliest values for `date` or `consultation_medium_used` (instead of latest)
 
         attended: if True, filters appointments to only those where the patient
             was recorded as being seen. If it is not known whether they attended

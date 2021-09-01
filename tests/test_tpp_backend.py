@@ -3908,7 +3908,7 @@ def test_outpatient_appointment_date_returning_dates():
         population=patients.all(),
         opa=patients.outpatient_appointment_date(returning="date"),
     )
-    assert_results(study.to_dicts(), opa=["2021-01-01", "2021-01-01", "2021-01-02", ""])
+    assert_results(study.to_dicts(), opa=["2021-01-01", "2021-01-02", "2021-01-03", ""])
 
 
 def test_outpatient_appointment_date_returning_dates_first_match():
@@ -3952,7 +3952,9 @@ def test_outpatient_appointment_date_returning_consultation_medium_used():
 
     study = StudyDefinition(
         population=patients.all(),
-        opa=patients.outpatient_appointment_date(returning="consultation_medium_used"),
+        opa=patients.outpatient_appointment_date(
+            returning="consultation_medium_used", find_first_match_in_period=True
+        ),
     )
     assert_results(study.to_dicts(), opa=["10", "20", "40", ""])
 
