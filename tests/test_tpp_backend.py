@@ -3911,6 +3911,18 @@ def test_outpatient_appointment_date_returning_dates():
     assert_results(study.to_dicts(), opa=["2021-01-01", "2021-01-01", "2021-01-02", ""])
 
 
+def test_outpatient_appointment_date_returning_dates_first_match():
+    _make_patient_with_outpatient_appointment()
+
+    study = StudyDefinition(
+        population=patients.all(),
+        opa=patients.outpatient_appointment_date(
+            returning="date", find_first_match_in_period=True
+        ),
+    )
+    assert_results(study.to_dicts(), opa=["2021-01-01", "2021-01-01", "2021-01-02", ""])
+
+
 def test_outpatient_appointment_date_returning_dates_formatted():
     _make_patient_with_outpatient_appointment()
 
