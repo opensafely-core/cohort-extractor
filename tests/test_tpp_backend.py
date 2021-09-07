@@ -2360,6 +2360,31 @@ def test_patients_with_test_result_in_sgss():
             restrict_to_earliest_specimen_date=False,
             returning="symptomatic",
         ),
+        number_of_neg_sgss_tests=patients.with_test_result_in_sgss(
+            pathogen="SARS-CoV-2",
+            test_result="negative",
+            restrict_to_earliest_specimen_date=False,
+            returning="number_of_matches_in_period",
+        ),
+        number_of_pos_sgss_tests=patients.with_test_result_in_sgss(
+            pathogen="SARS-CoV-2",
+            test_result="positive",
+            restrict_to_earliest_specimen_date=False,
+            returning="number_of_matches_in_period",
+        ),
+        number_of_all_sgss_tests=patients.with_test_result_in_sgss(
+            pathogen="SARS-CoV-2",
+            test_result="any",
+            restrict_to_earliest_specimen_date=False,
+            returning="number_of_matches_in_period",
+        ),
+        number_of_all_sgss_tests_before_may=patients.with_test_result_in_sgss(
+            pathogen="SARS-CoV-2",
+            test_result="any",
+            on_or_before="2020-05-01",
+            restrict_to_earliest_specimen_date=False,
+            returning="number_of_matches_in_period",
+        ),
     )
     assert_results(
         study.to_dicts(),
@@ -2390,6 +2415,10 @@ def test_patients_with_test_result_in_sgss():
         symptomatic_positive=["Y", "N", "", "", "", ""],
         symptomatic_negative=["N", "N", "", "", "Y", ""],
         symptomatic_any=["N", "N", "", "", "Y", ""],
+        number_of_neg_sgss_tests=["2", "1", "1", "1", "1", "0"],
+        number_of_pos_sgss_tests=["2", "2", "0", "1", "0", "0"],
+        number_of_all_sgss_tests=["4", "3", "1", "2", "1", "0"],
+        number_of_all_sgss_tests_before_may=["0", "2", "1", "2", "1", "0"],
     )
 
 
