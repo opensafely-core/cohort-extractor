@@ -1790,6 +1790,17 @@ class TPPBackend:
             )
 
         if (
+            returning == "number_of_matches_in_period"
+            and restrict_to_earliest_specimen_date is not False
+        ):
+            raise ValueError(
+                "Due to limitations in the SGSS data we receive you can only use:\n"
+                "  returning = 'number_of_matches_in_period'\n"
+                "with the options:\n"
+                "  restrict_to_earliest_specimen_date = False\n"
+            )
+
+        if (
             returning in ("variant", "variant_detection_method", "symptomatic")
             and restrict_to_earliest_specimen_date
         ):
