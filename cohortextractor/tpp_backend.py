@@ -1800,6 +1800,18 @@ class TPPBackend:
                 f"  restrict_to_earliest_specimen_date = False\n"
             )
 
+        groupby = ""
+        date_or_count_sql = "Specimen_Date AS date,"
+        variant_sql = """
+                            Variant AS variant,
+                            VariantDetectionMethod AS variant_detection_method,
+                            """
+        empty_variant = """ 
+                '' AS variant,
+                '' AS variant_detection_method,
+                """
+        symptomatic_sql = "Symptomatic AS symptomatic"
+
         if returning == "binary_flag":
             column = "1"
         elif returning == "date":
@@ -1855,6 +1867,18 @@ class TPPBackend:
                 + [f"WHEN {raw_column} IS NULL THEN {quote('')}"]
             )
             column = f"CASE {case_clauses} ELSE {raw_column} END"
+        elif returning == "number_of_matches_in_period":
+            date_condition, date_joins = self.get_date_condition(
+                "t1", "Specimen_Date", between
+            )
+            date_or_count_sql = "COUNT(*) as matches_count"
+            groupby = f"""
+                WHERE {date_condition}
+                GROUP BY Patient_ID
+                """
+            variant_sql = ""
+            empty_variant = ""
+            symptomatic_sql = ""
         else:
             raise ValueError(f"Unsupported `returning` value: {returning}")
 
@@ -1876,23 +1900,23 @@ class TPPBackend:
             FROM SGSS_Negative
             """
         else:
-            positive_query = """
+            positive_query = f"""
             SELECT
-              Patient_ID AS patient_id,
-              Specimen_Date AS date,
-              Variant AS variant,
-              VariantDetectionMethod AS variant_detection_method,
-              Symptomatic AS symptomatic
+              Patient_ID AS patient_id, 
+              {date_or_count_sql}
+              {variant_sql}
+              {symptomatic_sql}
             FROM SGSS_AllTests_Positive
+            {groupby}
             """
-            negative_query = """
+            negative_query = f"""
             SELECT
               Patient_ID AS patient_id,
-              Specimen_Date AS date,
-              '' AS variant,
-              '' AS variant_detection_method,
-              Symptomatic AS symptomatic
+              {date_or_count_sql}
+              {empty_variant}
+              {symptomatic_sql}
             FROM SGSS_AllTests_Negative
+            {groupby}
             """
 
         if test_result == "any":
@@ -1907,25 +1931,41 @@ class TPPBackend:
         date_condition, date_joins = self.get_date_condition("t1", "t1.date", between)
         date_ordering = "ASC" if find_first_match_in_period else "DESC"
 
-        return f"""
-        SELECT
-          t2.patient_id AS patient_id,
-          t2.date AS date,
-          {column} AS {returning}
-        FROM (
-          SELECT t1.*,
-            ROW_NUMBER() OVER (
-              PARTITION BY t1.patient_id
-              ORDER BY t1.date {date_ordering}
-            ) AS rownum
-          FROM (
-            {table_query}
-          ) t1
-          {date_joins}
-          WHERE {date_condition}
-        ) t2
-        WHERE t2.rownum = 1
-        """
+        if returning == "number_of_matches_in_period":
+            sql = f"""
+            SELECT
+              t2.patient_id AS patient_id,
+              SUM(matches_count) AS {returning}
+            FROM (
+              SELECT t1.*
+              FROM (
+                {table_query}
+              ) t1
+              {date_joins}
+            ) t2
+            GROUP BY t2.Patient_ID
+            """
+        else:
+            sql = f"""
+            SELECT
+              t2.patient_id AS patient_id,
+              t2.date AS date,
+              {column} AS {returning}
+            FROM (
+              SELECT t1.*,
+                ROW_NUMBER() OVER (
+                  PARTITION BY t1.patient_id
+                  ORDER BY t1.date {date_ordering}
+                ) AS rownum
+              FROM (
+                {table_query}
+              ) t1
+              {date_joins}
+              WHERE {date_condition}
+            ) t2
+            WHERE t2.rownum = 1
+            """
+        return sql
 
     def patients_household_as_of(self, reference_date, returning):
         if reference_date != "2020-02-01":
