@@ -25,6 +25,9 @@ from tests.tpp_backend_setup import (
     OPA,
     APCS_Der,
     Appointment,
+    ClusterRandomisedTrial,
+    ClusterRandomisedTrialDetail,
+    ClusterRandomisedTrialReference,
     CodedEvent,
     CodedEventSnomed,
     DecisionSupportValue,
@@ -104,6 +107,9 @@ def setup_function(function):
     session.query(DecisionSupportValue).delete()
     session.query(HealthCareWorker).delete()
     session.query(Patient).delete()
+    session.query(ClusterRandomisedTrial).delete()
+    session.query(ClusterRandomisedTrialDetail).delete()
+    session.query(ClusterRandomisedTrialReference).delete()
     session.commit()
 
 

@@ -278,6 +278,14 @@ class Organisation(Base):
         back_populates="Organisation",
         cascade="all, delete, delete-orphan",
     )
+    ClusterRandomisedTrial = relationship(
+        "ClusterRandomisedTrial",
+        back_populates="Organisation",
+    )
+    ClusterRandomisedTrialDetail = relationship(
+        "ClusterRandomisedTrialDetail",
+        back_populates="Organisation",
+    )
 
 
 class PatientAddress(Base):
@@ -790,3 +798,68 @@ class HealthCareWorker(Base):
     )
     # Only ever contains "Y" so redundant really
     HealthCareWorker = Column(String)
+
+
+class ClusterRandomisedTrial(Base):
+    __tablename__ = "ClusterRandomisedTrial"
+
+    # This table's PK is probably a composite of Organisation_ID, TrialNumber, and
+    # TrialArm. However, MSSQL complains about TrialArm's type. To make life easier, we
+    # use a column that isn't in the database.
+    id = Column(Integer, primary_key=True)
+
+    Organisation_ID = Column(Integer, ForeignKey("Organisation.Organisation_ID"))
+    Organisation = relationship("Organisation", back_populates="ClusterRandomisedTrial")
+
+    TrialNumber = Column(
+        Integer, ForeignKey("ClusterRandomisedTrialReference.TrialNumber")
+    )
+    ClusterRandomisedTrialReference = relationship(
+        "ClusterRandomisedTrialReference", back_populates="ClusterRandomisedTrial"
+    )
+
+    TrialArm = Column(String)
+
+
+class ClusterRandomisedTrialDetail(Base):
+    """Represents relationships between cluster randomised trials and organisations."""
+
+    __tablename__ = "ClusterRandomisedTrialDetail"
+
+    # This table's PK is probably a composite of Organisation_ID, TrialNumber, and
+    # Property. However, MSSQL complains about Property's type. To make life easier, we
+    # use a column that isn't in the database.
+    id = Column(Integer, primary_key=True)
+
+    TrialNumber = Column(
+        Integer, ForeignKey("ClusterRandomisedTrialReference.TrialNumber")
+    )
+    ClusterRandomisedTrialReference = relationship(
+        "ClusterRandomisedTrialReference", back_populates="ClusterRandomisedTrialDetail"
+    )
+
+    Organisation_ID = Column(Integer, ForeignKey("Organisation.Organisation_ID"))
+    Organisation = relationship(
+        "Organisation", back_populates="ClusterRandomisedTrialDetail"
+    )
+
+    Property = Column(String)
+    PropertyValue = Column(String)
+
+
+class ClusterRandomisedTrialReference(Base):
+    """Represents cluster randomised trial entities."""
+
+    __tablename__ = "ClusterRandomisedTrialReference"
+
+    TrialNumber = Column(Integer, primary_key=True)
+    ClusterRandomisedTrial = relationship(
+        "ClusterRandomisedTrial", back_populates="ClusterRandomisedTrialReference"
+    )
+    ClusterRandomisedTrialDetail = relationship(
+        "ClusterRandomisedTrialDetail", back_populates="ClusterRandomisedTrialReference"
+    )
+
+    TrialName = Column(String)
+    TrialDescription = Column(String)
+    CPMSNumber = Column(Integer)
