@@ -1817,7 +1817,7 @@ class TPPBackend:
                             Variant AS variant,
                             VariantDetectionMethod AS variant_detection_method,
                             """
-        empty_variant = """ 
+        empty_variant = """
                 '' AS variant,
                 '' AS variant_detection_method,
                 """
@@ -1913,7 +1913,7 @@ class TPPBackend:
         else:
             positive_query = f"""
             SELECT
-              Patient_ID AS patient_id, 
+              Patient_ID AS patient_id,
               {date_or_count_sql}
               {variant_sql}
               {symptomatic_sql}
