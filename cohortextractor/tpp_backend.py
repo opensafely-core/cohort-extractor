@@ -1287,6 +1287,85 @@ class TPPBackend:
         return condition, queries
 
     def patients_registered_practice_as_of(self, date, returning=None):
+        # Note that current registrations are recorded with an EndDate of
+        # 9999-12-31. Where registration periods overlap we use the one with
+        # the most recent start date. If there are several with the same start
+        # date we use the longest one (i.e. with the latest end date).
+        date_sql, date_joins = self.get_date_sql("RegistrationHistory", date)
+
+        if "__" in returning:  # It's an RCT.
+            _, rct_trial_name, rct_property_name = returning.split("__")
+
+            if rct_property_name == "exists":
+                return f"""
+                SELECT
+                    Patient_ID AS patient_id,
+                    1 AS {returning}
+                FROM
+                    ClusterRandomisedTrial AS lhs
+                LEFT JOIN (
+                    SELECT
+                        Patient_ID,
+                        Organisation_ID,
+                        ROW_NUMBER() OVER (
+                            PARTITION BY Patient_ID
+                            ORDER BY StartDate DESC, EndDate DESC, Registration_ID
+                        ) AS rownum
+                    FROM
+                        RegistrationHistory
+                        {date_joins}
+                    WHERE
+                        StartDate <= {date_sql}
+                        AND EndDate > {date_sql}
+                ) AS rhs
+                ON lhs.Organisation_ID = rhs.Organisation_ID
+                WHERE
+                    rownum = 1
+                    AND TrialNumber IN (
+                        SELECT
+                            TrialNumber
+                        FROM
+                            ClusterRandomisedTrialReference
+                        WHERE
+                            TrialName = '{rct_trial_name}'
+                    )
+                """
+            else:
+                return f"""
+                SELECT
+                    Patient_ID AS patient_id,
+                    PropertyValue AS {returning}
+                FROM
+                    ClusterRandomisedTrialDetail as lhs
+                LEFT JOIN (
+                    SELECT
+                        Patient_ID,
+                        Organisation_ID,
+                        ROW_NUMBER() OVER (
+                            PARTITION BY Patient_ID
+                            ORDER BY StartDate DESC, EndDate DESC, Registration_ID
+                        ) AS rownum
+                    FROM
+                        RegistrationHistory
+                        {date_joins}
+                    WHERE
+                        StartDate <= {date_sql}
+                        AND EndDate > {date_sql}
+                ) rhs
+                ON lhs.Organisation_ID = rhs.Organisation_ID
+                WHERE
+                    Property = '{rct_property_name}'
+                    AND rownum = 1
+                    AND TrialNumber IN (
+                        SELECT
+                            TrialNumber
+                        FROM
+                            ClusterRandomisedTrialReference
+                        WHERE
+                            TrialName = '{rct_trial_name}'
+                    )
+                """
+
         if returning == "stp_code":
             column = "STPCode"
         # "msoa" is the correct option here, "msoa_code" is supported for
@@ -1299,11 +1378,6 @@ class TPPBackend:
             column = "Organisation_ID"
         else:
             raise ValueError(f"Unsupported `returning` value: {returning}")
-        # Note that current registrations are recorded with an EndDate of
-        # 9999-12-31. Where registration periods overlap we use the one with
-        # the most recent start date. If there are several with the same start
-        # date we use the longest one (i.e. with the latest end date).
-        date_sql, date_joins = self.get_date_sql("RegistrationHistory", date)
         return f"""
         SELECT
           t.Patient_ID AS patient_id,

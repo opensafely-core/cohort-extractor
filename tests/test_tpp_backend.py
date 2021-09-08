@@ -1131,6 +1131,81 @@ def test_patients_registered_practice_as_of():
     )
 
 
+def test_patients_registered_practice_as_of_returning_rct():
+    session = make_session()
+
+    # Add a patient at an organisation. The organisation is participating in two RCTs.
+    org_1 = Organisation()
+    patient_1 = Patient()
+    patient_1.RegistrationHistory.append(
+        RegistrationHistory(
+            StartDate="2019-01-01",
+            EndDate="2021-01-01",
+            Organisation=org_1,
+        )
+    )
+    crt_reference_1 = ClusterRandomisedTrialReference(
+        TrialName="germdefence",
+    )
+    crt_reference_1.ClusterRandomisedTrial.append(
+        ClusterRandomisedTrial(
+            Organisation=org_1,
+        )
+    )
+    crt_reference_1.ClusterRandomisedTrialDetail.append(
+        ClusterRandomisedTrialDetail(
+            Organisation=org_1,
+            Property="code",
+            PropertyValue="code_value",  # FIXME: Use a real value
+        )
+    )
+    crt_reference_2 = ClusterRandomisedTrialReference(
+        TrialName="coffeeintervention",
+    )
+    crt_reference_2.ClusterRandomisedTrial.append(
+        ClusterRandomisedTrial(
+            Organisation=org_1,
+        )
+    )
+    crt_reference_2.ClusterRandomisedTrialDetail.append(
+        ClusterRandomisedTrialDetail(
+            Organisation=org_1,
+            Property="blend",
+            PropertyValue="arabica",
+        )
+    )
+
+    # Add another patient at another organisation. The organisation isn't participating
+    # in any RCTs.
+    patient_2 = Patient()
+    patient_2.RegistrationHistory.append(
+        RegistrationHistory(
+            StartDate="2019-01-01",
+            EndDate="2021-01-01",
+            Organisation=Organisation(),
+        )
+    )
+
+    session.add_all([org_1, patient_1, crt_reference_1, crt_reference_2, patient_2])
+    session.commit()
+
+    study = StudyDefinition(
+        population=patients.all(),
+        is_germdefence=patients.registered_practice_as_of(
+            "2020-01-01", returning="rct__germdefence__exists"
+        ),
+        germdefence_code=patients.registered_practice_as_of(
+            "2020-01-01", returning="rct__germdefence__code"
+        ),
+    )
+
+    assert_results(
+        study.to_dicts(),
+        is_germdefence=["1", "0"],
+        germdefence_code=["code_value", ""],
+    )
+
+
 def test_patients_address_as_of():
     session = make_session()
     session.add_all(
