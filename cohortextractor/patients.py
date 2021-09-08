@@ -1589,6 +1589,15 @@ def with_test_result_in_sgss(
 
     Possible values are "", "Y", "N".
 
+    ### Number of Tests
+
+    The `returning="number_of_matches_in_period"` option (only available in the "All Tests" data)
+    returns a count of the number of tests a patient has had in the defined time period.
+
+    It is used with `test_result` which must be set as "positive", "negative" or "any".
+    `returning="number_of_matches_in_period"` can therefore be used to return the number of
+    positive, negative or all tests.
+
     For more detail on SGSS in general see [PHE_Laboratory_Reporting_Guidelines.pdf][PHE_LRG]
 
     [PHE_LRG]: https://assets.publishing.service.gov.uk/government/uploads/system/uploads/attachment_data/file/739854/PHE_Laboratory_Reporting_Guidelines.pdf
@@ -1624,6 +1633,7 @@ def with_test_result_in_sgss(
             * `variant` (see above)
             * `variant_detection_method` (see above)
             * `symptomatic` (see above)
+            * `number_of_matches_in_period` (see above)
 
         date_format: a string detailing the format of the dates to be returned.
             It can be `YYYY-MM-DD`, `YYYY-MM` or `YYYY` and wherever possible
