@@ -1790,6 +1790,17 @@ class TPPBackend:
             )
 
         if (
+            returning == "number_of_matches_in_period"
+            and restrict_to_earliest_specimen_date is not False
+        ):
+            raise ValueError(
+                "Due to limitations in the SGSS data we receive you can only use:\n"
+                "  returning = 'number_of_matches_in_period'\n"
+                "with the options:\n"
+                "  restrict_to_earliest_specimen_date = False\n"
+            )
+
+        if (
             returning in ("variant", "variant_detection_method", "symptomatic")
             and restrict_to_earliest_specimen_date
         ):
@@ -1799,6 +1810,8 @@ class TPPBackend:
                 f"with the option:\n"
                 f"  restrict_to_earliest_specimen_date = False\n"
             )
+
+        use_partition_query = True
 
         if returning == "binary_flag":
             column = "1"
@@ -1855,6 +1868,9 @@ class TPPBackend:
                 + [f"WHEN {raw_column} IS NULL THEN {quote('')}"]
             )
             column = f"CASE {case_clauses} ELSE {raw_column} END"
+        elif returning == "number_of_matches_in_period":
+            column = "COUNT(*)"
+            use_partition_query = False
         else:
             raise ValueError(f"Unsupported `returning` value: {returning}")
 
@@ -1907,25 +1923,36 @@ class TPPBackend:
         date_condition, date_joins = self.get_date_condition("t1", "t1.date", between)
         date_ordering = "ASC" if find_first_match_in_period else "DESC"
 
-        return f"""
-        SELECT
-          t2.patient_id AS patient_id,
-          t2.date AS date,
-          {column} AS {returning}
-        FROM (
-          SELECT t1.*,
-            ROW_NUMBER() OVER (
-              PARTITION BY t1.patient_id
-              ORDER BY t1.date {date_ordering}
-            ) AS rownum
-          FROM (
-            {table_query}
-          ) t1
-          {date_joins}
-          WHERE {date_condition}
-        ) t2
-        WHERE t2.rownum = 1
-        """
+        if use_partition_query:
+            return f"""
+            SELECT
+              t2.patient_id AS patient_id,
+              t2.date AS date,
+              {column} AS {returning}
+            FROM (
+              SELECT t1.*,
+                ROW_NUMBER() OVER (
+                  PARTITION BY t1.patient_id
+                  ORDER BY t1.date {date_ordering}
+                ) AS rownum
+              FROM (
+                {table_query}
+              ) t1
+              {date_joins}
+              WHERE {date_condition}
+            ) t2
+            WHERE t2.rownum = 1
+            """
+        else:
+            return f"""
+            SELECT
+              t1.patient_id AS patient_id,
+              {column} AS {returning}
+            FROM ({table_query}) t1
+            {date_joins}
+            WHERE {date_condition}
+            GROUP BY t1.patient_id
+            """
 
     def patients_household_as_of(self, reference_date, returning):
         if reference_date != "2020-02-01":
