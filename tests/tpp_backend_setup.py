@@ -801,6 +801,7 @@ class HealthCareWorker(Base):
 
 
 class ClusterRandomisedTrial(Base):
+    """Represents relationships between cluster randomised trials and organisations."""
     __tablename__ = "ClusterRandomisedTrial"
 
     # This table's PK is probably a composite of Organisation_ID, TrialNumber, and
@@ -822,7 +823,7 @@ class ClusterRandomisedTrial(Base):
 
 
 class ClusterRandomisedTrialDetail(Base):
-    """Represents relationships between cluster randomised trials and organisations."""
+    """Represents mappings of properties to values."""
 
     __tablename__ = "ClusterRandomisedTrialDetail"
 
