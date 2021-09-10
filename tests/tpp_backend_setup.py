@@ -802,10 +802,12 @@ class HealthCareWorker(Base):
 
 class ClusterRandomisedTrial(Base):
     """Represents relationships between cluster randomised trials and organisations."""
+
     __tablename__ = "ClusterRandomisedTrial"
 
-    # This table's PK is probably a composite of Organisation_ID, TrialNumber, and
-    # TrialArm. However, MSSQL complains about TrialArm's type. To make life easier, we
+    # This table's PK is probably a composite of Organisation_ID and TrialNumber (we
+    # assume that one organisation can be in one arm of one trial). However, MSSQL
+    # complains when we add `primary_key=True` to two columns. To make life easier, we
     # use a column that isn't in the database.
     id = Column(Integer, primary_key=True)
 
