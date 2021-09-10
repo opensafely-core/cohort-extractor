@@ -1309,16 +1309,19 @@ class TPPBackend:
             # Maps from property names used by the app to those used by the DB.
             app_to_db_property_name = {
                 "exists": "exists",
+                "trial_arm": "trial_arm",
                 "code": "code",
             }
             db_trial_name = app_to_db_trial_name[app_trial_name]
             db_property_name = app_to_db_property_name[app_property_name]
 
-            if app_property_name == "exists":
+            if app_property_name in ["exists", "trial_arm"]:
+                to_select = "1" if app_property_name == "exists" else "TrialArm"
+
                 return f"""
                 SELECT
                     Patient_ID AS patient_id,
-                    1 AS {returning}
+                    {to_select} AS {returning}
                 FROM
                     ClusterRandomisedTrial AS lhs
                 LEFT JOIN (

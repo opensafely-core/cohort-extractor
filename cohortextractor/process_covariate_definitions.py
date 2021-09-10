@@ -381,6 +381,7 @@ class GetColumnType:
             "variant": "str",
             "variant_detection_method": "str",
             "rct__germdefence__exists": "bool",
+            "rct__germdefence__trial_arm": "str",
             "rct__germdefence__code": "str",
         }
         try:

@@ -1150,6 +1150,7 @@ def test_patients_registered_practice_as_of_returning_rct():
     crt_reference_1.ClusterRandomisedTrial.append(
         ClusterRandomisedTrial(
             Organisation=org_1,
+            TrialArm="control",  # FIXME: Use a real value
         )
     )
     crt_reference_1.ClusterRandomisedTrialDetail.append(
@@ -1165,6 +1166,7 @@ def test_patients_registered_practice_as_of_returning_rct():
     crt_reference_2.ClusterRandomisedTrial.append(
         ClusterRandomisedTrial(
             Organisation=org_1,
+            TrialArm="intervention",
         )
     )
     crt_reference_2.ClusterRandomisedTrialDetail.append(
@@ -1194,6 +1196,9 @@ def test_patients_registered_practice_as_of_returning_rct():
         is_germdefence=patients.registered_practice_as_of(
             "2020-01-01", returning="rct__germdefence__exists"
         ),
+        germdefence_trial_arm=patients.registered_practice_as_of(
+            "2020-01-01", returning="rct__germdefence__trial_arm"
+        ),
         germdefence_code=patients.registered_practice_as_of(
             "2020-01-01", returning="rct__germdefence__code"
         ),
@@ -1202,6 +1207,7 @@ def test_patients_registered_practice_as_of_returning_rct():
     assert_results(
         study.to_dicts(),
         is_germdefence=["1", "0"],
+        germdefence_trial_arm=["control", ""],
         germdefence_code=["code_value", ""],
     )
 
