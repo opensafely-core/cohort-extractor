@@ -1294,9 +1294,27 @@ class TPPBackend:
         date_sql, date_joins = self.get_date_sql("RegistrationHistory", date)
 
         if "__" in returning:  # It's an RCT.
-            _, rct_trial_name, rct_property_name = returning.split("__")
+            _, app_trial_name, app_property_name = returning.split("__")
 
-            if rct_property_name == "exists":
+            # Here, we map from the app (i.e. cohort-extractor) to the DB, to give a
+            # cleaner interface e.g. without camel case variable names. We do, however,
+            # duplicate some of this information: You will find trial names and property
+            # names in cohortextractor.process_covariate_definitions. It would be good
+            # to refactor, moving them elsewhere.
+
+            # Maps from trial names used by the app to those used by the DB.
+            app_to_db_trial_name = {
+                "germdefence": "germdefence",
+            }
+            # Maps from property names used by the app to those used by the DB.
+            app_to_db_property_name = {
+                "exists": "exists",
+                "code": "code",
+            }
+            db_trial_name = app_to_db_trial_name[app_trial_name]
+            db_property_name = app_to_db_property_name[app_property_name]
+
+            if app_property_name == "exists":
                 return f"""
                 SELECT
                     Patient_ID AS patient_id,
@@ -1327,7 +1345,7 @@ class TPPBackend:
                         FROM
                             ClusterRandomisedTrialReference
                         WHERE
-                            TrialName = '{rct_trial_name}'
+                            TrialName = '{db_trial_name}'
                     )
                 """
             else:
@@ -1354,7 +1372,7 @@ class TPPBackend:
                 ) rhs
                 ON lhs.Organisation_ID = rhs.Organisation_ID
                 WHERE
-                    Property = '{rct_property_name}'
+                    Property = '{db_property_name}'
                     AND rownum = 1
                     AND TrialNumber IN (
                         SELECT
@@ -1362,7 +1380,7 @@ class TPPBackend:
                         FROM
                             ClusterRandomisedTrialReference
                         WHERE
-                            TrialName = '{rct_trial_name}'
+                            TrialName = '{db_trial_name}'
                     )
                 """
 
