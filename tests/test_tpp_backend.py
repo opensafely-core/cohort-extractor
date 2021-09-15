@@ -92,6 +92,9 @@ def setup_function(function):
     session.query(MedicationIssue).delete()
     session.query(MedicationDictionary).delete()
     session.query(RegistrationHistory).delete()
+    session.query(ClusterRandomisedTrial).delete()
+    session.query(ClusterRandomisedTrialDetail).delete()
+    session.query(ClusterRandomisedTrialReference).delete()
     session.query(Organisation).delete()
     session.query(PotentialCareHomeAddress).delete()
     session.query(PatientAddress).delete()
@@ -107,9 +110,6 @@ def setup_function(function):
     session.query(DecisionSupportValue).delete()
     session.query(HealthCareWorker).delete()
     session.query(Patient).delete()
-    session.query(ClusterRandomisedTrial).delete()
-    session.query(ClusterRandomisedTrialDetail).delete()
-    session.query(ClusterRandomisedTrialReference).delete()
     session.commit()
 
 
