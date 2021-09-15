@@ -274,6 +274,7 @@ def most_recent_bmi(
             on or after the given date.
         between: two dates of interest as a list with each date as a string with the format `YYYY-MM-DD`.
             Filters results to measurements between the two dates provided (inclusive).
+            The two dates must be in chronological order.
         minimum_age_at_measurement: Measurements taken before this age will not count towards BMI
             calculations. It is an integer.
         return_expectations: a dictionary defining the incidence and distribution of expected BMI
@@ -358,6 +359,7 @@ def mean_recorded_value(
             on or after the given date.
         between: two dates of interest as a list with each date as a string with the format `YYYY-MM-DD`.
             Filters results to measurements between the two dates provided (inclusive).
+            The two dates must be in chronological order.
         include_measurement_date: a boolean indicating if an extra column, named `date_of_bmi`,
             should be included in the output.
         date_format: a string detailing the format of the dates to be returned. It can be `YYYY-MM-DD`,
@@ -445,7 +447,7 @@ def with_these_medications(
         on_or_after: date of interest as a string with the format `YYYY-MM-DD`. Filters results to
             on or after the given date.
         between: two dates of interest as a list with each date as a string with the format `YYYY-MM-DD`.
-            Filters results to between the two dates provided (inclusive).
+            Filters results to between the two dates provided (inclusive). The two dates must be in chronological order.
         returning: string indicating value to be returned. Options are:
 
             * `binary_flag`
@@ -558,6 +560,7 @@ def with_these_clinical_events(
             on or after the given date.
         between: two dates of interest as a list with each date as a string with the format `YYYY-MM-DD`.
             Filters results to between the two dates provided (inclusive).
+            The two dates must be in chronological order.
         returning: string indicating value to be returned. Options are:
 
             * `binary_flag`
@@ -896,6 +899,8 @@ def admitted_to_icu(
         on_or_after: date of interest as a string with the format `YYYY-MM-DD`. Filters results
             on or after the given date.
         between: two dates of interest as a list with each date as a string with the format `YYYY-MM-DD`.
+            Filters results between the two dates provided (inclusive).
+            The two dates must be in chronological order.
         find_first_match_in_period: a boolean that indicates if the data returned is first admission to icu if
             there are multiple admissions within the time period
         find_last_match_in_period: a boolean that indicates if the data returned is last admission to icu if
@@ -982,7 +987,7 @@ def with_these_codes_on_death_certificate(
         on_or_after: date of interest as a string with the format `YYYY-MM-DD`. Filters results
             on or after the given date.
         between: two dates of interest as a list with each date as a string with the format `YYYY-MM-DD`.
-            Filters results between the two dates provided (inclusive).
+            Filters results between the two dates provided (inclusive). The two dates must be in chronological order.
         match_only_underlying_cause: boolean for indicating if filters results to only specified cause of death.
         returning: string indicating value to be returned. Options are:
 
@@ -1046,6 +1051,7 @@ def died_from_any_cause(
             on or after the given date.
         between: two dates of interest as a list with each date as a string with the format `YYYY-MM-DD`.
             Filters results to between the two dates provided (inclusive).
+            The two dates must be in chronological order.
         returning: string indicating value to be returned. Options are:
 
             * `date_of_death`: Date of death
@@ -1107,6 +1113,7 @@ def with_death_recorded_in_cpns(
             on or after the given date.
         between: two dates of interest as a list with each date as a string with the format `YYYY-MM-DD`.
             Filters results to between the two dates provided (inclusive).
+            The two dates must be in chronological order.
         returning: string indicating value to be returned. Options are:
 
             * `date_of_death`: Date of death
@@ -1170,6 +1177,7 @@ def with_death_recorded_in_primary_care(
             on or after the given date.
         between: two dates of interest as a list with each date as a string with the format `YYYY-MM-DD`.
             Filters results to  between the two dates provided (inclusive).
+            The two dates must be in chronological order.
         returning: string indicating value to be returned. Options are:
 
             * `date_of_death`: Date of death
@@ -1249,6 +1257,7 @@ def with_vaccination_record(
             on or after the given date.
         between: two dates of interest as a list with each date as a string with the format `YYYY-MM-DD`.
             Filters results to between the two dates provided (inclusive).
+            The two dates must be in chronological order.
         returning: string indicating value to be returned. Options are:
 
             * `binary_flag`: indicates if they have had the vaccination or not
@@ -1329,6 +1338,7 @@ def with_tpp_vaccination_record(
             on or after the given date.
         between: two dates of interest as a list with each date as a string with the format `YYYY-MM-DD`.
             Filters results to between the two dates provided (inclusive).
+            The two dates must be in chronological order.
         returning: string indicating value to be returned. Options are:
 
             * `binary_flag`: indicates if they have had the vaccination or not
@@ -1393,7 +1403,7 @@ def with_gp_consultations(
         on_or_after: date of interest as a string with the format `YYYY-MM-DD`. Filters results to
             on or after the given date.
         between: two dates of interest as a list with each date as a string with the format `YYYY-MM-DD`.
-            Filters results to between the two dates provided (inclusive).
+            Filters results to between the two dates provided (inclusive). The two dates must be in chronological order.
         find_first_match_in_period: a boolean that indicates if the data returned is first event
             if there are multiple matches within the time period
         find_last_match_in_period: a boolean that indicates if the data returned is last event
@@ -1614,7 +1624,7 @@ def with_test_result_in_sgss(
             Filters results to on or after the given date.
         between: two dates of interest as a list with each date as a string
             with the format `YYYY-MM-DD`.  Filters results to between the two
-            dates provided.
+            dates provided. The two dates must be in chronological order.
         find_first_match_in_period: a boolean that indicates if the data
             returned is first event if there are multiple matches within the
             time period
@@ -1817,6 +1827,7 @@ def attended_emergency_care(
             on or after the given date.
         between: two dates of interest as a list with each date as a string with the format `YYYY-MM-DD`.
             Filters results to between the two dates provided (inclusive).
+            The two dates must be in chronological order.
         returning: string indicating value to be returned. Options are:
 
             * `binary_flag`: Whether patient attended A&E
@@ -1882,6 +1893,7 @@ def date_deregistered_from_all_supported_practices(
             on or after the given date.
         between: two dates of interest as a list with each date as a string with the format `YYYY-MM-DD`.
             Filters results to between the two dates provided (inclusive).
+            The two dates must be in chronological order.
         date_format: a string detailing the format of the dates to be returned. It can be `YYYY-MM-DD`,
             `YYYY-MM` or `YYYY` and wherever possible the least disclosive data should be returned. i.e returning
             only year is less disclosive than a date with day, month and year.
@@ -1938,7 +1950,7 @@ def admitted_to_hospital(
         on_or_after: date of interest as a string with the format `YYYY-MM-DD`. Filters results to
             on or after the given date.
         between: two dates of interest as a list with each date as a string with the format `YYYY-MM-DD`.
-            Filters results to between the two dates provided (inclusive).
+            Filters results to between the two dates provided (inclusive). The two dates must be in chronological order.
         returning: string indicating value to be returned. Options are:
 
             * `binary_flag`: if they were admitted at all,
@@ -2119,7 +2131,8 @@ def with_these_decision_support_values(
         algorithm: a string indicating the decision support algorithm. Currently, the only option is `electronic_frailty_index` for the electronic frailty index algorithm.
         on_or_before: the date of interest as a string with the format `YYYY-MM-DD`. Filters matches to on or before the given date.
         on_or_after: the date of interest as a string with the format `YYYY-MM-DD`. Filters matches to on or after the given date.
-        between: two dates of interest as a list with each date as a string with the format `YYYY-MM-DD`. Filters matches to between the two dates.
+        between: two dates of interest as a list with each date as a string with the format `YYYY-MM-DD`. Filters matches to between the two dates (inclusive).
+            The two dates must be in chronological order.
         find_first_match_in_period: a boolean indicating if values should be based on the first match in the period.
         find_last_match_in_period: a boolean indicating if values should be based on the last match in the period. This is the default behaviour.
         returning: a string indicating the values to return. The options are:
@@ -2195,7 +2208,7 @@ def outpatient_appointment_date(
             `None`.
         between: two dates of interest as a list with each date as a string
             with the format `YYYY-MM-DD`. Filters matches to between the two
-            dates. The default value is `None`.
+            dates. The default value is `None`. The two dates must be in chronological order.
         date_format: a string detailing the format of the dates to be returned.
             It can be `YYYY-MM-DD`, `YYYY-MM` or `YYYY` and wherever possible
             the least disclosive data should be returned. i.e returning only
