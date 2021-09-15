@@ -374,9 +374,14 @@ class StudyDefinition:
         }
         if extra_columns:
             extra_study = StudyDefinition(
-                self._original_covariates["population"],
-                self.default_expectations,
-                self.index_date,
+                # It doesn't matter what the population is here, it's not
+                # relevant in generating the extra columns we need. But we
+                # can't use the real population definition because that may be
+                # an expression referencing columns which don't appear in our
+                # "extra study" and so will trigger an error.
+                population=("all", {}),
+                default_expectations=self.default_expectations,
+                index_date=self.index_date,
                 **extra_columns,
             )
             extra_df = extra_study.make_df_from_expectations(population)

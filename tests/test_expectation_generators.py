@@ -894,7 +894,12 @@ def test_make_df_from_expectations_with_aggregate_of():
             "rate": "exponential_increase",
             "incidence": 1,
         },
-        population=patients.all(),
+        # We use an expression here (never mind that it's a trivial and
+        # pointless one) as that triggers a bug which we want to ensure we've
+        # fixed
+        population=patients.satisfying(
+            "foo OR bar", foo=patients.all(), bar=patients.all()
+        ),
         date_min=patients.maximum_of(
             date_1=patients.with_these_clinical_events(
                 codelist(["X"], system="ctv3"),
