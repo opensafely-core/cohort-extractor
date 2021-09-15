@@ -721,6 +721,8 @@ def registered_practice_as_of(
             * `nuts1_region_name`: 9 English regions
             * `stp_code`: Sustainability Transformation Partnerships codes
             * `pseudo_id`: Pseudonymised GP practice identifier
+            * `rct__{name of rct}__{name of property from RCT}`: Properties from a Cluster Randomised
+                Control Trial.
 
         return_expectations: a dict defining the `rate` and the `categories` returned with ratios
 
@@ -753,6 +755,29 @@ def registered_practice_as_of(
                     },
                 },
             )
+
+        Clustered Randomised Control Trials (Cluster RCTs) that are clustered at practice level
+        are available. There is special syntax that signifies RCT. This is `rct__trialname__propertyname`
+        for example, if there was a cluster RCT called germdefence which has a property called
+        intervention, a variable can be created by:
+
+            germdefence_intervention=patients.registered_practice_as_of(
+                "2020-01-01",
+                returning="rct__germdefence__intervention",
+                return_expectations={
+                    "rate": "universal",
+                    "category": {
+                        "ratios": {
+                            "intervention": 0.5,
+                            "control": 0.5
+                        },
+                    },
+                },
+            )
+
+        Note that a double underscore is required between `rct` and `trial_name` and between `trial_name`
+        and `property` (in this case `intervention`).
+
     """
 
     return "registered_practice_as_of", locals()
