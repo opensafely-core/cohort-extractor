@@ -778,6 +778,32 @@ def registered_practice_as_of(
         Note that a double underscore is required between `rct` and `trial_name` and between `trial_name`
         and `property` (in this case `intervention`).
 
+        The properties available in germdefence are:
+            * exists
+            * trial_arm"
+            * deprivation_pctile
+            * IntCon
+            * IMD_decile
+            * MeanAge
+            * MedianAge
+            * Av_rooms_per_house
+            * Minority_ethnic_total
+            * n_times_visited_mean
+            * n_pages_viewed_mean
+            * total_visit_time_mean"
+            * prop_engaged_visits
+            * n_engaged_visits_mean
+            * n_engaged_pages_viewed_mean_mean
+            * N_visits_practice
+            * group_mean_behaviour_mean
+            * group_mean_intention_mean
+            * N_completers_RI_behav
+            * N_completers_RI_intent
+            * hand_behav_practice_mean
+            * hand_intent_practice_mean
+            * N_completers_HW_behav
+            * N_goalsetting_completers_per_practice
+
     """
 
     return "registered_practice_as_of", locals()
