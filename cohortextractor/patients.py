@@ -778,7 +778,7 @@ def registered_practice_as_of(
         Note that a double underscore is required between `rct` and `trial_name` and between `trial_name`
         and `property` (in this case `intervention`).
 
-        The properties available in germdefence are:
+        The properties available from the germdefence trial are:
             * exists
             * trial_arm"
             * deprivation_pctile
