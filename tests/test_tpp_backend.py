@@ -1150,46 +1150,15 @@ def test_patients_registered_practice_as_of_returning_rct():
     crt_reference_1.ClusterRandomisedTrial.append(
         ClusterRandomisedTrial(
             Organisation=org_1,
-            TrialArm="control",  # FIXME: Use a real value
-        )
-    )
-    crt_reference_1.ClusterRandomisedTrialDetail.append(
-        ClusterRandomisedTrialDetail(
-            Organisation=org_1,
-            Property="code",
-            PropertyValue="code_value",  # FIXME: Use a real value
+            TrialArm="1",
         )
     )
 
     crt_reference_1.ClusterRandomisedTrialDetail.append(
         ClusterRandomisedTrialDetail(
             Organisation=org_1,
-            Property="ccg_code",
-            PropertyValue="AAA",  # FIXME: Use a real value
-        )
-    )
-
-    crt_reference_1.ClusterRandomisedTrialDetail.append(
-        ClusterRandomisedTrialDetail(
-            Organisation=org_1,
-            Property="listsize_Jan21",
-            PropertyValue=1000,  # FIXME: Use a real value
-        )
-    )
-
-    crt_reference_1.ClusterRandomisedTrialDetail.append(
-        ClusterRandomisedTrialDetail(
-            Organisation=org_1,
-            Property="intervention",
-            PropertyValue="did_a_thing",  # FIXME: Use a real value
-        )
-    )
-
-    crt_reference_1.ClusterRandomisedTrialDetail.append(
-        ClusterRandomisedTrialDetail(
-            Organisation=org_1,
-            Property="deprivation_score",
-            PropertyValue=10,  # FIXME: Use a real value
+            Property="deprivation_pctile",
+            PropertyValue=4,
         )
     )
 
@@ -1197,44 +1166,29 @@ def test_patients_registered_practice_as_of_returning_rct():
         ClusterRandomisedTrialDetail(
             Organisation=org_1,
             Property="IntCon",
-            PropertyValue="abc",  # FIXME: Use a real value
+            PropertyValue=1,
         )
     )
 
-    crt_reference_1.ClusterRandomisedTrialDetail.append(
-        ClusterRandomisedTrialDetail(
-            Organisation=org_1,
-            Property="List_size",
-            PropertyValue=1000,  # FIXME: Use a real value
-        )
-    )
-
-    crt_reference_1.ClusterRandomisedTrialDetail.append(
-        ClusterRandomisedTrialDetail(
-            Organisation=org_1,
-            Property="IMD_rank",
-            PropertyValue=42,  # FIXME: Use a real value
-        )
-    )
     crt_reference_1.ClusterRandomisedTrialDetail.append(
         ClusterRandomisedTrialDetail(
             Organisation=org_1,
             Property="IMD_decile",
-            PropertyValue=4,  # FIXME: Use a real value
+            PropertyValue=4,
         )
     )
     crt_reference_1.ClusterRandomisedTrialDetail.append(
         ClusterRandomisedTrialDetail(
             Organisation=org_1,
             Property="MeanAge",
-            PropertyValue=45.3,  # FIXME: Use a real value
+            PropertyValue=43.8,
         )
     )
     crt_reference_1.ClusterRandomisedTrialDetail.append(
         ClusterRandomisedTrialDetail(
             Organisation=org_1,
             Property="MedianAge",
-            PropertyValue=50.1,  # FIXME: Use a real value
+            PropertyValue=33.5,
         )
     )
 
@@ -1242,42 +1196,42 @@ def test_patients_registered_practice_as_of_returning_rct():
         ClusterRandomisedTrialDetail(
             Organisation=org_1,
             Property="Av_rooms_per_house",
-            PropertyValue=2.3,  # FIXME: Use a real value
+            PropertyValue=6.1,
         )
     )
     crt_reference_1.ClusterRandomisedTrialDetail.append(
         ClusterRandomisedTrialDetail(
             Organisation=org_1,
             Property="Minority_ethnic_total",
-            PropertyValue="abc",  # FIXME: Use a real value
+            PropertyValue=9.5,
         )
     )
     crt_reference_1.ClusterRandomisedTrialDetail.append(
         ClusterRandomisedTrialDetail(
             Organisation=org_1,
             Property="n_times_visited_mean",
-            PropertyValue=42.2,  # FIXME: Use a real value
+            PropertyValue=1.34,
         )
     )
     crt_reference_1.ClusterRandomisedTrialDetail.append(
         ClusterRandomisedTrialDetail(
             Organisation=org_1,
             Property="n_pages_viewed_mean",
-            PropertyValue=42.2,  # FIXME: Use a real value
+            PropertyValue=42.2,
         )
     )
     crt_reference_1.ClusterRandomisedTrialDetail.append(
         ClusterRandomisedTrialDetail(
             Organisation=org_1,
             Property="total_visit_time_mean",
-            PropertyValue=4.2,  # FIXME: Use a real value
+            PropertyValue=320.33,
         )
     )
     crt_reference_1.ClusterRandomisedTrialDetail.append(
         ClusterRandomisedTrialDetail(
             Organisation=org_1,
             Property="prop_engaged_visits",
-            PropertyValue=30,  # FIXME: Use a real value
+            PropertyValue=6.5,
         )
     )
 
@@ -1285,7 +1239,7 @@ def test_patients_registered_practice_as_of_returning_rct():
         ClusterRandomisedTrialDetail(
             Organisation=org_1,
             Property="n_engaged_visits_mean",
-            PropertyValue=1.1,  # FIXME: Use a real value
+            PropertyValue=316,
         )
     )
 
@@ -1293,14 +1247,14 @@ def test_patients_registered_practice_as_of_returning_rct():
         ClusterRandomisedTrialDetail(
             Organisation=org_1,
             Property="n_engaged_pages_viewed_mean_mean",
-            PropertyValue=2.1,  # FIXME: Use a real value
+            PropertyValue=11.11,
         )
     )
     crt_reference_1.ClusterRandomisedTrialDetail.append(
         ClusterRandomisedTrialDetail(
             Organisation=org_1,
             Property="N_visits_practice",
-            PropertyValue=3,  # FIXME: Use a real value
+            PropertyValue=7,
         )
     )
 
@@ -1308,7 +1262,7 @@ def test_patients_registered_practice_as_of_returning_rct():
         ClusterRandomisedTrialDetail(
             Organisation=org_1,
             Property="group_mean_behaviour_mean",
-            PropertyValue=4.1,  # FIXME: Use a real value
+            PropertyValue=2.64,
         )
     )
 
@@ -1316,7 +1270,7 @@ def test_patients_registered_practice_as_of_returning_rct():
         ClusterRandomisedTrialDetail(
             Organisation=org_1,
             Property="group_mean_intention_mean",
-            PropertyValue=5.1,  # FIXME: Use a real value
+            PropertyValue=3.34,
         )
     )
 
@@ -1324,35 +1278,35 @@ def test_patients_registered_practice_as_of_returning_rct():
         ClusterRandomisedTrialDetail(
             Organisation=org_1,
             Property="N_completers_RI_behav",
-            PropertyValue=6.1,  # FIXME: Use a real value
+            PropertyValue=1,
         )
     )
     crt_reference_1.ClusterRandomisedTrialDetail.append(
         ClusterRandomisedTrialDetail(
             Organisation=org_1,
             Property="N_completers_RI_intent",
-            PropertyValue=7.1,  # FIXME: Use a real value
+            PropertyValue=9,
         )
     )
     crt_reference_1.ClusterRandomisedTrialDetail.append(
         ClusterRandomisedTrialDetail(
             Organisation=org_1,
             Property="hand_behav_practice_mean",
-            PropertyValue=8.1,  # FIXME: Use a real value
+            PropertyValue=1.5,
         )
     )
     crt_reference_1.ClusterRandomisedTrialDetail.append(
         ClusterRandomisedTrialDetail(
             Organisation=org_1,
             Property="hand_intent_practice_mean",
-            PropertyValue=9.1,  # FIXME: Use a real value
+            PropertyValue=4.33,
         )
     )
     crt_reference_1.ClusterRandomisedTrialDetail.append(
         ClusterRandomisedTrialDetail(
             Organisation=org_1,
             Property="N_completers_HW_behav",
-            PropertyValue=10.1,  # FIXME: Use a real value
+            PropertyValue=11,
         )
     )
 
@@ -1360,7 +1314,7 @@ def test_patients_registered_practice_as_of_returning_rct():
         ClusterRandomisedTrialDetail(
             Organisation=org_1,
             Property="N_goalsetting_completers_per_practice",
-            PropertyValue=11.1,  # FIXME: Use a real value
+            PropertyValue=3,
         )
     )
 
@@ -1403,29 +1357,11 @@ def test_patients_registered_practice_as_of_returning_rct():
         germdefence_trial_arm=patients.registered_practice_as_of(
             "2020-01-01", returning="rct__germdefence__trial_arm"
         ),
-        germdefence_code=patients.registered_practice_as_of(
-            "2020-01-01", returning="rct__germdefence__code"
-        ),
-        germdefence_ccg_code=patients.registered_practice_as_of(
-            "2020-01-01", returning="rct__germdefence__ccg_code"
-        ),
-        germdefence_list_size_jan=patients.registered_practice_as_of(
-            "2020-01-01", returning="rct__germdefence__listsize_Jan21"
-        ),
-        germdefence_deprivation_score=patients.registered_practice_as_of(
-            "2020-01-01", returning="rct__germdefence__deprivation_score"
-        ),
-        germdefence_intervention=patients.registered_practice_as_of(
-            "2020-01-01", returning="rct__germdefence__intervention"
+        germdefence_deprivation_pctile=patients.registered_practice_as_of(
+            "2020-01-01", returning="rct__germdefence__deprivation_pctile"
         ),
         germdefence_IntCon=patients.registered_practice_as_of(
             "2020-01-01", returning="rct__germdefence__IntCon"
-        ),
-        germdefence_list_size=patients.registered_practice_as_of(
-            "2020-01-01", returning="rct__germdefence__List_size"
-        ),
-        germdefence_IMD_rank=patients.registered_practice_as_of(
-            "2020-01-01", returning="rct__germdefence__IMD_rank"
         ),
         germdefence_IMD_decile=patients.registered_practice_as_of(
             "2020-01-01", returning="rct__germdefence__IMD_decile"
@@ -1493,35 +1429,29 @@ def test_patients_registered_practice_as_of_returning_rct():
     assert_results(
         study.to_dicts(),
         is_germdefence=["1", "0"],
-        germdefence_trial_arm=["control", ""],
-        germdefence_code=["code_value", ""],
-        germdefence_ccg_code=["AAA", ""],
-        germdefence_list_size_jan=["1000", "0"],
-        germdefence_deprivation_score=["10", "0"],
-        germdefence_intervention=["did_a_thing", ""],
-        germdefence_IntCon=["abc", ""],
-        germdefence_list_size=["1000", "0"],
-        germdefence_IMD_rank=["42", "0"],
+        germdefence_trial_arm=["1", ""],
+        germdefence_deprivation_pctile=["4", "0"],
+        germdefence_IntCon=["1", "0"],
         germdefence_IMD_decile=["4", "0"],
-        germdefence_MeanAge=["45.3", "0.0"],
-        germdefence_MedianAge=["50.1", "0.0"],
-        germdefence_rooms=["2.3", "0.0"],
-        germdefence_eth=["abc", ""],
-        germdefence_n_visits=["42.2", "0.0"],
+        germdefence_MeanAge=["43.8", "0.0"],
+        germdefence_MedianAge=["33.5", "0.0"],
+        germdefence_rooms=["6.1", "0.0"],
+        germdefence_eth=["9.5", "0.0"],
+        germdefence_n_visits=["1.34", "0.0"],
         germdefence_n_pages=["42.2", "0.0"],
-        germdefence_visit_time_mean=["4.2", "0.0"],
-        germdefence_prop_engaged_visits=["30", "0"],
-        germdefence_n_engaged_visits=["1.1", "0.0"],
-        germdefence_n_engaged_pages=["2.1", "0.0"],
-        germdefence_n_visits_practice=["3", "0"],
-        germdefence_group_beh_mean=["4.1", "0.0"],
-        germdefence_int_mean=["5.1", "0.0"],
-        germdefence_completer_beh=["6.1", "0.0"],
-        germdefence_completer_intent=["7.1", "0.0"],
-        germdefence_prop_handwashing_mean=["8.1", "0.0"],
-        germdefence_handwashing_intent=["9.1", "0.0"],
-        germdefence_hw_beh=["10.1", "0.0"],
-        germdefence_goal_setters=["11.1", "0.0"],
+        germdefence_visit_time_mean=["320.33", "0.0"],
+        germdefence_prop_engaged_visits=["6.5", "0.0"],
+        germdefence_n_engaged_visits=["316", "0"],
+        germdefence_n_engaged_pages=["11.11", "0.0"],
+        germdefence_n_visits_practice=["7", "0"],
+        germdefence_group_beh_mean=["2.64", "0.0"],
+        germdefence_int_mean=["3.34", "0.0"],
+        germdefence_completer_beh=["1", "0"],
+        germdefence_completer_intent=["9", "0"],
+        germdefence_prop_handwashing_mean=["1.5", "0.0"],
+        germdefence_handwashing_intent=["4.33", "0.0"],
+        germdefence_hw_beh=["11", "0"],
+        germdefence_goal_setters=["3", "0"],
     )
 
 
