@@ -759,28 +759,28 @@ def registered_practice_as_of(
         Clustered Randomised Control Trials (Cluster RCTs) that are clustered at practice level
         are available. There is special syntax that signifies RCT. This is `rct__trialname__propertyname`
         for example, if there was a cluster RCT called germdefence which has a property called
-        intervention, a variable can be created by:
+        deprivation_pctile, a variable can be created by:
 
             germdefence_intervention=patients.registered_practice_as_of(
                 "2020-01-01",
-                returning="rct__germdefence__intervention",
+                returning="rct__germdefence__deprivation_pctile",
                 return_expectations={
                     "rate": "universal",
                     "category": {
                         "ratios": {
-                            "intervention": 0.5,
-                            "control": 0.5
+                            "1": 0.5,
+                            "2": 0.5
                         },
                     },
                 },
             )
 
         Note that a double underscore is required between `rct` and `trial_name` and between `trial_name`
-        and `property` (in this case `intervention`).
+        and `property` (in this case `deprivation_pctile`).
 
         The properties available from the germdefence trial are:
             * exists
-            * trial_arm"
+            * trial_arm
             * deprivation_pctile
             * IntCon
             * IMD_decile
@@ -790,7 +790,7 @@ def registered_practice_as_of(
             * Minority_ethnic_total
             * n_times_visited_mean
             * n_pages_viewed_mean
-            * total_visit_time_mean"
+            * total_visit_time_mean
             * prop_engaged_visits
             * n_engaged_visits_mean
             * n_engaged_pages_viewed_mean_mean
