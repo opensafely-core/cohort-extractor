@@ -1352,7 +1352,7 @@ def test_patients_registered_practice_as_of_returning_rct():
     study = StudyDefinition(
         population=patients.all(),
         is_germdefence=patients.registered_practice_as_of(
-            "2020-01-01", returning="rct__germdefence__exists"
+            "2020-01-01", returning="rct__germdefence__enrolled"
         ),
         germdefence_trial_arm=patients.registered_practice_as_of(
             "2020-01-01", returning="rct__germdefence__trial_arm"

@@ -781,7 +781,7 @@ def registered_practice_as_of(
         Note that a double underscore is required between `rct` and `trial_name` and between `trial_name`
         and `property` (in this case `deprivation_pctile`).
 
-        The special property `exists` is a boolean indicating whether the practice was enrolled in the trial.
+        The special property `enrolled` is a boolean indicating whether the practice was enrolled in the trial.
 
         The other properties are returned as strings, exactly as supplied by the trial operators.
         For the germdefence trial the available properties are:

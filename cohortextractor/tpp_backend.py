@@ -1311,7 +1311,7 @@ class TPPBackend:
                 property.lower(): property
                 for property in [
                     # Our internal properties
-                    "exists",
+                    "enrolled",
                     "trial_arm",
                     # Properties supplied by the RCT
                     "Av_rooms_per_house",
@@ -1354,8 +1354,8 @@ class TPPBackend:
                     f" are:\n{newline.join(app_to_db_trial_name.keys())}"
                 )
 
-            if app_property_name in ["exists", "trial_arm"]:
-                to_select = "1" if app_property_name == "exists" else "TrialArm"
+            if app_property_name in ["enrolled", "trial_arm"]:
+                to_select = "1" if app_property_name == "enrolled" else "TrialArm"
 
                 return f"""
                 SELECT
