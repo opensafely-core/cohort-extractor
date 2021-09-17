@@ -1308,30 +1308,35 @@ class TPPBackend:
             }
             # Maps from property names used by the app to those used by the DB.
             app_to_db_property_name = {
-                "exists": "exists",
-                "trial_arm": "trial_arm",
-                "deprivation_pctile": "deprivation_pctile",
-                "IntCon": "IntCon",
-                "IMD_decile": "IMD_decile",
-                "MeanAge": "MeanAge",
-                "MedianAge": "MedianAge",
-                "Av_rooms_per_house": "Av_rooms_per_house",
-                "Minority_ethnic_total": "Minority_ethnic_total",
-                "n_times_visited_mean": "n_times_visited_mean",
-                "n_pages_viewed_mean": "n_pages_viewed_mean",
-                "total_visit_time_mean": "total_visit_time_mean",
-                "prop_engaged_visits": "prop_engaged_visits",
-                "n_engaged_visits_mean": "n_engaged_visits_mean",
-                "n_engaged_pages_viewed_mean_mean": "n_engaged_pages_viewed_mean_mean",
-                "N_visits_practice": "N_visits_practice",
-                "group_mean_behaviour_mean": "group_mean_behaviour_mean",
-                "group_mean_intention_mean": "group_mean_intention_mean",
-                "N_completers_RI_behav": "N_completers_RI_behav",
-                "N_completers_RI_intent": "N_completers_RI_intent",
-                "hand_behav_practice_mean": "hand_behav_practice_mean",
-                "hand_intent_practice_mean": "hand_intent_practice_mean",
-                "N_completers_HW_behav": "N_completers_HW_behav",
-                "N_goalsetting_completers_per_practice": "N_goalsetting_completers_per_practice",
+                property.lower(): property
+                for property in [
+                    # Our internal properties
+                    "exists",
+                    "trial_arm",
+                    # Properties supplied by the RCT
+                    "Av_rooms_per_house",
+                    "deprivation_pctile",
+                    "group_mean_behaviour_mean",
+                    "group_mean_intention_mean",
+                    "hand_behav_practice_mean",
+                    "hand_intent_practice_mean",
+                    "IMD_decile",
+                    "IntCon",
+                    "MeanAge",
+                    "MedianAge",
+                    "Minority_ethnic_total",
+                    "N_completers_HW_behav",
+                    "N_completers_RI_behav",
+                    "N_completers_RI_intent",
+                    "n_engaged_pages_viewed_mean_mean",
+                    "n_engaged_visits_mean",
+                    "N_goalsetting_completers_per_practice",
+                    "n_pages_viewed_mean",
+                    "n_times_visited_mean",
+                    "N_visits_practice",
+                    "prop_engaged_visits",
+                    "total_visit_time_mean",
+                ]
             }
             db_trial_name = app_to_db_trial_name[app_trial_name]
             db_property_name = app_to_db_property_name[app_property_name]

@@ -1360,23 +1360,23 @@ def test_patients_registered_practice_as_of_returning_rct():
         germdefence_deprivation_pctile=patients.registered_practice_as_of(
             "2020-01-01", returning="rct__germdefence__deprivation_pctile"
         ),
-        germdefence_IntCon=patients.registered_practice_as_of(
-            "2020-01-01", returning="rct__germdefence__IntCon"
+        germdefence_intcon=patients.registered_practice_as_of(
+            "2020-01-01", returning="rct__germdefence__intcon"
         ),
-        germdefence_IMD_decile=patients.registered_practice_as_of(
-            "2020-01-01", returning="rct__germdefence__IMD_decile"
+        germdefence_imd_decile=patients.registered_practice_as_of(
+            "2020-01-01", returning="rct__germdefence__imd_decile"
         ),
-        germdefence_MeanAge=patients.registered_practice_as_of(
-            "2020-01-01", returning="rct__germdefence__MeanAge"
+        germdefence_meanage=patients.registered_practice_as_of(
+            "2020-01-01", returning="rct__germdefence__meanage"
         ),
-        germdefence_MedianAge=patients.registered_practice_as_of(
-            "2020-01-01", returning="rct__germdefence__MedianAge"
+        germdefence_medianage=patients.registered_practice_as_of(
+            "2020-01-01", returning="rct__germdefence__medianage"
         ),
         germdefence_rooms=patients.registered_practice_as_of(
-            "2020-01-01", returning="rct__germdefence__Av_rooms_per_house"
+            "2020-01-01", returning="rct__germdefence__av_rooms_per_house"
         ),
         germdefence_eth=patients.registered_practice_as_of(
-            "2020-01-01", returning="rct__germdefence__Minority_ethnic_total"
+            "2020-01-01", returning="rct__germdefence__minority_ethnic_total"
         ),
         germdefence_n_visits=patients.registered_practice_as_of(
             "2020-01-01", returning="rct__germdefence__n_times_visited_mean"
@@ -1397,7 +1397,7 @@ def test_patients_registered_practice_as_of_returning_rct():
             "2020-01-01", returning="rct__germdefence__n_engaged_pages_viewed_mean_mean"
         ),
         germdefence_n_visits_practice=patients.registered_practice_as_of(
-            "2020-01-01", returning="rct__germdefence__N_visits_practice"
+            "2020-01-01", returning="rct__germdefence__n_visits_practice"
         ),
         germdefence_group_beh_mean=patients.registered_practice_as_of(
             "2020-01-01", returning="rct__germdefence__group_mean_behaviour_mean"
@@ -1406,10 +1406,10 @@ def test_patients_registered_practice_as_of_returning_rct():
             "2020-01-01", returning="rct__germdefence__group_mean_intention_mean"
         ),
         germdefence_completer_beh=patients.registered_practice_as_of(
-            "2020-01-01", returning="rct__germdefence__N_completers_RI_behav"
+            "2020-01-01", returning="rct__germdefence__n_completers_ri_behav"
         ),
         germdefence_completer_intent=patients.registered_practice_as_of(
-            "2020-01-01", returning="rct__germdefence__N_completers_RI_intent"
+            "2020-01-01", returning="rct__germdefence__n_completers_ri_intent"
         ),
         germdefence_prop_handwashing_mean=patients.registered_practice_as_of(
             "2020-01-01", returning="rct__germdefence__hand_behav_practice_mean"
@@ -1418,11 +1418,11 @@ def test_patients_registered_practice_as_of_returning_rct():
             "2020-01-01", returning="rct__germdefence__hand_intent_practice_mean"
         ),
         germdefence_hw_beh=patients.registered_practice_as_of(
-            "2020-01-01", returning="rct__germdefence__N_completers_HW_behav"
+            "2020-01-01", returning="rct__germdefence__n_completers_hw_behav"
         ),
         germdefence_goal_setters=patients.registered_practice_as_of(
             "2020-01-01",
-            returning="rct__germdefence__N_goalsetting_completers_per_practice",
+            returning="rct__germdefence__n_goalsetting_completers_per_practice",
         ),
     )
 
@@ -1431,10 +1431,10 @@ def test_patients_registered_practice_as_of_returning_rct():
         is_germdefence=["1", "0"],
         germdefence_trial_arm=["1", ""],
         germdefence_deprivation_pctile=["4", ""],
-        germdefence_IntCon=["1", ""],
-        germdefence_IMD_decile=["4", ""],
-        germdefence_MeanAge=["43.8", ""],
-        germdefence_MedianAge=["33.5", ""],
+        germdefence_intcon=["1", ""],
+        germdefence_imd_decile=["4", ""],
+        germdefence_meanage=["43.8", ""],
+        germdefence_medianage=["33.5", ""],
         germdefence_rooms=["6.1", ""],
         germdefence_eth=["9.5", ""],
         germdefence_n_visits=["1.34", ""],

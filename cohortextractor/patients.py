@@ -781,29 +781,28 @@ def registered_practice_as_of(
         The properties available from the germdefence trial are:
             * exists
             * trial_arm
+            * av_rooms_per_house
             * deprivation_pctile
-            * IntCon
-            * IMD_decile
-            * MeanAge
-            * MedianAge
-            * Av_rooms_per_house
-            * Minority_ethnic_total
-            * n_times_visited_mean
-            * n_pages_viewed_mean
-            * total_visit_time_mean
-            * prop_engaged_visits
-            * n_engaged_visits_mean
-            * n_engaged_pages_viewed_mean_mean
-            * N_visits_practice
             * group_mean_behaviour_mean
             * group_mean_intention_mean
-            * N_completers_RI_behav
-            * N_completers_RI_intent
             * hand_behav_practice_mean
             * hand_intent_practice_mean
-            * N_completers_HW_behav
-            * N_goalsetting_completers_per_practice
-
+            * imd_decile
+            * intcon
+            * meanage
+            * medianage
+            * minority_ethnic_total
+            * n_completers_hw_behav
+            * n_completers_ri_behav
+            * n_completers_ri_intent
+            * n_engaged_pages_viewed_mean_mean
+            * n_engaged_visits_mean
+            * n_goalsetting_completers_per_practice
+            * n_pages_viewed_mean
+            * n_times_visited_mean
+            * n_visits_practice
+            * prop_engaged_visits
+            * total_visit_time_mean
     """
 
     return "registered_practice_as_of", locals()
