@@ -756,6 +756,9 @@ def registered_practice_as_of(
                 },
             )
 
+
+        ### Cluster RCTs
+
         Clustered Randomised Control Trials (Cluster RCTs) that are clustered at practice level
         are available. There is special syntax that signifies RCT. This is `rct__trialname__propertyname`
         for example, if there was a cluster RCT called germdefence which has a property called
@@ -778,8 +781,11 @@ def registered_practice_as_of(
         Note that a double underscore is required between `rct` and `trial_name` and between `trial_name`
         and `property` (in this case `deprivation_pctile`).
 
-        The properties available from the germdefence trial are:
-            * exists
+        The special property `exists` is a boolean indicating whether the practice was enrolled in the trial.
+
+        The other properties are returned as strings, exactly as supplied by the trial operators.
+        For the germdefence trial the available properties are:
+
             * trial_arm
             * av_rooms_per_house
             * deprivation_pctile
