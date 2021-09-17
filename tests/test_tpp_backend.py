@@ -25,6 +25,9 @@ from tests.tpp_backend_setup import (
     OPA,
     APCS_Der,
     Appointment,
+    ClusterRandomisedTrial,
+    ClusterRandomisedTrialDetail,
+    ClusterRandomisedTrialReference,
     CodedEvent,
     CodedEventSnomed,
     DecisionSupportValue,
@@ -89,6 +92,9 @@ def setup_function(function):
     session.query(MedicationIssue).delete()
     session.query(MedicationDictionary).delete()
     session.query(RegistrationHistory).delete()
+    session.query(ClusterRandomisedTrial).delete()
+    session.query(ClusterRandomisedTrialDetail).delete()
+    session.query(ClusterRandomisedTrialReference).delete()
     session.query(Organisation).delete()
     session.query(PotentialCareHomeAddress).delete()
     session.query(PatientAddress).delete()
@@ -1122,6 +1128,330 @@ def test_patients_registered_practice_as_of():
         deprecated_msoa=["E0203", "E0201", ""],
         region=["London", "East of England", ""],
         pseudo_id=["3", "1", "0"],
+    )
+
+
+def test_patients_registered_practice_as_of_returning_rct():
+    session = make_session()
+
+    # Add a patient at an organisation. The organisation is participating in two RCTs.
+    org_1 = Organisation()
+    patient_1 = Patient()
+    patient_1.RegistrationHistory.append(
+        RegistrationHistory(
+            StartDate="2019-01-01",
+            EndDate="2021-01-01",
+            Organisation=org_1,
+        )
+    )
+    crt_reference_1 = ClusterRandomisedTrialReference(
+        TrialName="germdefence",
+    )
+    crt_reference_1.ClusterRandomisedTrial.append(
+        ClusterRandomisedTrial(
+            Organisation=org_1,
+            TrialArm="1",
+        )
+    )
+
+    crt_reference_1.ClusterRandomisedTrialDetail.append(
+        ClusterRandomisedTrialDetail(
+            Organisation=org_1,
+            Property="deprivation_pctile",
+            PropertyValue="4",
+        )
+    )
+
+    crt_reference_1.ClusterRandomisedTrialDetail.append(
+        ClusterRandomisedTrialDetail(
+            Organisation=org_1,
+            Property="IntCon",
+            PropertyValue="1",
+        )
+    )
+
+    crt_reference_1.ClusterRandomisedTrialDetail.append(
+        ClusterRandomisedTrialDetail(
+            Organisation=org_1,
+            Property="IMD_decile",
+            PropertyValue="4",
+        )
+    )
+    crt_reference_1.ClusterRandomisedTrialDetail.append(
+        ClusterRandomisedTrialDetail(
+            Organisation=org_1,
+            Property="MeanAge",
+            PropertyValue="43.8",
+        )
+    )
+    crt_reference_1.ClusterRandomisedTrialDetail.append(
+        ClusterRandomisedTrialDetail(
+            Organisation=org_1,
+            Property="MedianAge",
+            PropertyValue="33.5",
+        )
+    )
+
+    crt_reference_1.ClusterRandomisedTrialDetail.append(
+        ClusterRandomisedTrialDetail(
+            Organisation=org_1,
+            Property="Av_rooms_per_house",
+            PropertyValue="6.1",
+        )
+    )
+    crt_reference_1.ClusterRandomisedTrialDetail.append(
+        ClusterRandomisedTrialDetail(
+            Organisation=org_1,
+            Property="Minority_ethnic_total",
+            PropertyValue="9.5",
+        )
+    )
+    crt_reference_1.ClusterRandomisedTrialDetail.append(
+        ClusterRandomisedTrialDetail(
+            Organisation=org_1,
+            Property="n_times_visited_mean",
+            PropertyValue="1.34",
+        )
+    )
+    crt_reference_1.ClusterRandomisedTrialDetail.append(
+        ClusterRandomisedTrialDetail(
+            Organisation=org_1,
+            Property="n_pages_viewed_mean",
+            PropertyValue="42.2",
+        )
+    )
+    crt_reference_1.ClusterRandomisedTrialDetail.append(
+        ClusterRandomisedTrialDetail(
+            Organisation=org_1,
+            Property="total_visit_time_mean",
+            PropertyValue="320.33",
+        )
+    )
+    crt_reference_1.ClusterRandomisedTrialDetail.append(
+        ClusterRandomisedTrialDetail(
+            Organisation=org_1,
+            Property="prop_engaged_visits",
+            PropertyValue="6.5",
+        )
+    )
+
+    crt_reference_1.ClusterRandomisedTrialDetail.append(
+        ClusterRandomisedTrialDetail(
+            Organisation=org_1,
+            Property="n_engaged_visits_mean",
+            PropertyValue="316",
+        )
+    )
+
+    crt_reference_1.ClusterRandomisedTrialDetail.append(
+        ClusterRandomisedTrialDetail(
+            Organisation=org_1,
+            Property="n_engaged_pages_viewed_mean_mean",
+            PropertyValue="11.11",
+        )
+    )
+    crt_reference_1.ClusterRandomisedTrialDetail.append(
+        ClusterRandomisedTrialDetail(
+            Organisation=org_1,
+            Property="N_visits_practice",
+            PropertyValue="7",
+        )
+    )
+
+    crt_reference_1.ClusterRandomisedTrialDetail.append(
+        ClusterRandomisedTrialDetail(
+            Organisation=org_1,
+            Property="group_mean_behaviour_mean",
+            PropertyValue="2.64",
+        )
+    )
+
+    crt_reference_1.ClusterRandomisedTrialDetail.append(
+        ClusterRandomisedTrialDetail(
+            Organisation=org_1,
+            Property="group_mean_intention_mean",
+            PropertyValue="3.34",
+        )
+    )
+
+    crt_reference_1.ClusterRandomisedTrialDetail.append(
+        ClusterRandomisedTrialDetail(
+            Organisation=org_1,
+            Property="N_completers_RI_behav",
+            PropertyValue="1",
+        )
+    )
+    crt_reference_1.ClusterRandomisedTrialDetail.append(
+        ClusterRandomisedTrialDetail(
+            Organisation=org_1,
+            Property="N_completers_RI_intent",
+            PropertyValue="9",
+        )
+    )
+    crt_reference_1.ClusterRandomisedTrialDetail.append(
+        ClusterRandomisedTrialDetail(
+            Organisation=org_1,
+            Property="hand_behav_practice_mean",
+            PropertyValue="1.5",
+        )
+    )
+    crt_reference_1.ClusterRandomisedTrialDetail.append(
+        ClusterRandomisedTrialDetail(
+            Organisation=org_1,
+            Property="hand_intent_practice_mean",
+            PropertyValue="4.33",
+        )
+    )
+    crt_reference_1.ClusterRandomisedTrialDetail.append(
+        ClusterRandomisedTrialDetail(
+            Organisation=org_1,
+            Property="N_completers_HW_behav",
+            PropertyValue="11",
+        )
+    )
+
+    crt_reference_1.ClusterRandomisedTrialDetail.append(
+        ClusterRandomisedTrialDetail(
+            Organisation=org_1,
+            Property="N_goalsetting_completers_per_practice",
+            PropertyValue="3",
+        )
+    )
+
+    crt_reference_2 = ClusterRandomisedTrialReference(
+        TrialName="coffeeintervention",
+    )
+    crt_reference_2.ClusterRandomisedTrial.append(
+        ClusterRandomisedTrial(
+            Organisation=org_1,
+            TrialArm="intervention",
+        )
+    )
+    crt_reference_2.ClusterRandomisedTrialDetail.append(
+        ClusterRandomisedTrialDetail(
+            Organisation=org_1,
+            Property="blend",
+            PropertyValue="arabica",
+        )
+    )
+
+    # Add another patient at another organisation. The organisation isn't participating
+    # in any RCTs.
+    patient_2 = Patient()
+    patient_2.RegistrationHistory.append(
+        RegistrationHistory(
+            StartDate="2019-01-01",
+            EndDate="2021-01-01",
+            Organisation=Organisation(),
+        )
+    )
+
+    session.add_all([org_1, patient_1, crt_reference_1, crt_reference_2, patient_2])
+    session.commit()
+
+    study = StudyDefinition(
+        population=patients.all(),
+        is_germdefence=patients.registered_practice_as_of(
+            "2020-01-01", returning="rct__germdefence__enrolled"
+        ),
+        germdefence_trial_arm=patients.registered_practice_as_of(
+            "2020-01-01", returning="rct__germdefence__trial_arm"
+        ),
+        germdefence_deprivation_pctile=patients.registered_practice_as_of(
+            "2020-01-01", returning="rct__germdefence__deprivation_pctile"
+        ),
+        germdefence_intcon=patients.registered_practice_as_of(
+            "2020-01-01", returning="rct__germdefence__intcon"
+        ),
+        germdefence_imd_decile=patients.registered_practice_as_of(
+            "2020-01-01", returning="rct__germdefence__imd_decile"
+        ),
+        germdefence_meanage=patients.registered_practice_as_of(
+            "2020-01-01", returning="rct__germdefence__meanage"
+        ),
+        germdefence_medianage=patients.registered_practice_as_of(
+            "2020-01-01", returning="rct__germdefence__medianage"
+        ),
+        germdefence_rooms=patients.registered_practice_as_of(
+            "2020-01-01", returning="rct__germdefence__av_rooms_per_house"
+        ),
+        germdefence_eth=patients.registered_practice_as_of(
+            "2020-01-01", returning="rct__germdefence__minority_ethnic_total"
+        ),
+        germdefence_n_visits=patients.registered_practice_as_of(
+            "2020-01-01", returning="rct__germdefence__n_times_visited_mean"
+        ),
+        germdefence_n_pages=patients.registered_practice_as_of(
+            "2020-01-01", returning="rct__germdefence__n_pages_viewed_mean"
+        ),
+        germdefence_visit_time_mean=patients.registered_practice_as_of(
+            "2020-01-01", returning="rct__germdefence__total_visit_time_mean"
+        ),
+        germdefence_prop_engaged_visits=patients.registered_practice_as_of(
+            "2020-01-01", returning="rct__germdefence__prop_engaged_visits"
+        ),
+        germdefence_n_engaged_visits=patients.registered_practice_as_of(
+            "2020-01-01", returning="rct__germdefence__n_engaged_visits_mean"
+        ),
+        germdefence_n_engaged_pages=patients.registered_practice_as_of(
+            "2020-01-01", returning="rct__germdefence__n_engaged_pages_viewed_mean_mean"
+        ),
+        germdefence_n_visits_practice=patients.registered_practice_as_of(
+            "2020-01-01", returning="rct__germdefence__n_visits_practice"
+        ),
+        germdefence_group_beh_mean=patients.registered_practice_as_of(
+            "2020-01-01", returning="rct__germdefence__group_mean_behaviour_mean"
+        ),
+        germdefence_int_mean=patients.registered_practice_as_of(
+            "2020-01-01", returning="rct__germdefence__group_mean_intention_mean"
+        ),
+        germdefence_completer_beh=patients.registered_practice_as_of(
+            "2020-01-01", returning="rct__germdefence__n_completers_ri_behav"
+        ),
+        germdefence_completer_intent=patients.registered_practice_as_of(
+            "2020-01-01", returning="rct__germdefence__n_completers_ri_intent"
+        ),
+        germdefence_prop_handwashing_mean=patients.registered_practice_as_of(
+            "2020-01-01", returning="rct__germdefence__hand_behav_practice_mean"
+        ),
+        germdefence_handwashing_intent=patients.registered_practice_as_of(
+            "2020-01-01", returning="rct__germdefence__hand_intent_practice_mean"
+        ),
+        germdefence_hw_beh=patients.registered_practice_as_of(
+            "2020-01-01", returning="rct__germdefence__n_completers_hw_behav"
+        ),
+        germdefence_goal_setters=patients.registered_practice_as_of(
+            "2020-01-01",
+            returning="rct__germdefence__n_goalsetting_completers_per_practice",
+        ),
+    )
+
+    assert_results(
+        study.to_dicts(),
+        is_germdefence=["1", "0"],
+        germdefence_trial_arm=["1", ""],
+        germdefence_deprivation_pctile=["4", ""],
+        germdefence_intcon=["1", ""],
+        germdefence_imd_decile=["4", ""],
+        germdefence_meanage=["43.8", ""],
+        germdefence_medianage=["33.5", ""],
+        germdefence_rooms=["6.1", ""],
+        germdefence_eth=["9.5", ""],
+        germdefence_n_visits=["1.34", ""],
+        germdefence_n_pages=["42.2", ""],
+        germdefence_visit_time_mean=["320.33", ""],
+        germdefence_prop_engaged_visits=["6.5", ""],
+        germdefence_n_engaged_visits=["316", ""],
+        germdefence_n_engaged_pages=["11.11", ""],
+        germdefence_n_visits_practice=["7", ""],
+        germdefence_group_beh_mean=["2.64", ""],
+        germdefence_int_mean=["3.34", ""],
+        germdefence_completer_beh=["1", ""],
+        germdefence_completer_intent=["9", ""],
+        germdefence_prop_handwashing_mean=["1.5", ""],
+        germdefence_handwashing_intent=["4.33", ""],
+        germdefence_hw_beh=["11", ""],
+        germdefence_goal_setters=["3", ""],
     )
 
 

@@ -724,6 +724,8 @@ def registered_practice_as_of(
             * `nuts1_region_name`: 9 English regions
             * `stp_code`: Sustainability Transformation Partnerships codes
             * `pseudo_id`: Pseudonymised GP practice identifier
+            * `rct__{trial_name}__{property_name}`: Properties from a Cluster
+               Randomised Control Trial ([see below](#cluster-rcts))
 
         return_expectations: a dict defining the `rate` and the `categories` returned with ratios
 
@@ -756,6 +758,76 @@ def registered_practice_as_of(
                     },
                 },
             )
+
+
+        ##### Cluster RCTs
+
+        Support is available for randomised control trials clustered at practice level.
+        A series of data files supplied by the trialists will be imported into
+        OpenSAFELY; this will indicate which practices are enrolled, their assignment
+        to an intervention group, and any other relevant practice properties or data
+        gathered as part of the RCT outside of OpenSAFELY (e.g. number of GPs/nurses,
+        number of practice visits made).
+
+        These RCT variables are only available for use by the researchers officially
+        nominated by the responsible research group.
+
+        There is special syntax for accessing this data using the `returning` argument:
+
+            rct__{trial_name}__{property_name}
+
+        (Note the double underscores separating `rct`, trial name and property name.)
+
+        For example, for a trial called `germdefence` which has a property called
+        `deprivation_pctile`, a variable can be created with:
+
+            practice_deprivation_pctile=patients.registered_practice_as_of(
+                "2020-01-01",
+                returning="rct__germdefence__deprivation_pctile",
+                return_expectations={
+                    "rate": "universal",
+                    "category": {
+                        "ratios": {
+                            "1": 0.5,
+                            "2": 0.5
+                        },
+                    },
+                },
+            )
+
+        The special property `enrolled` is a boolean indicating whether the practice
+        was enrolled in the trial.
+
+        All other properties are returned as strings, exactly as supplied by the
+        trialists.  For the `germdefence` trial the available properties are:
+
+            trial_arm
+            av_rooms_per_house
+            deprivation_pctile
+            group_mean_behaviour_mean
+            group_mean_intention_mean
+            hand_behav_practice_mean
+            hand_intent_practice_mean
+            imd_decile
+            intcon
+            meanage
+            medianage
+            minority_ethnic_total
+            n_completers_hw_behav
+            n_completers_ri_behav
+            n_completers_ri_intent
+            n_engaged_pages_viewed_mean_mean
+            n_engaged_visits_mean
+            n_goalsetting_completers_per_practice
+            n_pages_viewed_mean
+            n_times_visited_mean
+            n_visits_practice
+            prop_engaged_visits
+            total_visit_time_mean
+
+    The data resulting from the study definition will be at patient level as usual
+    and therefore practice variables will be repeated many times for each practice,
+    and should be aggregated in a later analysis step.
     """
 
     return "registered_practice_as_of", locals()

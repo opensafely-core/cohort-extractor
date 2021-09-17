@@ -1287,6 +1287,145 @@ class TPPBackend:
         return condition, queries
 
     def patients_registered_practice_as_of(self, date, returning=None):
+        # Note that current registrations are recorded with an EndDate of
+        # 9999-12-31. Where registration periods overlap we use the one with
+        # the most recent start date. If there are several with the same start
+        # date we use the longest one (i.e. with the latest end date).
+        date_sql, date_joins = self.get_date_sql("RegistrationHistory", date)
+
+        if "__" in returning:  # It's an RCT.
+            _, app_trial_name, app_property_name = returning.split("__")
+
+            # Here, we map from the app (i.e. cohort-extractor) to the DB, to give a
+            # cleaner interface e.g. without camel case variable names. We do, however,
+            # duplicate some of this information: You will find trial names and property
+            # names in cohortextractor.process_covariate_definitions. It would be good
+            # to refactor, moving them elsewhere.
+
+            # Maps from trial names used by the app to those used by the DB.
+            app_to_db_trial_name = {
+                "germdefence": "germdefence",
+            }
+            # Maps from property names used by the app to those used by the DB.
+            app_to_db_property_name = {
+                property.lower(): property
+                for property in [
+                    # Our internal properties
+                    "enrolled",
+                    "trial_arm",
+                    # Properties supplied by the RCT
+                    "Av_rooms_per_house",
+                    "deprivation_pctile",
+                    "group_mean_behaviour_mean",
+                    "group_mean_intention_mean",
+                    "hand_behav_practice_mean",
+                    "hand_intent_practice_mean",
+                    "IMD_decile",
+                    "IntCon",
+                    "MeanAge",
+                    "MedianAge",
+                    "Minority_ethnic_total",
+                    "N_completers_HW_behav",
+                    "N_completers_RI_behav",
+                    "N_completers_RI_intent",
+                    "n_engaged_pages_viewed_mean_mean",
+                    "n_engaged_visits_mean",
+                    "N_goalsetting_completers_per_practice",
+                    "n_pages_viewed_mean",
+                    "n_times_visited_mean",
+                    "N_visits_practice",
+                    "prop_engaged_visits",
+                    "total_visit_time_mean",
+                ]
+            }
+            try:
+                db_trial_name = app_to_db_trial_name[app_trial_name]
+            except KeyError:
+                raise ValueError(
+                    f"Unknown RCT '{app_trial_name}', available names are: "
+                    f"{', '.join(app_to_db_trial_name.keys())}"
+                )
+            try:
+                db_property_name = app_to_db_property_name[app_property_name]
+            except KeyError:
+                newline = "\n"
+                raise ValueError(
+                    f"Unknown property '{app_property_name}', available properties"
+                    f" are:\n{newline.join(app_to_db_trial_name.keys())}"
+                )
+
+            if app_property_name in ["enrolled", "trial_arm"]:
+                to_select = "1" if app_property_name == "enrolled" else "TrialArm"
+
+                return f"""
+                SELECT
+                    Patient_ID AS patient_id,
+                    {to_select} AS {returning}
+                FROM
+                    ClusterRandomisedTrial AS lhs
+                LEFT JOIN (
+                    SELECT
+                        Patient_ID,
+                        Organisation_ID,
+                        ROW_NUMBER() OVER (
+                            PARTITION BY Patient_ID
+                            ORDER BY StartDate DESC, EndDate DESC, Registration_ID
+                        ) AS rownum
+                    FROM
+                        RegistrationHistory
+                        {date_joins}
+                    WHERE
+                        StartDate <= {date_sql}
+                        AND EndDate > {date_sql}
+                ) AS rhs
+                ON lhs.Organisation_ID = rhs.Organisation_ID
+                WHERE
+                    rownum = 1
+                    AND TrialNumber IN (
+                        SELECT
+                            TrialNumber
+                        FROM
+                            ClusterRandomisedTrialReference
+                        WHERE
+                            TrialName = '{db_trial_name}'
+                    )
+                """
+            else:
+                return f"""
+                SELECT
+                    Patient_ID AS patient_id,
+                    PropertyValue AS {returning}
+                FROM
+                    ClusterRandomisedTrialDetail as lhs
+                LEFT JOIN (
+                    SELECT
+                        Patient_ID,
+                        Organisation_ID,
+                        ROW_NUMBER() OVER (
+                            PARTITION BY Patient_ID
+                            ORDER BY StartDate DESC, EndDate DESC, Registration_ID
+                        ) AS rownum
+                    FROM
+                        RegistrationHistory
+                        {date_joins}
+                    WHERE
+                        StartDate <= {date_sql}
+                        AND EndDate > {date_sql}
+                ) rhs
+                ON lhs.Organisation_ID = rhs.Organisation_ID
+                WHERE
+                    Property = '{db_property_name}'
+                    AND rownum = 1
+                    AND TrialNumber IN (
+                        SELECT
+                            TrialNumber
+                        FROM
+                            ClusterRandomisedTrialReference
+                        WHERE
+                            TrialName = '{db_trial_name}'
+                    )
+                """
+
         if returning == "stp_code":
             column = "STPCode"
         # "msoa" is the correct option here, "msoa_code" is supported for
@@ -1299,11 +1438,6 @@ class TPPBackend:
             column = "Organisation_ID"
         else:
             raise ValueError(f"Unsupported `returning` value: {returning}")
-        # Note that current registrations are recorded with an EndDate of
-        # 9999-12-31. Where registration periods overlap we use the one with
-        # the most recent start date. If there are several with the same start
-        # date we use the longest one (i.e. with the latest end date).
-        date_sql, date_joins = self.get_date_sql("RegistrationHistory", date)
         return f"""
         SELECT
           t.Patient_ID AS patient_id,

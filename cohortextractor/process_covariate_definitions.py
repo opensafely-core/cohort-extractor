@@ -269,7 +269,21 @@ class GetColumnType:
         return self._type_from_return_value(returning)
 
     def type_of_registered_practice_as_of(self, returning, **kwargs):
-        return self._type_from_return_value(returning)
+        if returning.startswith("rct__"):
+            return self._type_of_rct_property(returning)
+        else:
+            return self._type_from_return_value(returning)
+
+    def _type_of_rct_property(self, returning):
+        property = returning.rpartition("__")[2]
+        # `exists` is a special synthetic property which we use to indicate that
+        # the practice was enrolled in the RCT and we have data for it
+        if property == "exists":
+            return "bool"
+        # Everything else we treat as a string as it comes from a column in a
+        # EAV table with type VARCHAR
+        else:
+            return "str"
 
     def type_of_address_as_of(self, returning, **kwargs):
         return self._type_from_return_value(returning)
