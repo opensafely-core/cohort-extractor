@@ -1338,8 +1338,21 @@ class TPPBackend:
                     "total_visit_time_mean",
                 ]
             }
-            db_trial_name = app_to_db_trial_name[app_trial_name]
-            db_property_name = app_to_db_property_name[app_property_name]
+            try:
+                db_trial_name = app_to_db_trial_name[app_trial_name]
+            except KeyError:
+                raise ValueError(
+                    f"Unknown RCT '{app_trial_name}', available names are: "
+                    f"{', '.join(app_to_db_trial_name.keys())}"
+                )
+            try:
+                db_property_name = app_to_db_property_name[app_property_name]
+            except KeyError:
+                newline = "\n"
+                raise ValueError(
+                    f"Unknown property '{app_property_name}', available properties"
+                    f" are:\n{newline.join(app_to_db_trial_name.keys())}"
+                )
 
             if app_property_name in ["exists", "trial_arm"]:
                 to_select = "1" if app_property_name == "exists" else "TrialArm"
