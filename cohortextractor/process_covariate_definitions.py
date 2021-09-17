@@ -269,7 +269,21 @@ class GetColumnType:
         return self._type_from_return_value(returning)
 
     def type_of_registered_practice_as_of(self, returning, **kwargs):
-        return self._type_from_return_value(returning)
+        if returning.startswith("rct__"):
+            return self._type_of_rct_property(returning)
+        else:
+            return self._type_from_return_value(returning)
+
+    def _type_of_rct_property(self, returning):
+        property = returning.rpartition("__")[2]
+        # `exists` is a special synthetic property which we use to indicate that
+        # the practice was enrolled in the RCT and we have data for it
+        if property == "exists":
+            return "bool"
+        # Everything else we treat as a string as it comes from a column in a
+        # EAV table with type VARCHAR
+        else:
+            return "str"
 
     def type_of_address_as_of(self, returning, **kwargs):
         return self._type_from_return_value(returning)
@@ -380,30 +394,6 @@ class GetColumnType:
             "underlying_cause_of_death": "str",
             "variant": "str",
             "variant_detection_method": "str",
-            "rct__germdefence__exists": "bool",
-            "rct__germdefence__trial_arm": "str",
-            "rct__germdefence__deprivation_pctile": "str",
-            "rct__germdefence__IntCon": "str",
-            "rct__germdefence__IMD_decile": "str",
-            "rct__germdefence__MeanAge": "str",
-            "rct__germdefence__MedianAge": "str",
-            "rct__germdefence__Av_rooms_per_house": "str",
-            "rct__germdefence__Minority_ethnic_total": "str",
-            "rct__germdefence__n_times_visited_mean": "str",
-            "rct__germdefence__n_pages_viewed_mean": "str",
-            "rct__germdefence__total_visit_time_mean": "str",
-            "rct__germdefence__prop_engaged_visits": "str",
-            "rct__germdefence__n_engaged_visits_mean": "str",
-            "rct__germdefence__n_engaged_pages_viewed_mean_mean": "str",
-            "rct__germdefence__N_visits_practice": "str",
-            "rct__germdefence__group_mean_behaviour_mean": "str",
-            "rct__germdefence__group_mean_intention_mean": "str",
-            "rct__germdefence__N_completers_RI_behav": "str",
-            "rct__germdefence__N_completers_RI_intent": "str",
-            "rct__germdefence__hand_behav_practice_mean": "str",
-            "rct__germdefence__hand_intent_practice_mean": "str",
-            "rct__germdefence__N_completers_HW_behav": "str",
-            "rct__germdefence__N_goalsetting_completers_per_practice": "str",
         }
         try:
             return mapping[returning]
