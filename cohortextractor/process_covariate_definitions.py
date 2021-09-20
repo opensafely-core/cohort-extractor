@@ -276,9 +276,9 @@ class GetColumnType:
 
     def _type_of_rct_property(self, returning):
         property = returning.rpartition("__")[2]
-        # `exists` is a special synthetic property which we use to indicate that
+        # `enrolled` is a special synthetic property which we use to indicate that
         # the practice was enrolled in the RCT and we have data for it
-        if property == "exists":
+        if property == "enrolled":
             return "bool"
         # Everything else we treat as a string as it comes from a column in a
         # EAV table with type VARCHAR
