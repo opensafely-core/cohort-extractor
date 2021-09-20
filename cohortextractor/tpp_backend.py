@@ -916,17 +916,50 @@ class TPPBackend:
             assert not kwargs.pop("find_first_match_in_period", None)
             assert not kwargs.pop("find_last_match_in_period", None)
             assert not kwargs.pop("include_date_of_match", None)
+            assert not kwargs.pop("include_reference_range_columns", None)
             return self._number_of_episodes_by_clinical_event(
                 coded_event_table, coded_event_column, **kwargs
             )
         # This is the default code path for most queries
         else:
             assert not kwargs.pop("episode_defined_as", None)
+            if kwargs.pop("include_reference_range_columns", False):
+                additional_join = (
+                    f"\nLEFT JOIN CodedEventRange\n"
+                    f"ON CodedEventRange.CodedEvent_ID = {coded_event_table}.CodedEvent_ID\n"
+                )
+                comparator_case = """
+                CASE comparator
+                    WHEN 3 THEN '~'
+                    WHEN 4 THEN '='
+                    WHEN 5 THEN '>='
+                    WHEN 6 THEN '>'
+                    WHEN 7 THEN '<'
+                    WHEN 8 THEN '<='
+                    ELSE ''
+                END
+                """
+                additional_columns = (
+                    f"lower_bound,\n"
+                    f"upper_bound,\n"
+                    f"{comparator_case} AS comparator,\n"
+                )
+                additional_inner_columns = (
+                    "CodedEventRange.LowerBound AS lower_bound,\n"
+                    "CodedEventRange.UpperBound AS upper_bound,\n"
+                    "CodedEventRange.Comparator AS comparator,\n"
+                )
+            else:
+                additional_join = ""
+                additional_columns = ""
+                additional_inner_columns = ""
             return self._patients_with_events(
                 coded_event_table,
-                "",
+                additional_join,
                 coded_event_column,
                 codes_are_case_sensitive=True,
+                additional_columns=additional_columns,
+                additional_inner_columns=additional_inner_columns,
                 **kwargs,
             )
 
@@ -949,6 +982,8 @@ class TPPBackend:
         returning="binary_flag",
         include_date_of_match=False,
         ignore_missing_values=False,
+        additional_columns="",
+        additional_inner_columns="",
     ):
         codelist_table, codelist_queries = self.create_codelist_table(
             codelist, codes_are_case_sensitive
@@ -975,7 +1010,9 @@ class TPPBackend:
         if returning == "binary_flag" or returning == "date":
             column_name = "binary_flag"
             column_definition = "1"
-            use_partition_query = False
+            # If we don't have any additional columns then we don't need a
+            # partion query, otherwise we do
+            use_partition_query = bool(additional_columns)
         elif returning == "number_of_matches_in_period":
             column_definition = "COUNT(*)"
             use_partition_query = False
@@ -1006,12 +1043,14 @@ class TPPBackend:
             SELECT
               Patient_ID AS patient_id,
               {column_definition} AS {column_name},
+              {additional_columns}
               ConsultationDate AS date
             FROM (
               SELECT {from_table}.Patient_ID, {column_definition}, ConsultationDate,
+              {additional_inner_columns}
               ROW_NUMBER() OVER (
                 PARTITION BY {from_table}.Patient_ID
-                ORDER BY ConsultationDate {ordering}, {from_table_id_col}
+                ORDER BY ConsultationDate {ordering}, {from_table}.{from_table_id_col}
               ) AS rownum
               FROM {from_table}{additional_join}
               INNER JOIN {codelist_table}
@@ -1024,6 +1063,8 @@ class TPPBackend:
             WHERE rownum = 1
             """
         else:
+            assert not additional_columns
+
             sql = f"""
             SELECT
               {from_table}.Patient_ID AS patient_id,
