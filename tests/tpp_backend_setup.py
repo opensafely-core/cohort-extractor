@@ -95,7 +95,6 @@ class CodedEvent(Base):
     CTV3Code = Column(String(collation="Latin1_General_BIN"))
     NumericValue = Column(Float)
     ConsultationDate = Column(DateTime)
-    SnomedConceptId = Column(String)
 
 
 class CodedEventSnomed(Base):
