@@ -725,7 +725,7 @@ def registered_practice_as_of(
             * `stp_code`: Sustainability Transformation Partnerships codes
             * `pseudo_id`: Pseudonymised GP practice identifier
             * `rct__{trial_name}__{property_name}`: Properties from a Cluster
-               Randomised Control Trial ([see below](#cluster-rcts))
+               Randomised Controlled Trial ([see below](#cluster-rcts))
 
         return_expectations: a dict defining the `rate` and the `categories` returned with ratios
 
@@ -762,7 +762,10 @@ def registered_practice_as_of(
 
         ##### Cluster RCTs
 
-        Support is available for randomised control trials clustered at practice level.
+        Support is currently available for randomised controlled trials clustered at
+        practice level (though we are also happy to add support for RCTs randomised
+        at person-level).
+
         A series of data files supplied by the trialists will be imported into
         OpenSAFELY; this will indicate which practices are enrolled, their assignment
         to an intervention group, and any other relevant practice properties or data
