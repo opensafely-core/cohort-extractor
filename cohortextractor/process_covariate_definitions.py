@@ -1,4 +1,6 @@
 import copy
+import datetime
+import re
 
 
 def process_covariate_definitions(covariate_definitions):
@@ -407,7 +409,13 @@ class GetColumnType:
         return self._infer_type_from_categories(category_definitions)
 
     def _infer_type_from_categories(self, category_definitions):
-        categories = list(category_definitions.keys())
+        # Convert date-like strings to dates
+        categories = [
+            datetime.date.fromisoformat(v)
+            if isinstance(v, str) and re.match(r"\d\d\d\d-\d\d-\d\d", v)
+            else v
+            for v in category_definitions.keys()
+        ]
         first_type = type(categories[0])
         for other in categories[1:]:
             if type(other) != first_type:
@@ -424,6 +432,8 @@ class GetColumnType:
             return "float"
         elif first_type is str:
             return "str"
+        elif first_type is datetime.date:
+            return "date"
         else:
             raise ValueError(f"Unhandled category type: {first_type}")
 

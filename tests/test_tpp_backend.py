@@ -4326,3 +4326,45 @@ def test_outpatient_appointment_date_returning_consultation_medium_used_last_mat
         opa=patients.outpatient_appointment_date(returning="consultation_medium_used"),
     )
     assert_results(study.to_dicts(), opa=["10", "30", "50", ""])
+
+
+def test_using_dates_as_categories():
+    def make_events():
+        return [
+            CodedEvent(CTV3Code="foo", ConsultationDate="2020-05-15"),
+            CodedEvent(CTV3Code="foo", ConsultationDate="2020-07-17"),
+            CodedEvent(CTV3Code="foo", ConsultationDate="2020-09-19"),
+        ]
+
+    session = make_session()
+    session.add_all(
+        [
+            Patient(DateOfBirth="1930-01-01", CodedEvents=make_events()),
+            Patient(DateOfBirth="1945-01-01", CodedEvents=make_events()),
+            Patient(DateOfBirth="1980-01-01", CodedEvents=make_events()),
+        ]
+    )
+    session.commit()
+    study = StudyDefinition(
+        population=patients.all(),
+        eligible_date=patients.categorised_as(
+            {
+                "2020-04-14": "age >= 80",
+                "2020-06-16": "age >= 70 AND age < 80",
+                "2020-08-18": "DEFAULT",
+            },
+            age=patients.age_as_of("2020-01-01"),
+        ),
+        first_event_after_eligible=patients.with_these_clinical_events(
+            codelist(["foo"], system="ctv3"),
+            on_or_after="eligible_date",
+            find_first_match_in_period=True,
+            returning="date",
+            date_format="YYYY-MM-DD",
+        ),
+    )
+    assert_results(
+        study.to_dicts(),
+        eligible_date=["2020-04-14", "2020-06-16", "2020-08-18"],
+        first_event_after_eligible=["2020-05-15", "2020-07-17", "2020-09-19"],
+    )
