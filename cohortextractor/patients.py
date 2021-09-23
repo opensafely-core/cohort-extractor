@@ -1248,7 +1248,7 @@ def with_death_recorded_in_primary_care(
     reliable when it appears. By contrast, cause of death is often not accurate
     in the primary care record so we don't make it available to query here.
 
-        Args:
+    Args:
         on_or_before: date of interest as a string with the format `YYYY-MM-DD`. Filters results
             on or before the given date.
         on_or_after: date of interest as a string with the format `YYYY-MM-DD`. Filters results
