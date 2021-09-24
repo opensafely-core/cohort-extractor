@@ -2,11 +2,12 @@ import os
 import readline  # noqa -- importing this adds readline behaviour to input()
 import tempfile
 import time
+import warnings
 from urllib.parse import unquote, urlparse
 
-import prestodb
 import requests
 import structlog
+import trino
 
 # TODO remove this when certificate verification reinstated
 import urllib3
@@ -18,11 +19,11 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 sql_logger = structlog.get_logger("cohortextractor.sql")
 
 
-def presto_connection_from_url(url):
-    """Return a connection to Presto instance at given URL."""
+def trino_connection_from_url(url):
+    """Return a connection to Trino instance at given URL."""
 
-    conn_params = presto_connection_params_from_url(url)
-    conn = prestodb.dbapi.connect(**conn_params)
+    conn_params = trino_connection_params_from_url(url)
+    conn = trino.dbapi.connect(**conn_params)
     if "PFX_PATH" in os.environ or "PRESTO_TLS_CERT" in os.environ:
         adapt_connection(conn, conn_params)
 
@@ -54,16 +55,35 @@ def adapt_connection(conn, conn_params, env=os.environ):
     """
 
     session = requests.Session()
-    crt = env.get("PRESTO_TLS_CERT")
-    key = env.get("PRESTO_TLS_KEY")
+    # PRESTO_TLS_CERT and PRESTO_TLS_KEY are now legacy.
+    # These environment variables are included for backwards compatibility only and will
+    # be removed in future.
+    # If both environment variable pairs (PRESTO_TLS_CERT and PRESTO_TLS_KEY;
+    # TRINO_TLS_CERT and TRINO_TLS_KEY) are specified, then the TRINO environment
+    # variables take priority.
+    presto_crt = env.get("PRESTO_TLS_CERT")
+    presto_key = env.get("PRESTO_TLS_KEY")
+    trino_crt = env.get("TRINO_TLS_CERT")
+    trino_key = env.get("TRINO_TLS_KEY")
     pfx_pass = env.get("PFX_PASSWORD_PATH")
     pfx_path = env.get("PFX_PATH")
 
     # unencrypted cert in env
-    if crt and key:
+    if trino_crt and trino_key:
         session.cert = (
-            write_to_temp_file(crt, prefix="presto_cert"),
-            write_to_temp_file(key, prefix="presto_key"),
+            write_to_temp_file(trino_crt, prefix="trino_cert"),
+            write_to_temp_file(trino_key, prefix="trino_key"),
+        )
+
+    elif presto_crt and presto_key:
+        warnings.warn(
+            "PRESTO_TLS_CERT and PRESTO_TLS_KEY will be removed in a future"
+            " cohort-extractor version; use TRINO_TLS_CERT and TRINO_TLS_KEY instead.",
+            DeprecationWarning,
+        )
+        session.cert = (
+            write_to_temp_file(presto_crt, prefix="presto_cert"),
+            write_to_temp_file(presto_key, prefix="presto_key"),
         )
 
     # support encyrpted cert
@@ -81,22 +101,34 @@ def adapt_connection(conn, conn_params, env=os.environ):
         session.mount(mount_prefix, mount_adaptor)
     else:
         raise Exception(
-            "Could not load certificate for presto connection from environment"
+            "Could not load certificate for Trino connection from environment"
         )
 
     conn._http_session = session
 
 
-def presto_connection_params_from_url(url):
+def trino_connection_params_from_url(url):
     """Return connection params for given URL."""
 
     parsed = urlparse(url)
     http_scheme = "https" if parsed.port == 443 else "http"
     parts = parsed.path.strip("/").split("/")
-    if len(parts) != 2 or not all(parts) or parsed.scheme != "presto":
+    # presto:// is now legacy and replaced with trino://
+    # presto:// is included for backwards compatibilty only and can be
+    # removed in future.
+    if len(parts) != 2 or not all(parts) or parsed.scheme not in ("trino", "presto"):
         raise ValueError(
-            f"Presto URL not of the form 'presto://host.name/catalog/schema': {url}"
+            "Trino URL not of the form 'trino://host.name/catalog/schema'"
+            f" or 'presto://host.name/catalog.schema': {url}"
         )
+
+    if parsed.scheme == "presto":
+        warnings.warn(
+            "presto:// will be removed in a future cohort-extractor version;"
+            " use trino:// instead.",
+            DeprecationWarning,
+        )
+
     catalog, schema = parts
     connection_params = {
         "http_scheme": http_scheme,
@@ -111,32 +143,30 @@ def presto_connection_params_from_url(url):
         connection_params["user"] = user
         if parsed.password:
             password = unquote(parsed.password)
-            connection_params["auth"] = prestodb.auth.BasicAuthentication(
-                user, password
-            )
+            connection_params["auth"] = trino.auth.BasicAuthentication(user, password)
     else:
         connection_params["user"] = "ignored"
 
     return connection_params
 
 
-def wait_for_presto_to_be_ready(url, test_query, timeout):
+def wait_for_trino_to_be_ready(url, test_query, timeout):
     """
-    Waits for Presto to be ready to execute queries by repeatedly attempting to
+    Waits for Trino to be ready to execute queries by repeatedly attempting to
     connect and run `test_query`, raising the last received error after
     `timeout` seconds
     """
-    connection_params = presto_connection_params_from_url(url)
+    connection_params = trino_connection_params_from_url(url)
     start = time.time()
     while True:
         try:
-            connection = prestodb.dbapi.connect(**connection_params)
+            connection = trino.dbapi.connect(**connection_params)
             cursor = connection.cursor()
             cursor.execute(test_query)
             cursor.fetchall()
             break
         except (
-            prestodb.exceptions.PrestoQueryError,
+            trino.exceptions.TrinoQueryError,
             requests.exceptions.ConnectionError,
         ):
             if time.time() - start < timeout:
@@ -146,7 +176,7 @@ def wait_for_presto_to_be_ready(url, test_query, timeout):
 
 
 class ConnectionProxy:
-    """Proxy for prestodb.dbapi.Connection, with a more useful cursor."""
+    """Proxy for trino.dbapi.Connection, with a more useful cursor."""
 
     def __init__(self, connection):
         self.connection = connection
@@ -163,9 +193,9 @@ class ConnectionProxy:
 
 
 class CursorProxy:
-    """Proxy for prestodb.dbapi.Cursor.
+    """Proxy for trino.dbapi.Cursor.
 
-    Unlike prestodb.dbapi.Cursor:
+    Unlike trino.dbapi.Cursor:
 
     * any exceptions caused by an invalid query are raised by .execute() (and
       not later when you fetch the results)
@@ -180,7 +210,7 @@ class CursorProxy:
     def __init__(self, cursor, batch_size=10 ** 6):
         """Initialise proxy.
 
-        cursor: the presto.dbapi.Cursor to be proxied
+        cursor: the trino.dbapi.Cursor to be proxied
         batch_size: the number of records to fetch at a time (this will need to
             be tuned)
         """
@@ -225,9 +255,9 @@ class CursorProxy:
 
 
 def repl(url):
-    """Run a simple REPL against a Presto database at given URL."""
+    """Run a simple REPL against a Trino database at given URL."""
 
-    conn = presto_connection_from_url(url)
+    conn = trino_connection_from_url(url)
     cursor = conn.cursor()
     while read_eval_print(cursor):
         pass
@@ -252,7 +282,7 @@ def read_eval_print(cursor):
     sql = "\n".join(lines)[:-1]
     try:
         cursor.execute(sql)
-    except prestodb.exceptions.PrestoUserError as e:
+    except trino.exceptions.TrinoUserError as e:
         print(e.message)
         return True
     headers = [col[0] for col in cursor.description]
@@ -266,7 +296,7 @@ if __name__ == "__main__":
     import sys
 
     if len(sys.argv) != 2:
-        print("Usage: python -m cohortextractor.presto_utils DATABASE_URL")
+        print("Usage: python -m cohortextractor.trino_utils DATABASE_URL")
         sys.exit(1)
 
     repl(sys.argv[1])
