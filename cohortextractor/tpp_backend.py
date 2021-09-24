@@ -344,6 +344,24 @@ class TPPBackend:
             raise ValueError(
                 "At least one category must be given the definition 'DEFAULT'"
             )
+
+        # We pass the `reformat_dates=False` option to the quoting function
+        # here to preserve date-like strings in the user-supplied ISO format,
+        # as opposed to converting to MSSQL-friendly format which we otherwise
+        # do by default. The distinction here is between dates used as inputs
+        # and dates used as outputs. We always need to supply input dates in a
+        # format which will be consistently parsed by MSSQL indepent of locale
+        # settings (amazingly, this does not include ISO format). But we always
+        # want the dates we output to be in ISO format. In almost all cases
+        # user-supplied dates are functioning as inputs, which is why
+        # reformatting is our default behaviour; but in this context they
+        # function as outputs so we need to do something different. (Note that
+        # if these outputs later go on to be supplied as inputs to other
+        # functions then the `date_expressions` code will ensure they are
+        # parsed correctly.)
+        def quote_category(value):
+            return quote(value, reformat_dates=False)
+
         # For each column already defined, determine its corresponding "empty"
         # value (i.e. the default value for that column's type). This allows us
         # to support implicit boolean conversion because we know what the
@@ -361,12 +379,15 @@ class TPPBackend:
             formatted_expression, names_used = format_expression(
                 expression, other_columns, empty_value_map=empty_value_map
             )
-            clauses.append(f"WHEN ({formatted_expression}) THEN {quote(category)}")
+            clauses.append(
+                f"WHEN ({formatted_expression}) THEN {quote_category(category)}"
+            )
             # Record all the source tables used in evaluating the expression
             for name in names_used:
                 tables_used.update(other_columns[name].source_tables)
+
         return ColumnExpression(
-            f"CASE {' '.join(clauses)} ELSE {quote(default_value)} END",
+            f"CASE {' '.join(clauses)} ELSE {quote_category(default_value)} END",
             type=column_type,
             # Note, confusingly, this is not the same as the `default_value`
             # used above. Above it refers to the value the case-expression will
@@ -375,6 +396,7 @@ class TPPBackend:
             # apart from bools and ints where it's zero.
             default_value=self.get_default_value_for_type(column_type),
             source_tables=list(tables_used),
+            date_format="YYYY-MM-DD" if column_type == "date" else None,
         )
 
     def get_aggregate_expression(
@@ -2738,12 +2760,13 @@ def is_iso_date(value):
     return bool(re.match(r"\d\d\d\d-\d\d-\d\d", value))
 
 
-def quote(value):
+def quote(value, reformat_dates=True):
     if isinstance(value, (int, float)):
         return str(value)
     else:
         value = str(value)
-        value = standardise_if_date(value)
+        if reformat_dates:
+            value = standardise_if_date(value)
         # This looks a bit too simple but it's what SQLAlchemy does and it is,
         # as far as I can tell, all you need to do to encode string literals.
         # https://github.com/sqlalchemy/sqlalchemy/blob/ac1228a872/lib/sqlalchemy/dialects/mssql/base.py#L1117-L1127

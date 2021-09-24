@@ -626,20 +626,23 @@ def with_these_clinical_events(
 
 def categorised_as(category_definitions, return_expectations=None, **extra_columns):
     """
-    Patients who had had 1 or more code from 1 or more codelists are categorised into
-    groups according to a prescribed algorithm.
+    Categorises patients using a set of conditions. Patient's are assigned to the first
+    condition that they satisfy. Similar to the `CASE WHEN` function in SQL.
 
     Args:
-        category_definitions: a dict that defines the algorithm and the associated category
-            The keys of the dict are strings representing categories from a defined by other
-            arguments such as `with_these_clinical_events`. The values are expressions of logic using
-            statements and AND/OR statements. A default argument should be provided if a particular
-            patient cannot be categorised to the algorithm.
-        return_expectations: a dict that defined the ratios of each category. The keys are the category values
+        category_definitions: a dict that defines the condition for each category.
+            The keys of the dict are strings representing categories. The values are expressions of logic
+            defining the categories. The variables used in the expressions can be variables defined elsewhere
+            in the study definition, or internal variables that are defined as separate arguments within the
+            `categorised_as` call and then discarded. `"DEFAULT"` is a special condition that catches patients
+            who do not match any condition, and must be specified.
+        return_expectations: A dict that defined the ratios of each category. The keys are the category values
             as strings and the values are ratios as floats. The ratios should add up to 1.
 
-    Retyrns:
-        list: of strings which each letter representing a category as defined by the algorithm
+    Returns:
+        list: of strings which each letter representing a category as defined by the algorithm. If the categories
+            are formatted as `"yyyy-mm-dd"`, they will be interpreted as dates and can be used as dates elsewhere
+            in the study definition.
 
     Example:
 
@@ -647,10 +650,10 @@ def categorised_as(category_definitions, return_expectations=None, **extra_colum
 
             current_asthma=patients.categorised_as(
                 {
-                    "1": "DEFAULT",
-                    "2": "recent_asthma_code AND
+                    "1": "recent_asthma_code AND
                           prednisolone_last_year = 0"
-                    "3": "recent_asthma_code AND prednisolone_last_year > 0"
+                    "2": "recent_asthma_code AND prednisolone_last_year > 0"
+                    "0": "DEFAULT"
                 },
                 recent_asthma_code=patients.with_these_clinical_events(
                     asthma_codes, between=["2017-02-01", "2020-01-31"],
@@ -661,7 +664,7 @@ def categorised_as(category_definitions, return_expectations=None, **extra_colum
                     returning="number_of_matches_in_period",
                 ),
                 return_expectations={
-                    "category":{"ratios": {"0": 0.8, "1": 0.1, "2": 0.1}}
+                    "category":{"ratios": {"0": 0.8, "2": 0.1, "3": 0.1}}
                 },
             )
     """
