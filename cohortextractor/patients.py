@@ -1296,6 +1296,27 @@ def date_of(
     include_day=False,
     return_expectations=None,
 ):
+    """
+    Return the date of the event associated with a value in another colum.
+
+    Args:
+        source: name of the column
+        date_format: a string detailing the format of the dates to be returned. It can be `YYYY-MM-DD`,
+            `YYYY-MM` or `YYYY` and wherever possible the least disclosive data should be returned. i.e returning
+            only year is less disclosive than a date with day, month and year.
+        return_expectations: a dictionary defining the incidence and distribution of expected value
+            within the population in question.
+
+    Example:
+
+        Fetch each patient's latest HbA1c and the date the sample was taken:
+
+            latest_hba1c=patients.with_these_clinical_events(
+                hba1c_codes,
+                returning="numeric_value", find_last_match_in_period=True
+            ),
+            hba1c_date=patients.date_of("latest_hba1c", date_format="YYYY-MM-DD"),
+    """
     returning = "date"
     return "value_from", locals()
 
