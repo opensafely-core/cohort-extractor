@@ -802,7 +802,8 @@ def registered_practice_as_of(
             )
 
         The special property `enrolled` is a boolean indicating whether the practice
-        was enrolled in the trial.
+        was enrolled in the trial. It will be 1 for all intervention AND control practices
+        and 0 for any practices which are not part of the trial.
 
         All other properties are returned as strings, exactly as supplied by the
         trialists.  For the `germdefence` trial the available properties are:
