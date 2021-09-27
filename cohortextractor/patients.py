@@ -175,7 +175,11 @@ def registered_with_one_practice_between(
     return_expectations=None,
 ):
     """
-    All patients registered with the same practice through the given period
+    All patients registered with the same practice through the given period.
+
+    Note, it does not account for patients registered with one practice in a given time period, whose practice
+    changed its EHR provider during that that time period. To capture this information, please use
+    `with_complete_gp_consultation_history_between()`
 
     Args:
         start_date: start date of interest of period as a string with the format `YYYY-MM-DD`.
@@ -1528,8 +1532,12 @@ def with_complete_gp_consultation_history_between(
     return_expectations=None,
 ):
     """
+    This captures patients who are registered with one practice between the start date and end date
+    and that this practice used SystmOne continuously between those dates.
+
+    Further details:
     The concept of a "consultation" in EHR systems does not map exactly
-    to the GP-patient interaction we're interested in (see above) so there is some
+    to the GP-patient interaction we're interested in (see `with_gp_consultations()`) so there is some
     processing required on the part of the EHR vendor to produce the
     consultation record we need. This does not happen automatically as part of
     the GP2GP transfer, and therefore this query can be used to find just those
