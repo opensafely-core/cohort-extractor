@@ -236,8 +236,16 @@ class StudyDefinition:
                 "index_of_multiple_deprivation",
                 "rural_urban_classification",
             ):
-                dtypes[name] = "category"
-                continue
+                column_type = "str"
+
+            # Another awkward corner: we allow `categorised_as` functions to
+            # return dates, which can then be used as inputs to other
+            # functions. For the purposes of real data extraction they behave
+            # like dates and should be typed as such. However for the purposes
+            # of dummy data generation they act like categoricals (dates get a
+            # whole load of special treatment that we don't want here).
+            if funcname == "categorised_as" and column_type == "date":
+                column_type = "str"
 
             if column_type == "date":
                 parse_dates.append(name)
