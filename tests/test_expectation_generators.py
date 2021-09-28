@@ -1075,3 +1075,35 @@ def assert_nan_equal(v1, v2):
     assert (
         not isinstance(v1, str) and not isinstance(v2, str) and isnan(v1) and isnan(v2)
     ) or v1 == v2
+
+
+def test_make_df_from_expectations_with_using_dates_as_categories():
+    study = StudyDefinition(
+        default_expectations={
+            "date": {"earliest": "1900-01-01", "latest": "today"},
+            "rate": "exponential_increase",
+            "incidence": 0.2,
+        },
+        population=patients.all(),
+        eligible_date=patients.categorised_as(
+            {
+                "2020-04-14": "age >= 80",
+                "2020-06-16": "age >= 70 AND age < 80",
+                "2020-08-18": "DEFAULT",
+            },
+            age=patients.age_as_of("2020-01-01"),
+            return_expectations={
+                "category": {
+                    "ratios": {
+                        "2020-04-14": 0.25,
+                        "2020-06-16": 0.25,
+                        "2020-08-18": 0.5,
+                    }
+                },
+                "incidence": 1,
+            },
+        ),
+    )
+    population_size = 100
+    result = study.make_df_from_expectations(population_size)
+    assert set(result.eligible_date) == set(["2020-08-18", "2020-06-16", "2020-04-14"])
