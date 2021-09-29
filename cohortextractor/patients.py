@@ -641,6 +641,7 @@ def comparator_from(
     fetch the comparator into a separate column.
     Note, the comparator can be used to distinguish true 0s from 0s which represent missing values (i.e. if the numeric_value 
     component is 0 but there is no value in the associated comparator column, then you can assume that the 0 is not a real value.)
+    Please refer to [Missing values and unmatched records](https://docs.opensafely.org/study-def/#missing-values-and-unmatched-records)  for further information.
 
     Args:
         source: name of a numeric value column i.e. a column that uses
