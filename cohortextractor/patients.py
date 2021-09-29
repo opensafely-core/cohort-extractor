@@ -573,7 +573,8 @@ def with_these_clinical_events(
             * `number_of_episodes`
             * `code`
             * `category`
-            * `numeric_value`
+            * `numeric_value` (see also [comparators](./#cohortextractor.patients.comparator_from)
+               and [reference ranges](./#cohortextractor.patients.reference_range_lower_bound_from))
 
         find_first_match_in_period: a boolean indicating if any returned date, code, category, or numeric value
             should be based on the first match in the period.
@@ -626,6 +627,102 @@ def with_these_clinical_events(
             )
     """
     return "with_these_clinical_events", locals()
+
+
+def comparator_from(
+    source,
+    return_expectations=None,
+):
+    """
+    Fetch the comparator (`<`, `>=`, `=` etc) associated with a numeric value.
+
+    Where a lab result is returned as e.g. `<9.5` the numeric_value component
+    will contain only the value 9.5 and you will need to use this function to
+    fetch the comparator into a separate column.
+
+    Args:
+        source: name of a numeric value column i.e. a column that uses
+            `with_these_clinical_events(returning="numeric_value")`
+
+    Returns:
+        list: of strings from the set: `~`, `=`, `>=`, `>`, `<`, `<=`
+
+    Example:
+
+        Fetch each patient's latest HbA1c and the associated comparator:
+
+            latest_hba1c=patients.with_these_clinical_events(
+                hba1c_codes,
+                returning="numeric_value", find_last_match_in_period=True
+            ),
+            hba1c_comparator=patients.comparator_from("latest_hba1c"),
+    """
+    returning = "comparator"
+    return "value_from", locals()
+
+
+def reference_range_lower_bound_from(
+    source,
+    return_expectations=None,
+):
+    """
+    Fetch the lower bound of the reference range associated with the numeric
+    value from a lab result.
+
+    Args:
+        source: name of a numeric value column i.e. a column that uses
+            `with_these_clinical_events(returning="numeric_value")`
+
+    Returns:
+        list: of floats (note a value of `-1` indicates "no lower bound")
+
+    Example:
+
+        Fetch each patient's latest HbA1c and the lower bound of the associated
+        reference range:
+
+            latest_hba1c=patients.with_these_clinical_events(
+                hba1c_codes,
+                returning="numeric_value", find_last_match_in_period=True
+            ),
+            hba1c_ref_range_upper=patients.reference_range_lower_bound_from(
+                "latest_hba1c"
+            ),
+    """
+    returning = "lower_bound"
+    return "value_from", locals()
+
+
+def reference_range_upper_bound_from(
+    source,
+    return_expectations=None,
+):
+    """
+    Fetch the upper bound of the reference range associated with the numeric
+    value from a lab result.
+
+    Args:
+        source: name of a numeric value column i.e. a column that uses
+            `with_these_clinical_events(returning="numeric_value")`
+
+    Returns:
+        list: of floats (note a value of `-1` indicates "no upper bound")
+
+    Example:
+
+        Fetch each patient's latest HbA1c and the upper bound of the associated
+        reference range:
+
+            latest_hba1c=patients.with_these_clinical_events(
+                hba1c_codes,
+                returning="numeric_value", find_last_match_in_period=True
+            ),
+            hba1c_ref_range_lower=patients.reference_range_upper_bound_from(
+                "latest_hba1c"
+            ),
+    """
+    returning = "upper_bound"
+    return "value_from", locals()
 
 
 def categorised_as(category_definitions, return_expectations=None, **extra_columns):
@@ -1253,7 +1350,7 @@ def with_death_recorded_in_primary_care(
     reliable when it appears. By contrast, cause of death is often not accurate
     in the primary care record so we don't make it available to query here.
 
-        Args:
+    Args:
         on_or_before: date of interest as a string with the format `YYYY-MM-DD`. Filters results
             on or before the given date.
         on_or_after: date of interest as a string with the format `YYYY-MM-DD`. Filters results
@@ -1301,6 +1398,27 @@ def date_of(
     include_day=False,
     return_expectations=None,
 ):
+    """
+    Return the date of the event associated with a value in another colum.
+
+    Args:
+        source: name of the column
+        date_format: a string detailing the format of the dates to be returned. It can be `YYYY-MM-DD`,
+            `YYYY-MM` or `YYYY` and wherever possible the least disclosive data should be returned. i.e returning
+            only year is less disclosive than a date with day, month and year.
+        return_expectations: a dictionary defining the incidence and distribution of expected value
+            within the population in question.
+
+    Example:
+
+        Fetch each patient's latest HbA1c and the date the sample was taken:
+
+            latest_hba1c=patients.with_these_clinical_events(
+                hba1c_codes,
+                returning="numeric_value", find_last_match_in_period=True
+            ),
+            hba1c_date=patients.date_of("latest_hba1c", date_format="YYYY-MM-DD"),
+    """
     returning = "date"
     return "value_from", locals()
 

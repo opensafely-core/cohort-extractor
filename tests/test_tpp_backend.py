@@ -29,6 +29,7 @@ from tests.tpp_backend_setup import (
     ClusterRandomisedTrialDetail,
     ClusterRandomisedTrialReference,
     CodedEvent,
+    CodedEventRange,
     CodedEventSnomed,
     DecisionSupportValue,
     EC_Diagnosis,
@@ -77,6 +78,7 @@ def teardown_module(module):
 def setup_function(function):
     """Ensure test database is empty"""
     session = make_session()
+    session.query(CodedEventRange).delete()
     session.query(CodedEvent).delete()
     session.query(CodedEventSnomed).delete()
     session.query(ICNARC).delete()
@@ -4367,4 +4369,49 @@ def test_using_dates_as_categories():
         study.to_dicts(),
         eligible_date=["2020-04-14", "2020-06-16", "2020-08-18"],
         first_event_after_eligible=["2020-05-15", "2020-07-17", "2020-09-19"],
+    )
+
+
+def test_coded_events_reference_ranges():
+    code = "foo1"
+    session = make_session()
+    session.add_all(
+        [
+            Patient(
+                CodedEvents=[
+                    CodedEvent(
+                        CTV3Code=code,
+                        NumericValue=5.0,
+                        CodedEventRange=[
+                            CodedEventRange(
+                                LowerBound=3.0,
+                                UpperBound=8.0,
+                                Comparator=5,
+                            )
+                        ],
+                    ),
+                ]
+            ),
+        ]
+    )
+    session.commit()
+
+    study = StudyDefinition(
+        population=patients.all(),
+        test_result=patients.with_these_clinical_events(
+            codelist([code], system="ctv3"),
+            returning="numeric_value",
+            find_first_match_in_period=True,
+        ),
+        comparator=patients.comparator_from("test_result"),
+        ref_range_lower=patients.reference_range_lower_bound_from("test_result"),
+        ref_range_upper=patients.reference_range_upper_bound_from("test_result"),
+    )
+
+    assert_results(
+        study.to_dicts(),
+        test_result=["5.0"],
+        comparator=[">="],
+        ref_range_lower=["3.0"],
+        ref_range_upper=["8.0"],
     )

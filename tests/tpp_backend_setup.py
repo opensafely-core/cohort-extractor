@@ -95,7 +95,12 @@ class CodedEvent(Base):
     CTV3Code = Column(String(collation="Latin1_General_BIN"))
     NumericValue = Column(Float)
     ConsultationDate = Column(DateTime)
-    SnomedConceptId = Column(String)
+
+    CodedEventRange = relationship(
+        "CodedEventRange",
+        back_populates="CodedEvent",
+        cascade="all, delete, delete-orphan",
+    )
 
 
 class CodedEventSnomed(Base):
@@ -110,6 +115,32 @@ class CodedEventSnomed(Base):
     ConsultationDate = Column(DateTime)
     ConceptID = Column(String(collation="Latin1_General_BIN"))
     CodingSystem = Column(Integer)
+
+
+class CodedEventRange(Base):
+    __tablename__ = "CodedEventRange"
+
+    CodedEventRange_ID = Column(Integer, primary_key=True)
+
+    CodedEvent_ID = Column(Integer, ForeignKey(CodedEvent.CodedEvent_ID))
+    CodedEvent = relationship(
+        "CodedEvent", back_populates="CodedEventRange", cascade="all, delete"
+    )
+    # These bounds give the "reference range" for the test result in question
+    # Uses `-1` as a placeholder for NULL
+    LowerBound = Column(Float)
+    # Uses `-1` as a placeholder for NULL
+    UpperBound = Column(Float)
+    # Takes the following values:
+    # | Value | Meaning |
+    # |-------|---------|
+    # | 3     | ~       |
+    # | 4     | =       |
+    # | 5     | >=      |
+    # | 6     | >       |
+    # | 7     | <       |
+    # | 8     | <=      |
+    Comparator = Column(Integer)
 
 
 class Appointment(Base):
