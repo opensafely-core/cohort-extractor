@@ -639,6 +639,8 @@ def comparator_from(
     Where a lab result is returned as e.g. `<9.5` the numeric_value component
     will contain only the value 9.5 and you will need to use this function to
     fetch the comparator into a separate column.
+    Note, the comparator can be used to distinguish true 0s from 0s which represent missing values (i.e. if the numeric_value 
+    component is 0 but there is no value in the associated comparator column, then you can assume that the 0 is not a real value.)
 
     Args:
         source: name of a numeric value column i.e. a column that uses
