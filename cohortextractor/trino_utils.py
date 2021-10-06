@@ -1,3 +1,4 @@
+import csv
 import os
 import readline  # noqa -- importing this adds readline behaviour to input()
 import tempfile
@@ -306,11 +307,37 @@ def read_eval_print(cursor):
     return True
 
 
+def sql_to_csv(url, sql, output, errors):
+    """
+    Executes the supplied SQL against the specified database and writes CSV to
+    `output`
+    """
+    conn = trino_connection_from_url(url)
+    cursor = conn.cursor()
+    try:
+        cursor.execute(sql)
+    except TrinoUserError as e:
+        errors.write(e.message)
+        errors.write("\n")
+        return False
+    writer = csv.writer(output)
+    headers = [col[0] for col in cursor.description]
+    writer.writerow(headers)
+    writer.writerows(cursor)
+    return True
+
+
 if __name__ == "__main__":
     import sys
 
-    if len(sys.argv) != 2:
-        print("Usage: python -m cohortextractor.trino_utils DATABASE_URL")
+    if len(sys.argv) < 2:
+        print("Usage: python -m cohortextractor.trino_utils DATABASE_URL [SQL]...")
         sys.exit(1)
+    database_url = sys.argv[1]
+    sql = " ".join(sys.argv[2:])
 
-    repl(sys.argv[1])
+    if not sql:
+        repl(database_url)
+    else:
+        success = sql_to_csv(database_url, sql, output=sys.stdout, errors=sys.stderr)
+        sys.exit(0 if success else 1)
