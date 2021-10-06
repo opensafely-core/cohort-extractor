@@ -7,7 +7,21 @@ from urllib.parse import unquote, urlparse
 
 import requests
 import structlog
-import trino
+
+# The Trino client ought to be close to a drop-in replacement for the Presto
+# but it isn't: despite the tests passing we get 500s from Presto in production
+# whenever we try to query it. As a quick fix we want to revert to using the
+# Presto client, but we don't want to revert all the renaming we've done as
+# longer term we need to stick with Trino (after we've resolved the issue with
+# the client). So we do this import munging to allow us to run against the old
+# Presto client for now. It's dirty but hopefully short-lived.
+try:
+    import trino
+    from trino.exceptions import TrinoQueryError, TrinoUserError
+except ImportError:
+    import prestodb as trino
+    from prestodb.exceptions import PrestoQueryError as TrinoQueryError
+    from prestodb.exceptions import PrestoUserError as TrinoUserError
 
 # TODO remove this when certificate verification reinstated
 import urllib3
@@ -166,7 +180,7 @@ def wait_for_trino_to_be_ready(url, test_query, timeout):
             cursor.fetchall()
             break
         except (
-            trino.exceptions.TrinoQueryError,
+            TrinoQueryError,
             requests.exceptions.ConnectionError,
         ):
             if time.time() - start < timeout:
@@ -282,7 +296,7 @@ def read_eval_print(cursor):
     sql = "\n".join(lines)[:-1]
     try:
         cursor.execute(sql)
-    except trino.exceptions.TrinoUserError as e:
+    except TrinoUserError as e:
         print(e.message)
         return True
     headers = [col[0] for col in cursor.description]
