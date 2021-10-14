@@ -1144,15 +1144,16 @@ class TPPBackend:
                     CalculationDateTime AS date
                 FROM (
                     SELECT
-                        Patient_ID,
+                        DecisionSupportValue.Patient_ID AS Patient_ID,
                         {value_column_expression},
                         CalculationDateTime,
                         ROW_NUMBER() OVER (
-                            PARTITION BY Patient_ID
-                            ORDER BY CalculationDateTime {ordering}, Patient_ID
+                            PARTITION BY DecisionSupportValue.Patient_ID
+                            ORDER BY CalculationDateTime {ordering}, DecisionSupportValue.Patient_ID
                         ) AS rownum
                     FROM
                         DecisionSupportValue
+                        {date_joins}
                     WHERE
                         AlgorithmType = {quote(algorithm_type_id)}
                         AND {date_condition}
@@ -1164,17 +1165,18 @@ class TPPBackend:
         else:
             sql = f"""
                 SELECT
-                    Patient_ID AS patient_id,
+                    DecisionSupportValue.Patient_ID AS patient_id,
                     {value_column_expression} AS {value_column_alias},
                     {date_aggregate}(CalculationDateTime) AS date
                 FROM
                     DecisionSupportValue
+                    {date_joins}
                 WHERE
                     AlgorithmType = {quote(algorithm_type_id)}
                     AND {date_condition}
                     AND {missing_values_condition}
                 GROUP BY
-                    Patient_ID
+                    DecisionSupportValue.Patient_ID
             """
         return [sql]
 
