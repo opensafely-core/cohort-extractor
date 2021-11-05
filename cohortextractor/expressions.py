@@ -6,7 +6,10 @@ from sqlparse import tokens as ttypes
 
 IGNORE = object()
 
-SAFE_CHARS_RE = re.compile(r"^[a-zA-Z0-9_]+$")
+# As well as alphanumeric and underscore characters which are generally used
+# for category names, we also have "comparator" categories for which we need to
+# allow the corresponding characters
+SAFE_CHARS_RE = re.compile(r"^[a-zA-Z0-9_<>=~]+$")
 
 
 class InvalidExpressionError(ValueError):
@@ -100,8 +103,8 @@ def validate_string(token):
         raise ValueError(f"String literals must be 16 characters or less: {value}")
     if not SAFE_CHARS_RE.match(value) and not value == "":
         raise ValueError(
-            f"String literals can only contain alphanumeric characters and "
-            f"underscore: {value}"
+            f"String literals can only contain alphanumeric characters, "
+            f"underscore and the comparators '<', '>', '=', and '~': {value}"
         )
     return sqlparse.sql.Token(ttypes.Literal.String.Single, f"'{value}'")
 
