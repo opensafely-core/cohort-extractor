@@ -685,7 +685,7 @@ def reference_range_lower_bound_from(
                 hba1c_codes,
                 returning="numeric_value", find_last_match_in_period=True
             ),
-            hba1c_ref_range_upper=patients.reference_range_lower_bound_from(
+            hba1c_ref_range_lower=patients.reference_range_lower_bound_from(
                 "latest_hba1c"
             ),
     """
@@ -717,7 +717,7 @@ def reference_range_upper_bound_from(
                 hba1c_codes,
                 returning="numeric_value", find_last_match_in_period=True
             ),
-            hba1c_ref_range_lower=patients.reference_range_upper_bound_from(
+            hba1c_ref_range_upper=patients.reference_range_upper_bound_from(
                 "latest_hba1c"
             ),
     """
