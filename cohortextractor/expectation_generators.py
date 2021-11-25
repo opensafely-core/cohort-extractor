@@ -3,7 +3,7 @@ from datetime import datetime
 
 import numpy as np
 import pandas as pd
-from scipy.stats import expon, norm, rv_discrete, uniform, poisson
+from scipy.stats import expon, norm, poisson, rv_discrete, uniform
 
 
 def generate_ages(population, max_age=110):
