@@ -3,7 +3,7 @@ from datetime import datetime
 
 import numpy as np
 import pandas as pd
-from scipy.stats import expon, norm, rv_discrete, uniform
+from scipy.stats import expon, norm, poisson, rv_discrete, uniform
 
 
 def generate_ages(population, max_age=110):
@@ -110,12 +110,15 @@ def generate(population, **kwargs):
             mean = int_["mean"]
             stddev = int_["stddev"]
             df["int"] = norm.rvs(loc=mean, scale=stddev, size=population).astype("int")
+        elif int_["distribution"] == "poisson":
+            mean = int_["mean"]
+            df["int"] = poisson.rvs(mu=mean, size=population)
         elif int_["distribution"] == "population_ages":
             # A distribution that is something like a real UK population
             df["int"] = generate_ages(population)
         else:
             raise ValueError(
-                "Only `normal` and `population_ages` distributions currently supported"
+                "Only `normal`, `poisson`, and `population_ages` distributions currently supported for ints"
             )
     float_ = kwargs.pop("float", None)
     if float_:
@@ -125,7 +128,7 @@ def generate(population, **kwargs):
             df["float"] = norm.rvs(loc=mean, scale=stddev, size=population)
         else:
             raise ValueError(
-                "Only `normal` and `population_ages` distributions currently supported"
+                "Only `normal` distributions currently supported for floats"
             )
 
     bool_ = kwargs.pop("bool", None)

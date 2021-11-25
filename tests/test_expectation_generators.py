@@ -293,7 +293,7 @@ def test_data_generator_float():
     assert abs(35 - int(nonzero_results["float"].mean())) < 5
 
 
-def test_data_generator_int():
+def test_data_generator_int_normal():
     population_size = 10000
     incidence = 0.9
     return_expectations = {
@@ -304,6 +304,19 @@ def test_data_generator_int():
     }
     result = generate(population_size, **return_expectations)
     assert abs(10 - int(result["int"].mean())) < 3
+
+
+def test_data_generator_int_poisson():
+    population_size = 10000
+    incidence = 0.9
+    return_expectations = {
+        "rate": "exponential_increase",
+        "incidence": incidence,
+        "date": {"earliest": "1900-01-01", "latest": "2020-01-01"},
+        "int": {"distribution": "poisson", "mean": 5},
+    }
+    result = generate(population_size, **return_expectations)
+    assert abs(5 - int(result["int"].mean())) < 3
 
 
 def test_data_generator_bool():
