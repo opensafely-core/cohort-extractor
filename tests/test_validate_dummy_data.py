@@ -13,7 +13,7 @@ from cohortextractor.validate_dummy_data import (
 
 cl = codelist(["12345"], system="snomed")
 
-study = StudyDefinition(
+column_definitions = dict(
     default_expectations={"date": {"earliest": "2020-01-01", "latest": "today"}},
     population=patients.all(),
     sex=patients.sex(
@@ -54,6 +54,7 @@ study = StudyDefinition(
     ),
 )
 
+study = StudyDefinition(**column_definitions)
 covariate_definitions = study.covariate_definitions
 
 fixtures_path = Path(__file__).parent / "fixtures" / "dummy-data"
