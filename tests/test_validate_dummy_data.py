@@ -60,6 +60,28 @@ covariate_definitions = study.covariate_definitions
 fixtures_path = Path(__file__).parent / "fixtures" / "dummy-data"
 
 
+# Create a second test study to which we can add columns without needing to rebuild all
+# the test fixtures
+study_2 = StudyDefinition(
+    **column_definitions,
+    category_date=patients.categorised_as(
+        {
+            "2020-10-15": "age > 50",
+            "2021-11-16": "DEFAULT",
+        },
+        return_expectations={
+            "category": {
+                "ratios": {
+                    "2020-10-15": 0.5,
+                    "2021-11-16": 0.5,
+                }
+            },
+        },
+    ),
+)
+covariate_definitions_2 = study_2.covariate_definitions
+
+
 @pytest.mark.parametrize("file_format", SUPPORTED_FILE_FORMATS)
 def test_validate_dummy_data_valid(file_format, tmpdir):
     rows = zip(
@@ -70,14 +92,15 @@ def test_validate_dummy_data_valid(file_format, tmpdir):
         ["event_date_day", "2021-01-01", None],
         ["event_date_month", "2021-01", None],
         ["event_date_year", "2021", None],
+        ["category_date", "2020-10-15", "2021-11-16"],
     )
     path = Path(tmpdir) / f"dummy-data.{file_format}"
     if is_csv_filename(path):
         write_rows_to_csv(rows, path)
     else:
-        df = dataframe_from_rows(covariate_definitions, rows)
+        df = dataframe_from_rows(covariate_definitions_2, rows)
         dataframe_to_file(df, path)
-    validate_dummy_data(covariate_definitions, path)
+    validate_dummy_data(covariate_definitions_2, path)
 
 
 def test_validate_dummy_data_invalid_csv(subtests):
