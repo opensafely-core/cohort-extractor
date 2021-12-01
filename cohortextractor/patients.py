@@ -2382,6 +2382,7 @@ def outpatient_appointment_date(
     between=None,
     date_format="YYYY-MM-DD",
     find_first_match_in_period=None,
+    return_expectations=None,
 ):
     """
     Return when the patient had an outpatient appointment
@@ -2420,5 +2421,6 @@ def outpatient_appointment_date(
             It can be `YYYY-MM-DD`, `YYYY-MM` or `YYYY` and wherever possible
             the least disclosive data should be returned. i.e returning only
             year is less disclosive than a date with day, month and year.
+        return_expectations: as described elsewhere.
     """
     return "outpatient_appointment_date", locals()
