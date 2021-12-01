@@ -1,8 +1,21 @@
 # For developers
 
 ## Run cohortextractor commands
-Run commands in docker with `./run.sh cohortextractor --help`
 
+Run cohortextractor commands in Docker with `./run.sh cohortextractor --help`.
+
+If you need to point cohortextractor to a study, then you will need to change this in *run.sh*:
+
+```
+--volume "$PWD:/workspace" \
+```
+
+To this:
+
+```
+--volume "/path/to/a/study:/workspace" \
+--volume "$PWD:/app" \
+```
 
 ## Run tests
 
