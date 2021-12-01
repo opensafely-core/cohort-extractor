@@ -1,8 +1,21 @@
 # For developers
 
 ## Run cohortextractor commands
-Run commands in docker with `./run.sh cohortextractor --help`
 
+Run cohortextractor commands in Docker with `./run.sh cohortextractor --help`.
+
+If you need to point cohortextractor to a study, then you will need to change this in *run.sh*:
+
+```
+--volume "$PWD:/workspace" \
+```
+
+To this:
+
+```
+--volume "/path/to/a/study:/workspace" \
+--volume "$PWD:/app" \
+```
 
 ## Run tests
 
@@ -40,15 +53,12 @@ Note: if you change the database schema
 be sure to `docker-compose stop && docker-compose rm` before re-running
 tests to ensure they are recreated.
 
-### MacOS
+### macOS
 
-You should broadly follow the Linux instructions above, but use brew to install msodbcsql17 as per [Microsoft's instructions](https://docs.microsoft.com/en-us/sql/connect/odbc/linux-mac/install-microsoft-odbc-driver-sql-server-macos?view=sql-server-ver15), copied here:
-
-```bash
-brew tap microsoft/mssql-release https://github.com/Microsoft/homebrew-mssql-release
-brew update
-HOMEBREW_NO_ENV_FILTERING=1 ACCEPT_EULA=Y brew install msodbcsql17 mssql-tools
-```
+Running the tests in your own virtualenv on macOS is not advised, because of a hard-to-debug issue with OpenSSL and Microsoft's ODBC driver for SQL Server.
+Whilst the [installation instructions](https://docs.microsoft.com/en-us/sql/connect/odbc/linux-mac/install-microsoft-odbc-driver-sql-server-macos?view=sql-server-ver15) are clear,
+there are several [known issues](https://docs.microsoft.com/en-us/sql/connect/odbc/linux-mac/known-issues-in-this-version-of-the-driver?view=sql-server-ver15#connectivity) that you should be aware of.
+[*Hic sunt dracones*](https://en.wikipedia.org/wiki/Here_be_dragons).
 
 ## Make releases
 
