@@ -20,6 +20,7 @@ def process_covariate_definitions(covariate_definitions):
         covariate_definitions
     )
     covariate_definitions = add_column_types(covariate_definitions)
+    covariate_definitions = set_format_for_date_categories(covariate_definitions)
     check_for_consistent_aggregate_date_formats(covariate_definitions)
     return covariate_definitions
 
@@ -471,6 +472,16 @@ class GetColumnType:
                     f"different types (found '{column_type}' and '{other_type}')"
                 )
         return column_type
+
+
+def set_format_for_date_categories(covariate_definitions):
+    # It's convenient if we can assume that every column of type `date` has a
+    # `date_format` argument. Dates defined using `categorised_as` expressions are
+    # always in full ISO format.
+    for name, (query_type, query_args) in covariate_definitions.items():
+        if query_type == "categorised_as" and query_args["column_type"] == "date":
+            query_args["date_format"] = "YYYY-MM-DD"
+    return covariate_definitions
 
 
 def check_for_consistent_aggregate_date_formats(covariate_definitions):

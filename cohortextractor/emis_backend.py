@@ -270,7 +270,9 @@ class EMISBackend:
         else:
             raise ValueError(f"Unhandled column type: {column_type}")
 
-    def get_case_expression(self, other_columns, column_type, category_definitions):
+    def get_case_expression(
+        self, other_columns, column_type, category_definitions, date_format=None
+    ):
         category_definitions = category_definitions.copy()
         defaults = [k for (k, v) in category_definitions.items() if v == "DEFAULT"]
         if len(defaults) > 1:
