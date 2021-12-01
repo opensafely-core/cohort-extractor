@@ -40,16 +40,6 @@ Note: if you change the database schema
 be sure to `docker-compose stop && docker-compose rm` before re-running
 tests to ensure they are recreated.
 
-### MacOS
-
-You should broadly follow the Linux instructions above, but use brew to install msodbcsql17 as per [Microsoft's instructions](https://docs.microsoft.com/en-us/sql/connect/odbc/linux-mac/install-microsoft-odbc-driver-sql-server-macos?view=sql-server-ver15), copied here:
-
-```bash
-brew tap microsoft/mssql-release https://github.com/Microsoft/homebrew-mssql-release
-brew update
-HOMEBREW_NO_ENV_FILTERING=1 ACCEPT_EULA=Y brew install msodbcsql17 mssql-tools
-```
-
 ## Make releases
 
 To make a release, when you merge to the main branch, at least one of
