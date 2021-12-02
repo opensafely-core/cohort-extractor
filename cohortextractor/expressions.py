@@ -99,8 +99,8 @@ def filter_and_validate_tokens(tokens):
 def validate_string(token):
     # Remove quotes
     value = token.value[1:-1]
-    if len(value) > 16:
-        raise ValueError(f"String literals must be 16 characters or less: {value}")
+    if len(value) > 64:
+        raise ValueError(f"String literals must be 64 characters or less: {value}")
     if not SAFE_CHARS_RE.match(value) and not value == "":
         raise ValueError(
             f"String literals can only contain alphanumeric characters, "

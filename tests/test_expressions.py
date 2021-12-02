@@ -35,7 +35,7 @@ def test_validate_string():
     with pytest.raises(ValueError):
         format_expression('"no$special$chars"', **kwargs)
     with pytest.raises(ValueError):
-        format_expression('"all_ok_characters_but_just_a_bit_too_long"', **kwargs)
+        format_expression(f'"{"a" * 65}"', **kwargs)  # Too long
     # We support comparator characters as well as alphanumeric
     assert format_expression("'<>=~'", **kwargs)[0] == "'<>=~'"
     assert format_expression('"quoted"', **kwargs)[0] == "'quoted'"
