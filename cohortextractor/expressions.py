@@ -6,10 +6,10 @@ from sqlparse import tokens as ttypes
 
 IGNORE = object()
 
-# As well as alphanumeric and underscore characters which are generally used
-# for category names, we also have "comparator" categories for which we need to
-# allow the corresponding characters
-SAFE_CHARS_RE = re.compile(r"^[a-zA-Z0-9_<>=~]+$")
+# As well as alphanumeric, underscore, and space characters, which are generally used
+# for category names, we also have "comparator" categories for which we need to allow
+# the corresponding characters.
+SAFE_CHARS_RE = re.compile(r"^[a-zA-Z0-9_ <>=~]+$")
 
 
 class InvalidExpressionError(ValueError):
