@@ -31,12 +31,11 @@ def test_validation():
 def test_validate_string():
     kwargs = dict(name_map={}, empty_value_map={})
     with pytest.raises(ValueError):
-        format_expression('"no spaces"', **kwargs)
-    with pytest.raises(ValueError):
         format_expression('"no$special$chars"', **kwargs)
     with pytest.raises(ValueError):
         format_expression(f'"{"a" * 65}"', **kwargs)  # Too long
     # We support comparator characters as well as alphanumeric
+    assert format_expression("'spaces ok'", **kwargs)[0] == "'spaces ok'"
     assert format_expression("'<>=~'", **kwargs)[0] == "'<>=~'"
     assert format_expression('"quoted"', **kwargs)[0] == "'quoted'"
     assert format_expression('""', **kwargs)[0] == "''"
