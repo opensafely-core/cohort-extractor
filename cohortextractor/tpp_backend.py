@@ -4,6 +4,7 @@ import hashlib
 import re
 import uuid
 
+import pandas
 import structlog
 
 from .csv_utils import is_csv_filename, write_rows_to_csv
@@ -2719,6 +2720,92 @@ class TPPBackend:
             GROUP BY
               OPA.Patient_ID
             """
+
+    def patients_with_value_from_file(self, f_path, returning=None, type_=None):
+        if not is_csv_filename(f_path):
+            raise TypeError(f"Unexpected file type {f_path}")
+
+        if returning is not None and type_ is None:
+            # StudyDefinition.get_pandas_csv_args() should have raised an error before
+            # we reach here.
+            raise TypeError("If `returning` is passed, then `type_` must be passed")
+
+        if returning is None and type_ is not None:
+            raise TypeError("If `type_` is passed, then `returning` must be passed")
+
+        if returning is None and type_ is None:
+            # If we set these here, then we don't need to keep track of which is None
+            # later.
+            returning = "value"
+            type_ = "bool"
+
+        # Fail before reading the CSV file
+        if type_ == "bool":
+            column_type = "INT"
+        elif type_ == "date":
+            column_type = "DATE"
+        elif type_ == "str":
+            column_type = "VARCHAR(MAX)"
+        elif type_ == "int":
+            column_type = "INT"
+        elif type_ == "float":
+            column_type = "FLOAT"
+        else:
+            # StudyDefinition.get_pandas_csv_args() should have raised an error before
+            # we reach here.
+            raise TypeError(f"Unexpected type {type_}")
+
+        # Which columns of the CSV file should we read?
+        usecols = ["patient_id"]
+        if returning != "value":
+            usecols.append(returning)
+
+        # Read the CSV file into a data frame
+        values = pandas.read_csv(
+            f_path, index_col="patient_id", usecols=usecols, dtype=str
+        )
+
+        if returning == "value":
+            # Adding a dummy column here makes it easier to generate the SQL
+            values[returning] = 1
+
+        # Generate the SQL
+        table_name = self.get_temp_table_name("file")
+        column_name = self._current_column_name
+        queries = [
+            f"""
+            -- Uploading file for {column_name}
+            CREATE TABLE {table_name} (
+                patient_id BIGINT,
+                {column_name} {column_type}
+            )
+            """,
+        ]
+        insert_sql = f"INSERT INTO {table_name} (patient_id, {column_name}) VALUES"
+
+        batch_size = 999
+        for i in range(0, len(values), batch_size):
+            values_batch = values.iloc[i : i + batch_size]
+            values_sql_lines = [
+                "({}, {})".format(*map(quote, row)) for row in values_batch.itertuples()
+            ]
+            values_sql = ",\n".join(values_sql_lines)
+            queries.append(f"{insert_sql}\n{values_sql}")
+
+        queries.append(
+            f"""
+            SELECT
+                patient_id,
+                {column_name} AS {returning}
+            FROM
+                {table_name}
+            """
+        )
+
+        return queries
+
+    def patients_which_exist_in_file(self, f_path):
+        return self.patients_with_value_from_file(f_path)
 
 
 class ColumnExpression:

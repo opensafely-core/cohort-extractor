@@ -4330,6 +4330,111 @@ def test_outpatient_appointment_date_returning_consultation_medium_used_last_mat
     assert_results(study.to_dicts(), opa=["10", "30", "50", ""])
 
 
+@pytest.fixture
+def patient_ids():
+    session = make_session()
+    patient_instances = [Patient(), Patient()]
+    session.add_all(patient_instances)
+    session.commit()
+    return [x.Patient_ID for x in patient_instances]
+
+
+def _to_csv(records, tmp_path):
+    f_path = str(tmp_path / "records.csv")
+    pandas.DataFrame(records).to_csv(f_path, index=False)
+    return f_path
+
+
+def test_with_bool_value_from_file(patient_ids, tmp_path):
+    f_path = _to_csv(
+        [{"patient_id": patient_ids[0], "has_asthma": 1}],
+        tmp_path,
+    )
+    study = StudyDefinition(
+        population=patients.all(),
+        case_has_asthma=patients.with_value_from_file(
+            f_path, returning="has_asthma", type_="bool"
+        ),
+    )
+    # FIXME: How to distinguish between zero-as-null and zero-as-zero? If a patient was
+    # not in the file but was in the population, then their value would be zero-as-null.
+    # If a patient was in the file and was in the population, and their value in the
+    # file was zero, then their value would be zero-as-zero.
+    assert_results(study.to_dicts(), case_has_asthma=["1", "0"])  # zero-as-null
+
+
+def test_with_date_value_from_file(patient_ids, tmp_path):
+    f_path = _to_csv(
+        [{"patient_id": patient_ids[0], "index_date": "2021-01-01"}],
+        tmp_path,
+    )
+    study = StudyDefinition(
+        population=patients.all(),
+        case_index_date=patients.with_value_from_file(
+            f_path, returning="index_date", type_="date"
+        ),
+    )
+    assert_results(study.to_dicts(), case_index_date=["2021-01-01", ""])
+
+
+def test_with_str_value_from_file(patient_ids, tmp_path):
+    f_path = _to_csv(
+        [{"patient_id": patient_ids[0], "nuts1_region_name": "North East"}],
+        tmp_path,
+    )
+    study = StudyDefinition(
+        population=patients.all(),
+        case_nuts1_region_name=patients.with_value_from_file(
+            f_path, returning="nuts1_region_name", type_="str"
+        ),
+    )
+    assert_results(study.to_dicts(), case_nuts1_region_name=["North East", ""])
+
+
+def test_with_int_value_from_file(patient_ids, tmp_path):
+    f_path = _to_csv([{"patient_id": patient_ids[0], "age": 21}], tmp_path)
+    study = StudyDefinition(
+        population=patients.all(),
+        case_age=patients.with_value_from_file(f_path, returning="age", type_="int"),
+    )
+    assert_results(study.to_dicts(), case_age=["21", "0"])
+
+
+def test_with_float_value_from_file(patient_ids, tmp_path):
+    f_path = _to_csv([{"patient_id": patient_ids[0], "bmi": 18.5}], tmp_path)
+    study = StudyDefinition(
+        population=patients.all(),
+        case_bmi=patients.with_value_from_file(f_path, returning="bmi", type_="float"),
+    )
+    assert_results(study.to_dicts(), case_bmi=["18.5", "0.0"])
+
+
+def test_with_value_from_file_with_unexpected_file_type():
+    with pytest.raises(TypeError):
+        StudyDefinition(
+            population=patients.all(),
+            case_bmi=patients.with_value_from_file(
+                "records.feather", returning="bmi", type_="float"
+            ),
+        )
+
+
+def test_with_value_from_file_with_missing_returning_arg():
+    with pytest.raises(TypeError):
+        StudyDefinition(
+            population=patients.all(),
+            case_bmi=patients.with_value_from_file(
+                "records.csv", returning=None, type_="float"
+            ),
+        )
+
+
+def test_patients_which_exist_in_file(patient_ids, tmp_path):
+    f_path = _to_csv([{"patient_id": patient_ids[0]}], tmp_path)
+    study = StudyDefinition(population=patients.which_exist_in_file(f_path))
+    assert_results(study.to_dicts(), patient_id=[str(patient_ids[0])])
+
+
 def test_using_dates_as_categories():
     def make_events():
         return [

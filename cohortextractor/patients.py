@@ -2424,3 +2424,38 @@ def outpatient_appointment_date(
         return_expectations: as described elsewhere.
     """
     return "outpatient_appointment_date", locals()
+
+
+def with_value_from_file(f_path, returning, type_, date_format="YYYY-MM-DD"):
+    """
+    Returns values from a file.
+
+    Args:
+        f_path: a string indicating the path to the file. The file must be either a csv or a csv.gz file and must contain a `patient_id` column.
+        returning: a string indicating the column to return from the file. Whilst the file may contain several columns, only this column will be returned from the file.
+        type_: a string indicating the type of the column to return from the file. The options are:
+            * `bool`
+            * `date`
+            * `str`
+            * `int`
+            * `float`
+        date_format: a string indicating the format of the date, if `type_="date"`. The options are:
+            * `YYYY-MM-DD` The default value.
+            * `YYYY-MM`
+            * `YYYY`
+
+    This function does not accept a `return_expectations` argument because the file can contain dummy data.
+    """
+    return "with_value_from_file", locals()
+
+
+def which_exist_in_file(f_path):
+    """
+    Returns boolean values indicating whether patients exist in a file.
+
+    Args:
+        f_path: a string indicating the path to the file. The file must be either a csv or a csv.gz file and must contain a `patient_id` column.
+
+    This function does not accept a `return_expectations` argument because the file can contain dummy data.
+    """
+    return "which_exist_in_file", locals()
