@@ -501,17 +501,9 @@ class TPPBackend:
             )
             """
         ]
-        insert_sql = f"INSERT INTO {table_name} (code, category) VALUES"
-        # There's a limit on how many rows we can insert in one go using this method
-        # See: https://docs.microsoft.com/en-us/sql/t-sql/queries/table-value-constructor-transact-sql?view=sql-server-ver15#limitations-and-restrictions
-        batch_size = 999
-        for i in range(0, len(values), batch_size):
-            values_batch = values[i : i + batch_size]
-            values_sql_lines = [
-                "({}, {})".format(*map(quote, row)) for row in values_batch
-            ]
-            values_sql = ",\n".join(values_sql_lines)
-            queries.append(f"{insert_sql}\n{values_sql}")
+        queries += make_batches_of_insert_statements(
+            table_name, ("code", "category"), values
+        )
         return table_name, queries
 
     def get_temp_table_name(self, suffix):
@@ -2780,17 +2772,9 @@ class TPPBackend:
             )
             """,
         ]
-        insert_sql = f"INSERT INTO {table_name} (patient_id, {returning}) VALUES"
-
-        batch_size = 999
-        for i in range(0, len(values), batch_size):
-            values_batch = values.iloc[i : i + batch_size]
-            values_sql_lines = [
-                "({}, {})".format(*map(quote, row)) for row in values_batch.itertuples()
-            ]
-            values_sql = ",\n".join(values_sql_lines)
-            queries.append(f"{insert_sql}\n{values_sql}")
-
+        queries += make_batches_of_insert_statements(
+            table_name, ("patient_id", returning), list(values.itertuples())
+        )
         queries.append(
             f"""
             SELECT
@@ -2939,6 +2923,23 @@ def pop_keys_from_dict(dictionary, keys):
         if key in dictionary:
             new_dict[key] = dictionary.pop(key)
     return new_dict
+
+
+def make_batches_of_insert_statements(table_name, column_names, values):
+    column_names_sql = ", ".join(column_names)
+    insert_sql = f"INSERT INTO {table_name} ({column_names_sql}) VALUES"
+
+    # There's a limit on how many rows we can insert in one go using this method.
+    # See: https://docs.microsoft.com/en-us/sql/t-sql/queries/table-value-constructor-transact-sql?view=sql-server-ver15#limitations-and-restrictions
+    batch_size = 999
+    batches = []
+    for i in range(0, len(values), batch_size):
+        values_batch = values[i : i + batch_size]
+        values_sql_lines = ["({}, {})".format(*map(quote, row)) for row in values_batch]
+        values_sql = ",\n".join(values_sql_lines)
+        batches.append(f"{insert_sql}\n{values_sql}")
+
+    return batches
 
 
 class AppointmentStatus(enum.IntEnum):
