@@ -4356,10 +4356,6 @@ def test_with_bool_value_from_file(patient_ids, tmp_path):
             f_path, returning="has_asthma", type_="bool"
         ),
     )
-    # FIXME: How to distinguish between zero-as-null and zero-as-zero? If a patient was
-    # not in the file but was in the population, then their value would be zero-as-null.
-    # If a patient was in the file and was in the population, and their value in the
-    # file was zero, then their value would be zero-as-zero.
     assert_results(study.to_dicts(), case_has_asthma=["1", "0"])  # zero-as-null
 
 
