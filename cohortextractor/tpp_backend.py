@@ -2771,17 +2771,16 @@ class TPPBackend:
 
         # Generate the SQL
         table_name = self.get_temp_table_name("file")
-        column_name = self._current_column_name
         queries = [
             f"""
-            -- Uploading file for {column_name}
+            -- Uploading file for {returning}
             CREATE TABLE {table_name} (
                 patient_id BIGINT,
-                {column_name} {column_type}
+                {returning} {column_type}
             )
             """,
         ]
-        insert_sql = f"INSERT INTO {table_name} (patient_id, {column_name}) VALUES"
+        insert_sql = f"INSERT INTO {table_name} (patient_id, {returning}) VALUES"
 
         batch_size = 999
         for i in range(0, len(values), batch_size):
@@ -2796,7 +2795,7 @@ class TPPBackend:
             f"""
             SELECT
                 patient_id,
-                {column_name} AS {returning}
+                {returning}
             FROM
                 {table_name}
             """
