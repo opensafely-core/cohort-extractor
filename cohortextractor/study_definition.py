@@ -146,10 +146,6 @@ class StudyDefinition:
             from .emis_backend import EMISBackend
 
             return EMISBackend
-        elif database_url.startswith("databricks"):
-            from .databricks_backend import DatabricksBackend
-
-            return DatabricksBackend
         else:
             raise ValueError(f"No matching backend found for {database_url}")
 
