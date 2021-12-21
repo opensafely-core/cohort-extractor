@@ -30,8 +30,6 @@ setup(
     ],
     extras_require={
         "drivers": [
-            # Used by the Databricks backend
-            "pyspark",
             # Used by the EMIS backend
             "presto-python-client",
             # Used by the TPP backend
