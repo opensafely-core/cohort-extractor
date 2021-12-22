@@ -15,12 +15,12 @@ jobs:
       - uses: actions/setup-python@v2
         with:
           python-version: "3.8"
-      - name: Install
+      - name: Install deps
         run: |
-          set -xe
-          python -m pip install --upgrade pip
-          python -m venv venv
-          venv/bin/pip install --progress-bar=off --requirement requirements.txt
+            # ensure requirements .txt files are timestamped later than .in
+            # files so we don't re-compile them
+            touch requirements.*.txt
+            make devenv
       - name: Run all pre-commit checks
         run: |
           source ${{ github.workspace }}/venv/bin/activate
@@ -35,18 +35,28 @@ jobs:
       - uses: actions/setup-python@v2
         with:
           python-version: "3.8"
-      - name: Install
+      - name: Install dpes
         run: |
-          set -xe
-          python -m pip install --upgrade pip
-          python -m venv venv
-          venv/bin/pip install --progress-bar=off --requirement requirements.txt
+            # ensure requirements .txt files are timestamped later than .in
+            # files so we don't re-compile them
+            touch requirements.*.txt
+            make devenv
       - name: Start SQL Server and Trino instances for the tests
         run: docker-compose up -d mssql trino
       - name: Run tests
         run: |
           source ${{ github.workspace }}/venv/bin/activate
           PYTHONPATH=. pytest -vvv tests/
+
+  docker-tests:
+    name: Test docker build
+    runs-on: ubuntu-20.04
+    steps:
+      - uses: actions/checkout@v2
+      - name: Build docker
+        run: make docker-build ENV=dev
+      - name: Basic docker test
+        run: docker-compose run --rm -v $PWD:/workspace dev pytest
 
   build:
     name: Test we can build PyPI package

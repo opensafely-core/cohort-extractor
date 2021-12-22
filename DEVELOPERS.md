@@ -4,17 +4,10 @@
 
 Run cohortextractor commands in Docker with `./run.sh cohortextractor --help`.
 
-If you need to point cohortextractor to a study, then you will need to change this in *run.sh*:
+If you need to point cohortextractor to a study, then you can set the WORKSPACE env var
 
 ```
---volume "$PWD:/workspace" \
-```
-
-To this:
-
-```
---volume "/path/to/a/study:/workspace" \
---volume "$PWD:/app" \
+WORKSPACE=/path/to/study ./run.sh ...
 ```
 
 ## Run tests
@@ -31,7 +24,6 @@ You can also run the tests in your own virtualenv, but either way you
 will (probably) still want to use docker to run a SQL Server instance:
 
 * Start an mssql and server with `docker-compose up`
-* Set up a Python 3.8 virtualenv and `pip install -r requirements.txt`
 * install system dependencies
 ```
 # mssql tools
@@ -44,9 +36,8 @@ apt-get install -y gnupg && \
   ACCEPT_EULA=Y apt-get install -y mssql-tools
 export PATH=$PATH:/opt/mssql-tools/bin
 
-# java
-apt-get update && apt-get install -y default-jre
 ```
+* Set up virtual env: `make devenv` - Note: if not on linux, you may need to install ctds manually
 * `py.test tests/`
 
 Note: if you change the database schema

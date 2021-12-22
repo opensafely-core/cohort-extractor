@@ -1,4 +1,3 @@
-version: '3.6'
 services:
   mssql:
     image: "mcr.microsoft.com/mssql/server:2017-latest"
@@ -19,10 +18,41 @@ services:
       - ./starburst/etc:/etc/starburst
     depends_on:
       - mssql
-  app:
-    build: .
+
+  # used to build the production image
+  prod:
+    profiles:
+        - do_not_start
+    image: cohortextractor
+    build:
+      context: .
+      target: cohortextractor
+      # should speed up the build in CI, where we have a cold cache
+      cache_from:  # should speed up the build in CI, where we have a cold cache
+        - ghcr.io/opensafely-core/base-docker
+        - ghcr.io/opensafely-core/cohortextractor
+      args:
+        # this makes the image work for later cache_from: usage
+        - BUILDKIT_INLINE_CACHE=1
+        # env vars supplied by make/just
+        - BUILD_DATE
+        - GITREF
+    init: true
+
+  # used to build and run the development image, with test dependencies and
+  # code mounted in
+  dev:
+    extends: prod
+    image: cohortextractor-dev
+    container_name: cohortextractor-dev
+    build:
+      target: cohortextractor-dev
+    environment:
+      TPP_DATABASE_URL: "mssql://SA:Your_password123!@mssql:1433/Test_OpenCorona"
+      EMIS_DATABASE_URL: "trino://trino:8080/mssql/dbo"
+      EMIS_DATASOURCE_DATABASE_URL: "mssql://SA:Your_password123!@mssql:1433/Test_EMIS"
     volumes:
-      - .:/home/app/notebook
+      - .:/app
     depends_on:
       - mssql
       - trino

@@ -2,8 +2,11 @@ import os
 
 from setuptools import find_packages, setup
 
-with open(os.path.join("cohortextractor", "VERSION")) as f:
-    version = f.read().strip()
+try:
+    with open(os.path.join("cohortextractor", "VERSION")) as f:
+        version = f.read().strip()
+except Exception:
+    version = "99.99.99.dev1"
 
 setup(
     name="opensafely-cohort-extractor",
@@ -33,7 +36,7 @@ setup(
             # Used by the EMIS backend
             "presto-python-client",
             # Used by the TPP backend
-            "ctds",
+            "ctds",  # Note: we pin this to specific pre-built wheel in requirements.prod.in
             "pyodbc",
         ]
     },
