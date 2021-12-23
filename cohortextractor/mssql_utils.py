@@ -53,7 +53,7 @@ def mssql_dbapi_connection_from_url(url):
         "Unable to import database driver, tried `ctds` and `pyodbc`\n"
         "\n"
         "We use `ctds` in production. If you are on Linux the correct version is "
-        "specified in the `requirements.txt` file.\n"
+        "specified in the `requirements.prod.txt` file.\n"
         "\n"
         "Installation instructions for other platforms can be found at:\n"
         "https://zillow.github.io/ctds/install.html"
