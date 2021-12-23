@@ -5,21 +5,30 @@ BIN = $(VIRTUAL_ENV)/bin
 
 
 .PHONY: prodenv
-prodenv: requirements.prod.txt
-	$(BIN)/pip install -r requirements.prod.txt
-
+prodenv: $(VIRTUAL_ENV)/prod
 
 .PHONY: devenv
-devenv: requirements.dev.txt prodenv
+devenv: $(VIRTUAL_ENV)/dev
+
+$(VIRTUAL_ENV)/prod: requirements.prod.txt | $(VIRTUAL_ENV)
+	$(BIN)/pip install -r requirements.prod.txt
+	touch $@
+
+$(VIRTUAL_ENV)/dev: $(VIRTUAL_ENV)/prod requirements.dev.txt
 	$(BIN)/pip install -r requirements.dev.txt
+	touch $@
 
 
 # combine setup.py and requirements.prod.in
-requirements.prod.txt: setup.py requirements.prod.in $(BIN)/pip-compile
+requirements.prod.txt: setup.py requirements.prod.in
+	@# ensure we have pip-compile
+	$(MAKE) $(BIN)/pip-compile
 	$(VIRTUAL_ENV)/bin/pip-compile setup.py --extra drivers requirements.prod.in -o requirements.prod.txt
 
 
-requirements.dev.txt: requirements.dev.in requirements.prod.txt $(BIN)/pip-compile
+requirements.dev.txt: requirements.dev.in requirements.prod.txt
+	@# ensure we have pip-compile
+	$(MAKE) $(BIN)/pip-compile
 	$(VIRTUAL_ENV)/bin/pip-compile requirements.dev.in
 
 
