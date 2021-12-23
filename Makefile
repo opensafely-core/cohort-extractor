@@ -34,7 +34,7 @@ $(VIRTUAL_ENV):
 
 
 # build the production docker image
-.PHONY: build
+.PHONY: docker-build
 docker-build: export BUILD_DATE=$(shell date +'%y-%m-%dT%H:%M:%S.%3NZ')
 docker-build: export GITREF=$(shell git rev-parse --short HEAD)
 docker-build: export DOCKER_BUILDKIT=1

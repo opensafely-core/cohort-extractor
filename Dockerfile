@@ -33,7 +33,7 @@ RUN --mount=type=cache,target=/var/cache/apt \
 
 #################################################
 #
-# Next, use the dependencies image to create and image to build dependencies
+# Next, use the dependencies image to create an image to build dependencies
 FROM cohortextractor-dependencies as cohortextractor-builder
 
 # install build time dependencies
