@@ -1331,7 +1331,9 @@ class TPPBackend:
         )
         queries += [
             f"""
-            SELECT Patient_ID, CAST(ConsultationDate AS date) AS day
+            SELECT
+              {coded_event_table}.Patient_ID AS Patient_ID,
+              CAST(ConsultationDate AS date) AS day
             INTO {same_day_table}
             FROM {coded_event_table}
             INNER JOIN {codelist_table}
