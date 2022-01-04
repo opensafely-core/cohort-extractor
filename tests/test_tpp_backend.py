@@ -4429,6 +4429,16 @@ def test_with_value_from_file_with_missing_returning_arg():
         )
 
 
+def test_with_value_from_file_with_invalid_returning_arg():
+    with pytest.raises(ValueError):
+        StudyDefinition(
+            population=patients.all(),
+            case_bmi=patients.with_value_from_file(
+                "records.csv", returning="bmi-value", returning_type="float"
+            ),
+        )
+
+
 def test_patients_which_exist_in_file(patient_ids, tmp_path):
     f_path = _to_csv([{"patient_id": patient_ids[0]}], tmp_path)
     study = StudyDefinition(population=patients.which_exist_in_file(f_path))

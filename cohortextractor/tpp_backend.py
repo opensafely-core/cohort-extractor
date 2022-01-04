@@ -2737,6 +2737,14 @@ class TPPBackend:
             returning = "value"
             returning_type = "bool"
 
+        # Compiled patterns passed to the module-level matching functions are
+        # cached. As we don't use many patterns, we need not worry
+        # about compiling them first.
+        if not re.fullmatch(r"\w+", returning, re.ASCII):
+            raise ValueError(
+                "The column name given by `returning` should contain only alphanumeric characters and the underscore character"
+            )
+
         # Fail before reading the CSV file
         if returning_type == "bool":
             column_type = "INT"
