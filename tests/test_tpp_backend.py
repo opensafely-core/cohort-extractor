@@ -4439,6 +4439,22 @@ def test_with_value_from_file_with_invalid_returning_arg():
         )
 
 
+def test_with_value_from_file_with_value_as_returning_arg(patient_ids, tmp_path):
+    # Test that when the returning argument is "value", cells from the this
+    # column are inserted into the database.
+    f_path = _to_csv(
+        [{"patient_id": patient_ids[0], "value": "North East"}],
+        tmp_path,
+    )
+    study = StudyDefinition(
+        population=patients.all(),
+        case_nuts1_region_name=patients.with_value_from_file(
+            f_path, returning="value", returning_type="str"
+        ),
+    )
+    assert_results(study.to_dicts(), case_nuts1_region_name=["North East", ""])
+
+
 def test_patients_which_exist_in_file(patient_ids, tmp_path):
     f_path = _to_csv([{"patient_id": patient_ids[0]}], tmp_path)
     study = StudyDefinition(population=patients.which_exist_in_file(f_path))

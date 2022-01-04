@@ -2731,22 +2731,16 @@ class TPPBackend:
                 "If `returning_type` is passed, then `returning` must be passed"
             )
 
-        if returning is None and returning_type is None:
-            # If we set these here, then we don't need to keep track of which is None
-            # later.
-            returning = "value"
-            returning_type = "bool"
-
         # Compiled patterns passed to the module-level matching functions are
         # cached. As we don't use many patterns, we need not worry
         # about compiling them first.
-        if not re.fullmatch(r"\w+", returning, re.ASCII):
+        if returning is not None and not re.fullmatch(r"\w+", returning, re.ASCII):
             raise ValueError(
                 "The column name given by `returning` should contain only alphanumeric characters and the underscore character"
             )
 
         # Fail before reading the CSV file
-        if returning_type == "bool":
+        if returning_type == "bool" or returning_type is None:
             column_type = "INT"
         elif returning_type == "date":
             column_type = "DATE"
@@ -2763,7 +2757,7 @@ class TPPBackend:
 
         # Which columns of the CSV file should we read?
         usecols = ["patient_id"]
-        if returning != "value":
+        if returning is not None:
             usecols.append(returning)
 
         # Read the CSV file into a data frame
@@ -2771,9 +2765,10 @@ class TPPBackend:
             f_path, index_col="patient_id", usecols=usecols, dtype=str
         )
 
-        if returning == "value":
+        if returning is None:
             # Adding a dummy column here makes it easier to generate the SQL
-            values[returning] = 1
+            values["value"] = 1
+            returning = "value"
 
         # Generate the SQL
         table_name = self.get_temp_table_name("file")
