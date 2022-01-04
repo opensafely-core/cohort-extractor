@@ -4353,7 +4353,7 @@ def test_with_bool_value_from_file(patient_ids, tmp_path):
     study = StudyDefinition(
         population=patients.all(),
         case_has_asthma=patients.with_value_from_file(
-            f_path, returning="has_asthma", type_="bool"
+            f_path, returning="has_asthma", returning_type="bool"
         ),
     )
     assert_results(study.to_dicts(), case_has_asthma=["1", "0"])  # zero-as-null
@@ -4367,7 +4367,7 @@ def test_with_date_value_from_file(patient_ids, tmp_path):
     study = StudyDefinition(
         population=patients.all(),
         case_index_date=patients.with_value_from_file(
-            f_path, returning="index_date", type_="date"
+            f_path, returning="index_date", returning_type="date"
         ),
     )
     assert_results(study.to_dicts(), case_index_date=["2021-01-01", ""])
@@ -4381,7 +4381,7 @@ def test_with_str_value_from_file(patient_ids, tmp_path):
     study = StudyDefinition(
         population=patients.all(),
         case_nuts1_region_name=patients.with_value_from_file(
-            f_path, returning="nuts1_region_name", type_="str"
+            f_path, returning="nuts1_region_name", returning_type="str"
         ),
     )
     assert_results(study.to_dicts(), case_nuts1_region_name=["North East", ""])
@@ -4391,7 +4391,9 @@ def test_with_int_value_from_file(patient_ids, tmp_path):
     f_path = _to_csv([{"patient_id": patient_ids[0], "age": 21}], tmp_path)
     study = StudyDefinition(
         population=patients.all(),
-        case_age=patients.with_value_from_file(f_path, returning="age", type_="int"),
+        case_age=patients.with_value_from_file(
+            f_path, returning="age", returning_type="int"
+        ),
     )
     assert_results(study.to_dicts(), case_age=["21", "0"])
 
@@ -4400,7 +4402,9 @@ def test_with_float_value_from_file(patient_ids, tmp_path):
     f_path = _to_csv([{"patient_id": patient_ids[0], "bmi": 18.5}], tmp_path)
     study = StudyDefinition(
         population=patients.all(),
-        case_bmi=patients.with_value_from_file(f_path, returning="bmi", type_="float"),
+        case_bmi=patients.with_value_from_file(
+            f_path, returning="bmi", returning_type="float"
+        ),
     )
     assert_results(study.to_dicts(), case_bmi=["18.5", "0.0"])
 
@@ -4410,7 +4414,7 @@ def test_with_value_from_file_with_unexpected_file_type():
         StudyDefinition(
             population=patients.all(),
             case_bmi=patients.with_value_from_file(
-                "records.feather", returning="bmi", type_="float"
+                "records.feather", returning="bmi", returning_type="float"
             ),
         )
 
@@ -4420,7 +4424,7 @@ def test_with_value_from_file_with_missing_returning_arg():
         StudyDefinition(
             population=patients.all(),
             case_bmi=patients.with_value_from_file(
-                "records.csv", returning=None, type_="float"
+                "records.csv", returning=None, returning_type="float"
             ),
         )
 

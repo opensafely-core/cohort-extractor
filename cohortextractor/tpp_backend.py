@@ -2713,39 +2713,45 @@ class TPPBackend:
               OPA.Patient_ID
             """
 
-    def patients_with_value_from_file(self, f_path, returning=None, type_=None):
+    def patients_with_value_from_file(
+        self, f_path, returning=None, returning_type=None
+    ):
         if not is_csv_filename(f_path):
             raise TypeError(f"Unexpected file type {f_path}")
 
-        if returning is not None and type_ is None:
+        if returning is not None and returning_type is None:
             # StudyDefinition.get_pandas_csv_args() should have raised an error before
             # we reach here.
-            raise TypeError("If `returning` is passed, then `type_` must be passed")
+            raise TypeError(
+                "If `returning` is passed, then `returning_type` must be passed"
+            )
 
-        if returning is None and type_ is not None:
-            raise TypeError("If `type_` is passed, then `returning` must be passed")
+        if returning is None and returning_type is not None:
+            raise TypeError(
+                "If `returning_type` is passed, then `returning` must be passed"
+            )
 
-        if returning is None and type_ is None:
+        if returning is None and returning_type is None:
             # If we set these here, then we don't need to keep track of which is None
             # later.
             returning = "value"
-            type_ = "bool"
+            returning_type = "bool"
 
         # Fail before reading the CSV file
-        if type_ == "bool":
+        if returning_type == "bool":
             column_type = "INT"
-        elif type_ == "date":
+        elif returning_type == "date":
             column_type = "DATE"
-        elif type_ == "str":
+        elif returning_type == "str":
             column_type = "VARCHAR(MAX)"
-        elif type_ == "int":
+        elif returning_type == "int":
             column_type = "INT"
-        elif type_ == "float":
+        elif returning_type == "float":
             column_type = "FLOAT"
         else:
             # StudyDefinition.get_pandas_csv_args() should have raised an error before
             # we reach here.
-            raise TypeError(f"Unexpected type {type_}")
+            raise TypeError(f"Unexpected type {returning_type}")
 
         # Which columns of the CSV file should we read?
         usecols = ["patient_id"]
