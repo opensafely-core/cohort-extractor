@@ -36,8 +36,7 @@ setup(
             # Used by the EMIS backend
             "presto-python-client",
             # Used by the TPP backend
-            "ctds",  # Note: we pin this to specific pre-built wheel in requirements.prod.in
-            "pyodbc",
+            "pymssql",
         ]
     },
     entry_points={

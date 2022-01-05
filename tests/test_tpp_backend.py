@@ -163,7 +163,7 @@ def test_correct_driver_used():
     # running against the same driver we use in production
     study = StudyDefinition(population=patients.all())
     module = study.backend.get_db_connection().__class__.__module__
-    assert module == "ctds"
+    assert module.startswith("pymssql")
 
 
 def test_meds():

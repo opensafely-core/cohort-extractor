@@ -162,14 +162,18 @@ class TPPBackend:
             # https://docs.microsoft.com/en-us/sql/t-sql/queries/select-into-clause-transact-sql?view=sql-server-ver15#remarks
             conn = self.get_db_connection()
             logger.info(f"Writing results into temporary table '{output_table}'")
-            previous_autocommit = conn.autocommit
-            conn.autocommit = False
+            # pymssql's autocommit implementation is different to CTDS and MS
+            # pyodbc. Firstly, it's a method rather than a property.  Secondly,
+            # when autocommit is off, it implicity starts a transaction from
+            # the client, so we do not need to do it. CTDS do not seem to do
+            # this, which means we would have to begin it manually.
+            previous_autocommit = conn.autocommit_state
+            conn.autocommit(False)
             cursor = conn.cursor()
-            cursor.execute("BEGIN TRANSACTION")
             cursor.execute(f"SELECT * INTO {output_table} FROM ({final_query}) t")
             cursor.execute(f"CREATE INDEX ix_patient_id ON {output_table} (patient_id)")
-            cursor.execute("COMMIT")
-            conn.autocommit = previous_autocommit
+            conn.commit()
+            conn.autocommit(previous_autocommit)
             logger.info(f"Downloading results from '{output_table}'")
         else:
             logger.info(f"Downloading results from previous run in '{output_table}'")
@@ -196,7 +200,7 @@ class TPPBackend:
         test_table = f"{db_name}..test_{uuid.uuid4().hex}"
         cursor = self.get_db_connection().cursor()
         try:
-            cursor.execute(f"SELECT 1 AS foo INTO {test_table}")
+            cursor.execute(f"SELECT * INTO {test_table} FROM (select 1 as foo) t")
             cursor.execute(f"DROP TABLE {test_table}")
         # Because we don't want to depend on a specific database driver we
         # can't catch a specific exception class here

@@ -61,3 +61,20 @@ or a final line starting `BREAKING CHANGE:` (major release).
 Other types are ignored, but you might as well use them: `docs`,
 `style`, `refactor`, `ci`, `revert` are likely to be the most common,
 but there's [a full list here](https://github.com/commitizen/conventional-commit-types/blob/master/index.json)
+
+
+
+## Debugging pymssql
+
+To get query logs from pymssql, we can set an envvar: `TDSDUMP=stdout`. You can just set this when using local venv, or uncomment the line in
+docker-compose.yaml if using run.sh.
+
+It's useful when disabling pytest's output/log capturing:
+
+`./run.sh pytest -s --log-cli-level=INFO`
+
+
+Ths output is very verbose, so this grep filter might help filter out the noise
+(note: there are tab characters in there).
+
+`grep -vE '^([a-z]+\.[ch]:|[0-9a-f]{4} |                |       .*[:=].*)' | grep -v -e '^[[:space:]]*$'`
