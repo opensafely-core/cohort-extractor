@@ -2244,8 +2244,8 @@ def with_high_cost_drugs(
     """
     Returns data from the High Cost Drugs Dataset
 
-    More details available in this notebook:
-    https://github.com/opensafely/highcostdrugs-research/blob/master/analysis/High%20Cost%20Drugs%20Dataset.ipynb
+    More details on this dataset available here:
+    https://wellcomeopenresearch.org/articles/6-360
 
     Args:
         drug_name_matches: a drug name as a string, or a list of such names, or
