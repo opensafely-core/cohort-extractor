@@ -19,11 +19,10 @@ $(VIRTUAL_ENV)/dev: $(VIRTUAL_ENV)/prod requirements.dev.txt
 	touch $@
 
 
-# combine setup.py and requirements.prod.in
-requirements.prod.txt: setup.py requirements.prod.in
+requirements.prod.txt: setup.py
 	@# ensure we have pip-compile
 	$(MAKE) $(BIN)/pip-compile
-	$(VIRTUAL_ENV)/bin/pip-compile setup.py --extra drivers requirements.prod.in -o requirements.prod.txt
+	$(VIRTUAL_ENV)/bin/pip-compile setup.py --extra drivers -o requirements.prod.txt
 
 
 requirements.dev.txt: requirements.dev.in requirements.prod.txt

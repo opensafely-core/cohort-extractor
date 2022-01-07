@@ -10,6 +10,7 @@ from sqlalchemy import (
     ForeignKey,
     Integer,
     String,
+    types,
 )
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship, sessionmaker
@@ -18,8 +19,24 @@ from cohortextractor.mssql_utils import (
     mssql_sqlalchemy_engine_from_url,
     wait_for_mssql_to_be_ready,
 )
+from cohortextractor.tpp_backend import AppointmentStatus
 
 Base = declarative_base()
+
+
+# a SQLAlchemy enum that uses the int values rather than the strings
+class IntEnum(types.TypeDecorator):
+    impl = Integer
+
+    def __init__(self, enumtype, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._enumtype = enumtype
+
+    def process_bind_param(self, value, dialect):
+        return value.value
+
+    def process_result_value(self, value, dialect):
+        return self._enumtype(value)
 
 
 def make_engine():
@@ -158,7 +175,7 @@ class Appointment(Base):
     # The real table has various other datetime columns but we don't currently
     # use them
     SeenDate = Column(DateTime)
-    Status = Column(Integer)
+    Status = Column(IntEnum(AppointmentStatus))
 
 
 class Patient(Base):

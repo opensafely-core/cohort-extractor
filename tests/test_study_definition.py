@@ -238,7 +238,7 @@ def test_drivers_not_accidentally_imported(tmp_path):
             ),
         )
         study.to_file("{tmp_path}/dummy.csv", expectations_population=10)
-        drivers = ["pyodbc", "ctds", "trino"]
+        drivers = ["pymssql", "pyodbc", "ctds", "trino"]
         imported_drivers = [i for i in drivers if i in sys.modules]
         print(f"imported_drivers={imported_drivers}")
     """
