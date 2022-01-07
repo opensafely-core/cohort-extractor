@@ -3,6 +3,11 @@ on:
   push:
     branches:
       - main
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: explicit tag to publish
+        required: true
 
 env:
   IMAGE_NAME: cohortextractor
@@ -65,12 +70,14 @@ jobs:
     runs-on: ubuntu-latest
     name: Build and publish docker image
     needs: tag-new-version
-    if: needs.tag-new-version.outputs.tag
+    if: github.events.inputs.tag or needs.tag-new-version.outputs.tag
     steps:
     - name: Checkout
       uses: actions/checkout@v1
+    - name: set VERSION environment variable
+      run: echo "VERSION={github.event.inputs.tag or needs.tag-new-version.outputs.tag}" >> $GITHUB_ENV
     - name: Generate correct value for VERSION file
-      run: echo ${{ needs.tag-new-version.outputs.tag }} > cohortextractor/VERSION
+      run: echo "$VERSION" > cohortextractor/VERSION
     - name: Build docker
       run: make docker-build ENV=prod
     - name: Basic docker test
@@ -79,10 +86,11 @@ jobs:
       run: docker login https://ghcr.io -u ${{ github.actor }} --password ${{ secrets.DOCKER_RW_TOKEN }}
     - name: Push image to GitHub Container Registry
       run: |
+        echo "VERSION=$VERSION"
         IMAGE_ID=ghcr.io/${{ github.repository_owner }}/$IMAGE_NAME
         # Change all uppercase to lowercase
         IMAGE_ID=$(echo $IMAGE_ID | tr '[A-Z]' '[a-z]')
-        VERSION=${{ needs.tag-new-version.outputs.tag }}
         docker tag $IMAGE_NAME $IMAGE_ID:latest
         docker tag $IMAGE_NAME $IMAGE_ID:$VERSION
-        docker push $IMAGE_ID:latest
+        #docker push $IMAGE_ID:latest
+        #docker push $IMAGE_ID:$VERSION
