@@ -48,7 +48,7 @@ docker-build: export GITREF=$(shell git rev-parse --short HEAD)
 docker-build: export DOCKER_BUILDKIT=1
 docker-build: ENV=dev
 docker-build:
-	docker-compose build $(ARGS) $(ENV)
+	docker-compose build --pull $(ARGS) $(ENV)
 
 
 
