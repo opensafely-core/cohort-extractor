@@ -9,6 +9,7 @@ FROM ghcr.io/opensafely-core/base-action:latest as cohortextractor-dependencies
 # setup default env vars for all images
 # ACTION_EXEC sets the default executable for the entrypoint in the base-action image
 ENV VIRTUAL_ENV=/opt/venv/ \
+    PYTHONPATH=/app \
     PATH="/opt/venv/bin:/opt/mssql-tools/bin:$PATH" \
     ACTION_EXEC=cohortextractor \
     PYTHONUNBUFFERED=True \
@@ -50,28 +51,38 @@ COPY requirements.prod.txt /root/requirements.prod.txt
 # hadolint ignore=DL3042
 RUN --mount=type=cache,target=/root/.cache python -m pip install -r /root/requirements.prod.txt
 
-# WARNING clever/ugly hack alert:
-#
-# We could just do `COPY . /app` and install from there. But if we do, any
-# changes to app files will invalidate this and all subsequent layers, causing
-# them to need rebuilding. This would mean basically reinstalling dev
-# dependencies every time.
-#
-# To avoid this, we just copy the setup.py file, and use that to install the
-# package as an editable package, without  deps. This does two things:
-#
-# 1. Sets up `cohortextractor` entrypoint in `/opt/venv/bin/`
-# 2. Sets up a `.egg-link` file in `/opt/venv/lib/site-packages` that will load
-#    cohortextractor from /app.
-#
-# This means we can later populate /app with the actual code (via copying or
-# mounting), and it will already be plugged in to the virtualenv and ready to
-# go.
 
+# WARNING clever/ugly python packaging hacks alert
+#
+# We could just do `COPY . /app` and then `pip install /app`. However, this is
+# not ideal for a number of reasons:
+#
+# 1) Any changes to the app files will invalidate this and all subsequent
+#    layers, causing them to need rebuilding. This would mean basically
+#    reinstalling dev dependencies every time.
+#
+# 2) We want to use the pinned versions of dependencies in
+#    requirements.prod.txt rather than the unpinned versions in setup.py.
+#
+# 3) We want for developers be able to mount /app with their code and it Just
+#    Works, without reinstalling anything.
+#
+# So, we do the following:
+#
+# 1) Just copy the setup.py file, and install an empty package from it alone.
+#    This means we only repeat this step if setup.py changes, which is
+#    infrequently.
+#
+# 2) We install it without deps, as they've already been installed.
+#
+# 3) We have set PYTHONPATH=/app, so that code copied or mounted into /app will
+#    be used automatically.
+#
+# Note: we only really need to install it at all to use setuptools entrypoints.
 RUN mkdir /app
 COPY setup.py /app/setup.py
 # hadolint ignore=DL3042
-RUN python -m pip install --no-deps --editable /app
+RUN python -m pip install --no-deps /app
 
 
 ################################################
