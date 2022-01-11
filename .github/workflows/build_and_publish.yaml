@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: explicit tag to publish
+        description: explicit tag to publish (must start with v)
         required: true
 
 env:
@@ -54,9 +54,10 @@ jobs:
     - name: Install wheel package
       run: |
         pip install wheel
+    - name: set VERSION environment variable
+      run: echo "VERSION=${{github.event.inputs.tag || needs.tag-new-version.outputs.tag}}" >> $GITHUB_ENV
     - name: Generate correct value for VERSION file
-      run: |
-        echo ${{ needs.tag-new-version.outputs.tag }} > cohortextractor/VERSION
+      run: echo "$VERSION" > cohortextractor/VERSION
     - name: Build package
       run: |
         python setup.py sdist bdist_wheel
@@ -75,7 +76,7 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v1
     - name: set VERSION environment variable
-      run: echo "VERSION='${{github.event.inputs.tag || needs.tag-new-version.outputs.tag}}'" >> $GITHUB_ENV
+      run: echo "VERSION=${{github.event.inputs.tag || needs.tag-new-version.outputs.tag}}" >> $GITHUB_ENV
     - name: Generate correct value for VERSION file
       run: echo "$VERSION" > cohortextractor/VERSION
     - name: Build docker
@@ -92,5 +93,5 @@ jobs:
         IMAGE_ID=$(echo $IMAGE_ID | tr '[A-Z]' '[a-z]')
         docker tag $IMAGE_NAME $IMAGE_ID:latest
         docker tag $IMAGE_NAME $IMAGE_ID:$VERSION
-        #docker push $IMAGE_ID:latest
-        #docker push $IMAGE_ID:$VERSION
+        docker push $IMAGE_ID:latest
+        docker push $IMAGE_ID:$VERSION
