@@ -15,6 +15,7 @@ def test_dataframe_from_rows():
         (3, 65, "M", 0, "STP2", "", "2020-07"),
         (4, 42, "F", 17.8, "", "2020-04-10", "2020-08"),
         (5, 18, "M", 26.2, "STP3", "2020-06-20", ""),
+        (6, 44, "M", 14.2, "STP3", "2020-06-20", "9999-12-30 00:00:00"),
     ]
     covariate_definitions = {
         "population": ("satisfying", {"column_type": "bool"}),
@@ -72,6 +73,15 @@ def test_dataframe_from_rows():
             "stp": "STP3",
             "date_admitted": Timestamp("2020-06-20 00:00:00"),
             "date_died": NaT,
+        },
+        {
+            "patient_id": 6,
+            "age": 44,
+            "sex": "M",
+            "bmi": 14.2,
+            "stp": "STP3",
+            "date_admitted": Timestamp("2020-06-20 00:00:00"),
+            "date_died": Timestamp.max,
         },
     ]
 
