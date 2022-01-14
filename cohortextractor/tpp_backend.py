@@ -4,6 +4,7 @@ import hashlib
 import re
 import uuid
 
+import pandas
 import structlog
 
 from .csv_utils import is_csv_filename, write_rows_to_csv
@@ -504,17 +505,9 @@ class TPPBackend:
             )
             """
         ]
-        insert_sql = f"INSERT INTO {table_name} (code, category) VALUES"
-        # There's a limit on how many rows we can insert in one go using this method
-        # See: https://docs.microsoft.com/en-us/sql/t-sql/queries/table-value-constructor-transact-sql?view=sql-server-ver15#limitations-and-restrictions
-        batch_size = 999
-        for i in range(0, len(values), batch_size):
-            values_batch = values[i : i + batch_size]
-            values_sql_lines = [
-                "({}, {})".format(*map(quote, row)) for row in values_batch
-            ]
-            values_sql = ",\n".join(values_sql_lines)
-            queries.append(f"{insert_sql}\n{values_sql}")
+        queries += make_batches_of_insert_statements(
+            table_name, ("code", "category"), values
+        )
         return table_name, queries
 
     def get_temp_table_name(self, suffix):
@@ -2726,6 +2719,92 @@ class TPPBackend:
               OPA.Patient_ID
             """
 
+    def patients_with_value_from_file(
+        self, f_path, returning=None, returning_type=None
+    ):
+        if not is_csv_filename(f_path):
+            raise TypeError(f"Unexpected file type {f_path}")
+
+        if returning is not None and returning_type is None:
+            # StudyDefinition.get_pandas_csv_args() should have raised an error before
+            # we reach here.
+            raise TypeError(
+                "If `returning` is passed, then `returning_type` must be passed"
+            )
+
+        if returning is None and returning_type is not None:
+            raise TypeError(
+                "If `returning_type` is passed, then `returning` must be passed"
+            )
+
+        # Compiled patterns passed to the module-level matching functions are
+        # cached. As we don't use many patterns, we need not worry
+        # about compiling them first.
+        if returning is not None and not re.fullmatch(r"\w+", returning, re.ASCII):
+            raise ValueError(
+                "The column name given by `returning` should contain only alphanumeric characters and the underscore character"
+            )
+
+        # Fail before reading the CSV file
+        if returning_type == "bool" or returning_type is None:
+            column_type = "INT"
+        elif returning_type == "date":
+            column_type = "DATE"
+        elif returning_type == "str":
+            column_type = "VARCHAR(MAX)"
+        elif returning_type == "int":
+            column_type = "INT"
+        elif returning_type == "float":
+            column_type = "FLOAT"
+        else:
+            # StudyDefinition.get_pandas_csv_args() should have raised an error before
+            # we reach here.
+            raise TypeError(f"Unexpected type {returning_type}")
+
+        # Which columns of the CSV file should we read?
+        usecols = ["patient_id"]
+        if returning is not None:
+            usecols.append(returning)
+
+        # Read the CSV file into a data frame
+        values = pandas.read_csv(
+            f_path, index_col="patient_id", usecols=usecols, dtype=str
+        )
+
+        if returning is None:
+            # Adding a dummy column here makes it easier to generate the SQL
+            values["value"] = 1
+            returning = "value"
+
+        # Generate the SQL
+        table_name = self.get_temp_table_name("file")
+        queries = [
+            f"""
+            -- Uploading file for {returning}
+            CREATE TABLE {table_name} (
+                patient_id BIGINT,
+                {returning} {column_type}
+            )
+            """,
+        ]
+        queries += make_batches_of_insert_statements(
+            table_name, ("patient_id", returning), list(values.itertuples())
+        )
+        queries.append(
+            f"""
+            SELECT
+                patient_id,
+                {returning}
+            FROM
+                {table_name}
+            """
+        )
+
+        return queries
+
+    def patients_which_exist_in_file(self, f_path):
+        return self.patients_with_value_from_file(f_path)
+
 
 class ColumnExpression:
     def __init__(
@@ -2859,6 +2938,23 @@ def pop_keys_from_dict(dictionary, keys):
         if key in dictionary:
             new_dict[key] = dictionary.pop(key)
     return new_dict
+
+
+def make_batches_of_insert_statements(table_name, column_names, values):
+    column_names_sql = ", ".join(column_names)
+    insert_sql = f"INSERT INTO {table_name} ({column_names_sql}) VALUES"
+
+    # There's a limit on how many rows we can insert in one go using this method.
+    # See: https://docs.microsoft.com/en-us/sql/t-sql/queries/table-value-constructor-transact-sql?view=sql-server-ver15#limitations-and-restrictions
+    batch_size = 999
+    batches = []
+    for i in range(0, len(values), batch_size):
+        values_batch = values[i : i + batch_size]
+        values_sql_lines = ["({}, {})".format(*map(quote, row)) for row in values_batch]
+        values_sql = ",\n".join(values_sql_lines)
+        batches.append(f"{insert_sql}\n{values_sql}")
+
+    return batches
 
 
 class AppointmentStatus(enum.IntEnum):

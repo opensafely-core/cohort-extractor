@@ -368,6 +368,12 @@ class GetColumnType:
     def type_of_outpatient_appointment_date(self, returning, **kwargs):
         return self._type_from_return_value(returning)
 
+    def type_of_with_value_from_file(self, returning_type, **kwargs):
+        return returning_type
+
+    def type_of_which_exist_in_file(self, **kwargs):
+        return "bool"
+
     def _type_from_return_value(self, returning):
         if returning == "nhse_region_name":
             raise ValueError(
