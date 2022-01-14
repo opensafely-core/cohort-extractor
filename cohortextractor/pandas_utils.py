@@ -138,4 +138,20 @@ def memoize(fn):
     return cache().__getitem__
 
 
-to_datetime = memoize(pandas.to_datetime)
+# dates that different systems use to represent the max date, but are greater
+# than pandas.Timestamp can represent, so we clamp to pandas.Timestamp.max
+MAX_DATES = [
+    "9999-12-30 00:00:00",  # TPP
+]
+
+
+@memoize
+def to_datetime(datestr):
+    try:
+        return pandas.to_datetime(datestr)
+    except pandas.errors.OutOfBoundsDatetime:
+        if datestr in MAX_DATES:
+            # clamp to pandas max
+            return pandas.Timestamp.max
+        else:
+            raise
