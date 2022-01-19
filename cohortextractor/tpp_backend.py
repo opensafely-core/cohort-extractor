@@ -2344,7 +2344,7 @@ class TPPBackend:
         if with_these_primary_diagnoses:
             assert with_these_primary_diagnoses.system == "icd10"
             fragments = [
-                f"APCS_Der.Spell_Primary_Diagnosis LIKE {pattern} ESCAPE '\\'"
+                f"APCS_Der.Spell_Primary_Diagnosis LIKE {pattern} ESCAPE '!'"
                 for pattern in codelist_to_like_patterns(
                     with_these_primary_diagnoses, prefix="", suffix="%"
                 )
@@ -2354,7 +2354,7 @@ class TPPBackend:
         if with_these_diagnoses:
             assert with_these_diagnoses.system == "icd10"
             fragments = [
-                f"Der_Diagnosis_All LIKE {pattern} ESCAPE '\\'"
+                f"Der_Diagnosis_All LIKE {pattern} ESCAPE '!'"
                 for pattern in codelist_to_like_patterns(
                     with_these_diagnoses, prefix="%[^A-Za-z0-9]", suffix="%"
                 )
@@ -2364,7 +2364,7 @@ class TPPBackend:
         if with_these_procedures:
             assert with_these_procedures.system == "opcs4"
             fragments = [
-                f"Der_Procedure_All LIKE {pattern} ESCAPE '\\'"
+                f"Der_Procedure_All LIKE {pattern} ESCAPE '!'"
                 for pattern in codelist_to_like_patterns(
                     with_these_procedures, prefix="%[^A-Za-z0-9]", suffix="%"
                 )
@@ -2653,7 +2653,7 @@ class TPPBackend:
         if with_these_procedures:
             assert with_these_procedures.system == "opcs4"
             fragments = [
-                f"OPA_Proc.Primary_Procedure_Code LIKE {pattern} ESCAPE '\\'"
+                f"OPA_Proc.Primary_Procedure_Code LIKE {pattern} ESCAPE '!'"
                 for pattern in codelist_to_like_patterns(
                     with_these_procedures, prefix="%", suffix="%"
                 )
@@ -2851,7 +2851,7 @@ def codelist_to_like_patterns(codelist, prefix="", suffix=""):
 
 # Special characters from:
 # https://docs.microsoft.com/en-us/sql/t-sql/language-elements/like-transact-sql?view=sql-server-ver15
-LIKE_ESCAPE_TABLE = str.maketrans({char: f"\\{char}" for char in "%_[]^"})
+LIKE_ESCAPE_TABLE = str.maketrans({char: f"!{char}" for char in "%_[]^"})
 
 
 def escape_like_query_fragment(text):
