@@ -2047,14 +2047,14 @@ def test_quote_against_db():
 
 def test_escape_like_query_fragment():
     assert escape_like_query_fragment("foo") == "foo"
-    assert escape_like_query_fragment("foo%bar_") == "foo\\%bar\\_"
+    assert escape_like_query_fragment("foo%bar_") == "foo!%bar!_"
 
 
 def test_escape_like_query_fragment_against_db():
     session = make_session()
     cases = [
         ("foobar", "ob", True),
-        ("foo[]\\%_^bar", "o[]\\%_^b", True),
+        ("foo[]!%_^bar", "o[]!%_^b", True),
         ("foobar", "f%r", False),
     ]
     for text, pattern, should_match in cases:
@@ -2062,7 +2062,7 @@ def test_escape_like_query_fragment_against_db():
         result = session.execute(
             f"SELECT value FROM"
             f"  (VALUES({quote(text)})) AS t(value)"
-            f"  WHERE value LIKE {quote(like_pattern)} ESCAPE '\\'"
+            f"  WHERE value LIKE {quote(like_pattern)} ESCAPE '!'"
         )
         # print(f"'{text}' should{'' if should_match else ' not'} match '{pattern}'")
         if should_match:
