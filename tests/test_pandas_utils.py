@@ -2,7 +2,9 @@ import math
 
 import numpy
 import pandas
+import pytest
 from pandas import NaT, Timestamp
+from structlog.testing import capture_logs
 
 from cohortextractor.pandas_utils import dataframe_from_rows
 
@@ -102,3 +104,28 @@ def test_dataframe_from_rows():
     assert type(df.stp.dtype) == pandas.CategoricalDtype
     assert df.date_admitted.dtype == numpy.dtype("datetime64[ns]")
     assert df.date_died.dtype == numpy.dtype("datetime64[ns]")
+
+
+def test_dataframe_errors():
+    rows = [
+        ("patient_id", "age", "sex", "bmi", "stp", "date_admitted", "date_died"),
+        (1, 20, "M", 18.5, "STP1", "2018-08-01", ("2020-05", "9999-12-31 00:00:00")),
+    ]
+    covariate_definitions = {
+        "population": ("satisfying", {"column_type": "bool"}),
+        "age": ("age_as_of", {"column_type": "int"}),
+        "sex": ("sex", {"column_type": "str"}),
+        "bmi": ("bmi", {"column_type": "float"}),
+        "stp": ("practice_as_of", {"column_type": "str"}),
+        "date_admitted": ("admitted_to_hospital", {"column_type": "date"}),
+        "date_died": ("with_death_recorded_in_cpns", {"column_type": "date"}),
+    }
+
+    with capture_logs() as cap_logs:
+        with pytest.raises(pandas.errors.OutOfBoundsDatetime):
+            dataframe_from_rows(covariate_definitions, iter(rows))
+
+    log_msg = cap_logs[0]["event"]
+    assert "date_died" in log_msg
+    assert "to_datetime" in log_msg
+    assert "9999-12-31 00:00:00" in log_msg

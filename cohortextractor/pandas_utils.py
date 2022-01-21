@@ -1,6 +1,10 @@
+import functools
 import math
 
 import pandas
+import structlog
+
+logger = structlog.get_logger()
 
 
 def dataframe_to_file(df, filename):
@@ -53,7 +57,17 @@ def dataframe_from_rows(covariate_definitions, rows):
     convertor_funcs = [convertors[column] for column in headers]
 
     def convert_row(row):
-        return [convertor(value) for (convertor, value) in zip(convertor_funcs, row)]
+        new_row = []
+        for convertor, value, header in zip(convertor_funcs, row, headers):
+            try:
+                new_row.append(convertor(value))
+            except Exception:
+                # add some debugging context that pandas error wont have
+                logger.error(
+                    f"pandas error converting column {header} with converter {convertor} with values {value}"
+                )
+                raise
+        return new_row
 
     data = map(convert_row, rows)
     df = pandas.DataFrame(data, columns=headers)
@@ -135,7 +149,14 @@ def memoize(fn):
             self[key] = value
             return value
 
-    return cache().__getitem__
+    c = cache()
+
+    # more helpful debugging wrapper
+    @functools.wraps(fn)
+    def wrapper(key):
+        return c.__getitem__(key)
+
+    return wrapper
 
 
 # dates that different systems use to represent the max date, but are greater
