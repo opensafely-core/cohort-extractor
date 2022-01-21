@@ -2231,3 +2231,96 @@ def test_null_observation_dates_handled_correctly():
         pre2020_event_date=["1900-01-01", ""],
         date_of_pre2020_code=["1900-01-01", ""],
     )
+
+
+def test_patients_died_from_any_cause_dynamic_dates():
+    session = make_session()
+    session.add_all(
+        [
+            # Not dead
+            Patient(
+                nhs_no="aaa",
+                medications=[
+                    Medication(snomed_concept_id="10", effective_date="2021-01-02"),
+                ],
+            ),
+            # Died more than 2 weeks after antipsychotic date
+            Patient(
+                nhs_no="bbb",
+                ONSDeath=[
+                    ONSDeaths(
+                        reg_stat_dod=20210201,
+                        pseudonhsnumber="bbb",
+                        upload_date="2021-02-02",
+                    )
+                ],
+                medications=[
+                    Medication(snomed_concept_id="10", effective_date="2021-01-02")
+                ],
+            ),
+            # Died, no antipsychotic
+            Patient(
+                nhs_no="ccc",
+                ONSDeath=[
+                    ONSDeaths(
+                        reg_stat_dod=20210115,
+                        icd10u="A",
+                        pseudonhsnumber="ccc",
+                        upload_date="2021-02-02",
+                    ),
+                ],
+            ),
+            # Died within 2 weeks, antipsychotic before index date
+            Patient(
+                nhs_no="ddd",
+                ONSDeath=[
+                    ONSDeaths(
+                        reg_stat_dod=20200115,
+                        icd10u="A",
+                        pseudonhsnumber="ddd",
+                        upload_date="2021-02-02",
+                    ),
+                ],
+                medications=[
+                    Medication(snomed_concept_id="10", effective_date="2020-01-02"),
+                ],
+            ),
+            # Died within 2 weeks of antipsychotic
+            Patient(
+                nhs_no="eee",
+                ONSDeath=[
+                    ONSDeaths(
+                        reg_stat_dod=20210115,
+                        icd10u="A",
+                        pseudonhsnumber="eee",
+                        upload_date="2021-02-02",
+                    ),
+                ],
+                medications=[
+                    Medication(snomed_concept_id="10", effective_date="2021-01-02"),
+                ],
+            ),
+        ]
+    )
+    session.commit()
+    study = StudyDefinition(
+        population=patients.all(),
+        index_date="2021-01-01",
+        antipsychotics_date=patients.with_these_medications(
+            codelist=codelist(["10"], "snomed"),
+            returning="date",
+            find_last_match_in_period=True,
+            between=["index_date", "last_day_of_month(index_date)"],
+            date_format="YYYY-MM-DD",
+            return_expectations={"incidence": 0.1},
+        ),
+        died_2weeks_post_antipsychotic=patients.died_from_any_cause(
+            between=["antipsychotics_date", "antipsychotics_date + 14 days"],
+            returning="binary_flag",
+        ),
+    )
+    assert_results(
+        study.to_dicts(),
+        antipsychotics_date=["2021-01-02", "2021-01-02", "", "", "2021-01-02"],
+        died_2weeks_post_antipsychotic=["0", "0", "0", "0", "1"],
+    )

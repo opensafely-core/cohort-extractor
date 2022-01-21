@@ -504,6 +504,7 @@ class EMISBackend:
         min_date, max_date = between
         min_date_expr, join_tables1 = self.date_ref_to_sql_expr(min_date)
         max_date_expr, join_tables2 = self.date_ref_to_sql_expr(max_date)
+
         joins = [
             f"LEFT JOIN {join_table}\n"
             f"ON {join_table}.registration_id = {table}.registration_id"
@@ -1400,7 +1401,9 @@ class EMISBackend:
         returning="binary_flag",
     ):
         date_condition, date_joins = self.get_date_condition(
-            "o", "date_parse(CAST(o.reg_stat_dod AS VARCHAR), '%Y%m%d')", between
+            "p",
+            "date_parse(CAST(o.reg_stat_dod AS VARCHAR), '%Y%m%d')",
+            between,
         )
         if codelist is not None:
             assert codelist.system == "icd10"
