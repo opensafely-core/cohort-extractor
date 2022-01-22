@@ -17,7 +17,7 @@ def test_dataframe_from_rows():
         (3, 65, "M", 0, "STP2", "", "2020-07"),
         (4, 42, "F", 17.8, "", "2020-04-10", "2020-08"),
         (5, 18, "M", 26.2, "STP3", "2020-06-20", ""),
-        (6, 44, "M", 14.2, "STP3", "2020-06-20", "9999-12-30 00:00:00"),
+        (6, 44, "M", 14.2, "STP3", "9999-12-30", "9999-12-30 00:00:00"),
     ]
     covariate_definitions = {
         "population": ("satisfying", {"column_type": "bool"}),
@@ -82,7 +82,8 @@ def test_dataframe_from_rows():
             "sex": "M",
             "bmi": 14.2,
             "stp": "STP3",
-            "date_admitted": Timestamp("2020-06-20 00:00:00"),
+            # check both date strings are clamped to max
+            "date_admitted": Timestamp.max,
             "date_died": Timestamp.max,
         },
     ]
@@ -109,7 +110,7 @@ def test_dataframe_from_rows():
 def test_dataframe_errors():
     rows = [
         ("patient_id", "age", "sex", "bmi", "stp", "date_admitted", "date_died"),
-        (1, 20, "M", 18.5, "STP1", "2018-08-01", ("2020-05", "9999-12-31 00:00:00")),
+        (1, 20, "M", 18.5, "STP1", "2018-08-01", ("2020-05", "9000-12-31")),
     ]
     covariate_definitions = {
         "population": ("satisfying", {"column_type": "bool"}),
@@ -128,4 +129,4 @@ def test_dataframe_errors():
     log_msg = cap_logs[0]["event"]
     assert "date_died" in log_msg
     assert "to_datetime" in log_msg
-    assert "9999-12-31 00:00:00" in log_msg
+    assert "9000-12-31" in log_msg

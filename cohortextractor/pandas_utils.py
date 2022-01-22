@@ -162,7 +162,9 @@ def memoize(fn):
 # dates that different systems use to represent the max date, but are greater
 # than pandas.Timestamp can represent, so we clamp to pandas.Timestamp.max
 MAX_DATES = [
-    "9999-12-30 00:00:00",  # TPP
+    # TPP
+    "9999-12-30",
+    "9999-12-30 00:00:00",
 ]
 
 
