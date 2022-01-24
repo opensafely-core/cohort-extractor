@@ -163,8 +163,8 @@ def memoize(fn):
 # than pandas.Timestamp can represent, so we clamp to pandas.Timestamp.max
 MAX_DATES = [
     # TPP
-    "9999-12-30",
-    "9999-12-30 00:00:00",
+    "9999-12-31",
+    "9999-12-31 00:00:00",
 ]
 
 
