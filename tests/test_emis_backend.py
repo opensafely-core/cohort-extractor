@@ -2136,6 +2136,99 @@ def test_dynamic_index_dates_with_invalid_expression():
         )
 
 
+@pytest.mark.parametrize(
+    "index_date,expected_event_dates",
+    [
+        (
+            "2020-02-15",  # nhs financial year 2019-04-01 to 2020-03-31
+            ["2019-05-01", "2020-02-15"],
+        ),
+        (
+            "2017-05-15",  # nhs financial year 2017-04-01 to 2018-03-31
+            ["2017-06-01", "2018-02-01"],
+        ),
+    ],
+)
+def test_nhs_financial_year_date_expressions(index_date, expected_event_dates):
+    session = make_session()
+    session.add_all(
+        [
+            # Event too early
+            Patient(
+                observations=[
+                    Observation(effective_date="2012-12-15", snomed_concept_id=123)
+                ],
+            ),
+            # Events in range 2019-04-01 to 2020-03-31
+            Patient(
+                observations=[
+                    Observation(effective_date="2019-05-01", snomed_concept_id=123)
+                ],
+            ),
+            Patient(
+                observations=[
+                    Observation(effective_date="2020-02-15", snomed_concept_id=123)
+                ],
+            ),
+            # Events in range 2017-04-01 to 2018-03-31
+            Patient(
+                observations=[
+                    Observation(effective_date="2018-02-01", snomed_concept_id=123)
+                ],
+            ),
+            Patient(
+                observations=[
+                    Observation(effective_date="2017-06-01", snomed_concept_id=123)
+                ],
+            ),
+            # Events out of range (at beginning/end of adjacent financial years)
+            Patient(
+                observations=[
+                    Observation(effective_date="2017-03-31", snomed_concept_id=123)
+                ],
+            ),
+            Patient(
+                observations=[
+                    Observation(effective_date="2018-04-01", snomed_concept_id=123)
+                ],
+            ),
+            Patient(
+                observations=[
+                    Observation(effective_date="2019-03-31", snomed_concept_id=123)
+                ],
+            ),
+            Patient(
+                observations=[
+                    Observation(effective_date="2020-04-01", snomed_concept_id=123)
+                ],
+            ),
+        ]
+    )
+    session.commit()
+    study = StudyDefinition(
+        index_date=index_date,
+        population=patients.with_these_clinical_events(
+            codelist(["123"], system="snomed"),
+            between=[
+                "first_day_of_nhs_financial_year(index_date)",
+                "last_day_of_nhs_financial_year(index_date)",
+            ],
+        ),
+        event_date=patients.with_these_clinical_events(
+            codelist(["123"], system="snomed"),
+            returning="date",
+            date_format="YYYY-MM-DD",
+            between=[
+                "first_day_of_nhs_financial_year(index_date)",
+                "last_day_of_nhs_financial_year(index_date)",
+            ],
+        ),
+    )
+    results = study.to_dicts()
+    event_dates = sorted([result["event_date"] for result in results])
+    assert event_dates == expected_event_dates
+
+
 def test_truncate_patient_id():
     small_id = 123456789
     # Remove the '0x' prefix

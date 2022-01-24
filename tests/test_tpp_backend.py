@@ -3761,6 +3761,83 @@ def test_dynamic_index_dates_with_invalid_expression():
         )
 
 
+@pytest.mark.parametrize(
+    "index_date,expected_patient_ids",
+    [
+        ("2020-02-15", ["2", "3"]),  # nhs financial year 2019-04-01 to 2020-03-31
+        ("2017-05-15", ["4", "5"]),  # nhs financial year 2017-04-01 to 2018-03-31
+    ],
+)
+def test_nhs_financial_year_date_expressions(index_date, expected_patient_ids):
+    session = make_session()
+    session.add_all(
+        [
+            # Event too early
+            Patient(
+                Patient_ID=1,
+                DateOfBirth="1980-01-01",
+                CodedEvents=[CodedEvent(ConsultationDate="2012-12-15", CTV3Code="foo")],
+            ),
+            # Events in range 2019-04-01 to 2020-03-31
+            Patient(
+                Patient_ID=2,
+                DateOfBirth="1980-05-01",
+                CodedEvents=[CodedEvent(ConsultationDate="2019-05-01", CTV3Code="foo")],
+            ),
+            Patient(
+                Patient_ID=3,
+                DateOfBirth="1980-05-01",
+                CodedEvents=[CodedEvent(ConsultationDate="2020-02-15", CTV3Code="foo")],
+            ),
+            # Events in range 2017-04-01 to 2018-03-31
+            Patient(
+                Patient_ID=4,
+                DateOfBirth="1980-07-01",
+                CodedEvents=[CodedEvent(ConsultationDate="2018-02-01", CTV3Code="foo")],
+            ),
+            Patient(
+                Patient_ID=5,
+                DateOfBirth="1980-07-01",
+                CodedEvents=[CodedEvent(ConsultationDate="2017-06-01", CTV3Code="foo")],
+            ),
+            # Events out of range (at beginning/end of adjacent financial years)
+            Patient(
+                Patient_ID=6,
+                DateOfBirth="1980-01-01",
+                CodedEvents=[CodedEvent(ConsultationDate="2017-03-31", CTV3Code="foo")],
+            ),
+            Patient(
+                Patient_ID=7,
+                DateOfBirth="1980-01-01",
+                CodedEvents=[CodedEvent(ConsultationDate="2018-04-01", CTV3Code="foo")],
+            ),
+            Patient(
+                Patient_ID=8,
+                DateOfBirth="1980-01-01",
+                CodedEvents=[CodedEvent(ConsultationDate="2019-03-31", CTV3Code="foo")],
+            ),
+            Patient(
+                Patient_ID=9,
+                DateOfBirth="1980-01-01",
+                CodedEvents=[CodedEvent(ConsultationDate="2020-04-01", CTV3Code="foo")],
+            ),
+        ]
+    )
+    session.commit()
+    study = StudyDefinition(
+        index_date=index_date,
+        population=patients.with_these_clinical_events(
+            codelist(["foo"], system="ctv3"),
+            between=[
+                "first_day_of_nhs_financial_year(index_date)",
+                "last_day_of_nhs_financial_year(index_date)",
+            ],
+        ),
+    )
+    results = study.to_dicts()
+    assert_results(results, patient_id=expected_patient_ids)
+
+
 def test_high_cost_drugs():
     session = make_session()
     session.add_all(
