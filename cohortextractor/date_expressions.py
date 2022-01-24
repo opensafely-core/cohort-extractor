@@ -197,6 +197,16 @@ class DateExpressionEvaluator:
     def date_function_last_day_of_year(self, date):
         return date.replace(month=12, day=31)
 
+    def date_function_first_day_of_nhs_financial_year(self, date):
+        """The NHS financial (reporting) year runs from 1st April - 31st March"""
+        year = date.year - 1 if date.month < 4 else date.year
+        return date.replace(year=year, month=4, day=1)
+
+    def date_function_last_day_of_nhs_financial_year(self, date):
+        """The NHS financial (reporting) year runs from 1st April - 31st March"""
+        year = date.year + 1 if date.month >= 4 else date.year
+        return date.replace(year=year, month=3, day=31)
+
     def date_unit_years(self, date, value):
         # This can potentially throw an error if used on 29 Feb
         return date_replace(date, year=date.year + value)
@@ -328,6 +338,30 @@ class MSSQLDateFormatter(DateFormatter):
     def date_function_last_day_of_year(self, date):
         return f"DATEFROMPARTS(YEAR({date}), 12, 31)"
 
+    def date_function_first_day_of_nhs_financial_year(self, date):
+        """The NHS financial (reporting) year runs from 1st April - 31st March"""
+        return f"""
+            CASE WHEN
+                MONTH({date}) < 4
+            THEN
+                DATEFROMPARTS(YEAR({date}) - 1, 4, 1)
+            ELSE
+                DATEFROMPARTS(YEAR({date}), 4, 1)
+            END
+        """
+
+    def date_function_last_day_of_nhs_financial_year(self, date):
+        """The NHS financial (reporting) year runs from 1st April - 31st March"""
+        return f"""
+            CASE WHEN
+                MONTH({date}) >= 4
+            THEN
+                DATEFROMPARTS(YEAR({date}) + 1, 3, 31)
+            ELSE
+                DATEFROMPARTS(YEAR({date}), 3, 31)
+            END
+        """
+
     def date_unit_years(self, date, value):
         return f"DATEADD(YEAR, {value}, {date})"
 
@@ -385,6 +419,22 @@ class TrinoDateFormatter(DateFormatter):
     def date_function_last_day_of_year(self, date):
         # :(
         return f"from_iso8601_date(cast(year({date}) as varchar(4)) || '-12-31')"
+
+    def date_function_first_day_of_nhs_financial_year(self, date):
+        """The NHS financial (reporting) year runs from 1st April - 31st March"""
+        return f"""
+            IF(month({date}) < 4,
+            from_iso8601_date(cast((year({date}) - 1) as varchar(4)) || '-04-01'),
+            from_iso8601_date(cast((year({date})) as varchar(4)) || '-04-01')
+        """
+
+    def date_function_last_day_of_nhs_financial_year(self, date):
+        """The NHS financial (reporting) year runs from 1st April - 31st March"""
+        return f"""
+            IF(month({date}) >= 4,
+            from_iso8601_date(cast((year({date}) + 1) as varchar(4)) || '-03-31'),
+            from_iso8601_date(cast(year({date}) as varchar(4)) || '-03-31')
+        """
 
     def date_unit_years(self, date, value):
         return f"date_add('year', {value}, {date})"
