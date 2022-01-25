@@ -828,7 +828,7 @@ class TPPBackend:
     def patients_mean_recorded_value(
         self,
         codelist,
-        # What period is the mean over? (Only one supported option for now)
+        # What period is the mean over?
         on_most_recent_day_of_measurement=None,
         # Set date limits
         between=None,
