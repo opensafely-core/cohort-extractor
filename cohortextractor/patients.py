@@ -342,10 +342,11 @@ def mean_recorded_value(
 ):
     """
     Return patients' mean recorded value of a numerical value as defined by
-    a codelist on a particular day within the defined period. This is important as allows
+    a codelist within the specified period. Optionally, limit to recordings taken on the
+    most recent day of measurement only.  This is important as it allows
     us to account for multiple measurements taken on one day.
 
-    The date of the measurement can be included by flagging with date format options.
+    The date of the most recent measurement can be included by flagging with date format options.
 
     Args:
         codelist: a codelist for requested value
@@ -364,12 +365,12 @@ def mean_recorded_value(
         between: two dates of interest as a list with each date as a string with the format `YYYY-MM-DD`.
             Filters results to measurements between the two dates provided (inclusive).
             The two dates must be in chronological order.
-        include_measurement_date: a boolean indicating if an extra column, named `date_of_bmi`,
-            should be included in the output.
+        include_measurement_date: a boolean indicating if an extra column, named `<variable_name>_date_measured`,
+            should be included in the output.  Can only be used if include_measurement_date is `True`.
         date_format: a string detailing the format of the dates to be returned. It can be `YYYY-MM-DD`,
             `YYYY-MM` or `YYYY` and wherever possible the least disclosive data should be returned. i.e returning
             only year is less disclosive than a date with day, month and year. Only used if
-            include_measurement_date is `True`
+            include_measurement_date is `True`.
         include_month: a boolean indicating if day should be included in addition to year (deprecated: use
             `date_format` instead).
         include_day: a boolean indicating if day should be included in addition to year and
@@ -383,7 +384,7 @@ def mean_recorded_value(
         This creates a variable `bp_sys` returning a float of the most recent systolic blood pressure from
         the record within the time period. In the event of repeated measurements on the same day, these
         are averaged. Patient who do not have this information
-        available do not return a value:
+        available do not return a value.  The date of measurement is returned as `bp_sys_date_measured`:
 
             bp_sys=patients.mean_recorded_value(
                 systolic_blood_pressure_codes,
@@ -397,6 +398,20 @@ def mean_recorded_value(
                     "incidence": 0.95,
                 },
             )
+
+        This creates a variable returning a float of the mean recorded creatine level
+        creatinine level over a 6 month period:
+
+        creatinine=patients.mean_recorded_value(
+            creatinine_codes,
+            on_most_recent_day_of_measurement=False,
+            between=["2019-09-16", "2020-03-15"],
+            return_expectations={
+                "float": {"distribution": "normal", "mean": 150, "stddev": 200},
+                "date": {"earliest": "2019-09-16", "latest": "2020-03-15"},
+                "incidence": 0.75,
+            },
+        ),
     """
 
     return "mean_recorded_value", locals()

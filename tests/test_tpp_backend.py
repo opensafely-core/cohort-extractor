@@ -873,11 +873,14 @@ def test_bmi_when_only_some_measurements_of_child():
     assert [x["BMI_date_measured"] for x in results] == ["2010-01-01"]
 
 
-def test_mean_recorded_value():
+def test_mean_recorded_value_on_most_recent_day():
     code = "2469."
     session = make_session()
     patient = Patient()
     values = [
+        # This day is within the period but not the most recent, and should be ignored
+        ("2020-01-01", 110),
+        # This is the most recent day; mean taken from these 3 measurements
         ("2020-02-10", 90),
         ("2020-02-10", 100),
         ("2020-02-10", 98),
@@ -909,6 +912,57 @@ def test_mean_recorded_value():
     results = study.to_dicts()
     results = [(i["bp_systolic"], i["bp_systolic_date_measured"]) for i in results]
     assert results == [("96.0", "2020-02-10"), ("0.0", ""), ("0.0", "")]
+
+
+def test_mean_recorded_value_across_date_range():
+    code = "44J3."
+    session = make_session()
+    patient = Patient()
+    values = [
+        # these 4 are within the period
+        ("2020-01-01", 110),
+        ("2020-02-10", 90),
+        ("2020-02-10", 100),
+        ("2020-02-10", 98),
+        # This day is outside period and should be ignored
+        ("2020-04-01", 110),
+    ]
+    for date, value in values:
+        patient.CodedEvents.append(
+            CodedEvent(CTV3Code=code, NumericValue=value, ConsultationDate=date)
+        )
+    patient_with_old_reading = Patient()
+    patient_with_old_reading.CodedEvents.append(
+        CodedEvent(CTV3Code=code, NumericValue=100, ConsultationDate="2010-01-01")
+    )
+    patient_with_no_reading = Patient()
+    session.add_all([patient, patient_with_old_reading, patient_with_no_reading])
+    session.commit()
+    study = StudyDefinition(
+        population=patients.all(),
+        creatine=patients.mean_recorded_value(
+            codelist([code], system="ctv3"),
+            on_most_recent_day_of_measurement=False,
+            between=["2018-01-01", "2020-03-01"],
+        ),
+    )
+    assert_results(study.to_dicts(), creatine=["99.5", "0.0", "0.0"])
+
+
+def test_mean_recorded_value_across_date_range_include_measurement_date_error():
+    with pytest.raises(
+        AssertionError,
+        match="Can only include measurement date if on_most_recent_day_of_measurement is True",
+    ):
+        StudyDefinition(
+            population=patients.all(),
+            creatine=patients.mean_recorded_value(
+                codelist(["44J3."], system="ctv3"),
+                on_most_recent_day_of_measurement=False,
+                between=["2018-01-01", "2020-03-01"],
+                include_measurement_date=True,
+            ),
+        )
 
 
 def test_patient_random_sample():
