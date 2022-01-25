@@ -804,6 +804,42 @@ class EMISBackend:
             "AVG",
         )
 
+    def patients_min_recorded_value(
+        self,
+        codelist,
+        # What period is the mean over?
+        on_most_recent_day_of_measurement=None,
+        # Set date limits
+        between=None,
+        # Add additional columns indicating when measurement was taken
+        include_date_of_match=False,
+    ):
+        return self._summarised_recorded_value(
+            codelist,
+            on_most_recent_day_of_measurement,
+            between,
+            include_date_of_match,
+            "MIN",
+        )
+
+    def patients_max_recorded_value(
+        self,
+        codelist,
+        # What period is the mean over?
+        on_most_recent_day_of_measurement=None,
+        # Set date limits
+        between=None,
+        # Add additional columns indicating when measurement was taken
+        include_date_of_match=False,
+    ):
+        return self._summarised_recorded_value(
+            codelist,
+            on_most_recent_day_of_measurement,
+            between,
+            include_date_of_match,
+            "MAX",
+        )
+
     def patients_registered_as_of(self, reference_date):
         """
         All patients registed on the given date
