@@ -131,6 +131,32 @@ def test_suppresses_small_numbers(tmp_path):
     assert results[0]["value"] == ""
 
 
+def test_patients_from_file(tmp_path):
+    population_size = 100
+    _cohortextractor(
+        study="test_patients_from_file",
+        args=[
+            "generate_cohort",
+            "--expectations-population",
+            str(population_size),
+            "--output-dir",
+            tmp_path,
+            "--study-definition",
+            "study_definition_controls",
+        ],
+    )
+    with open(tmp_path / "input_controls.csv") as f:
+        contents = list(csv.reader(f))
+    # The number of rows in the output file must equal the number of rows in the
+    # user-supplied CSV file
+    assert len(contents) == 2
+    assert contents[0] == ["patient_id", "case_index_date", "exists_in_file", "age"]
+    # The following values come from the user-supplied CSV file
+    assert contents[1][0] == "1"  # integer
+    assert contents[1][1] == "2021-01-01"
+    assert contents[1][2] == "1"  # boolean
+
+
 def _cohortextractor(study, args):
     study_path = os.path.join(os.path.dirname(__file__), "fixtures", "studies", study)
     cohortextractor_path = os.path.dirname(os.path.dirname(cohortextractor.__file__))
