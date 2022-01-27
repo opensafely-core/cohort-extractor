@@ -366,7 +366,8 @@ def mean_recorded_value(
             Filters results to measurements between the two dates provided (inclusive).
             The two dates must be in chronological order.
         include_measurement_date: a boolean indicating if an extra column, named `<variable_name>_date_measured`,
-            should be included in the output.  Can only be used if include_measurement_date is `True`.
+            should be included in the output.  This option can only be True when `on_most_recent_day_of_measurement`
+            is `True` (i.e. the value returned is the mean of measurements on a single day).
         date_format: a string detailing the format of the dates to be returned. It can be `YYYY-MM-DD`,
             `YYYY-MM` or `YYYY` and wherever possible the least disclosive data should be returned. i.e returning
             only year is less disclosive than a date with day, month and year. Only used if
@@ -384,7 +385,7 @@ def mean_recorded_value(
         This creates a variable `bp_sys` returning a float of the most recent systolic blood pressure from
         the record within the time period. In the event of repeated measurements on the same day, these
         are averaged. Patient who do not have this information
-        available do not return a value.  The date of measurement is returned as `bp_sys_date_measured`:
+        available do not return a value.  The date of measurement is returned as `bp_sys_date_measured`, in YYYY-MM format:
 
             bp_sys=patients.mean_recorded_value(
                 systolic_blood_pressure_codes,
@@ -399,19 +400,23 @@ def mean_recorded_value(
                 },
             )
 
-        This creates a variable returning a float of the mean recorded creatine level
-        creatinine level over a 6 month period:
+        Alternatively, the date of measurement can be defined as a separate variable, using `date_of`:
 
-        creatinine=patients.mean_recorded_value(
-            creatinine_codes,
-            on_most_recent_day_of_measurement=False,
-            between=["2019-09-16", "2020-03-15"],
-            return_expectations={
-                "float": {"distribution": "normal", "mean": 150, "stddev": 200},
-                "date": {"earliest": "2019-09-16", "latest": "2020-03-15"},
-                "incidence": 0.75,
-            },
-        ),
+            date_of_bp_sys=patients.date_of("bp_sys", date_format="YYYY-MM")
+
+        This creates a variable returning a float of the mean recorded creatinine level
+        over a 6 month period:
+
+            creatinine=patients.mean_recorded_value(
+                creatinine_codes,
+                on_most_recent_day_of_measurement=False,
+                between=["2019-09-16", "2020-03-15"],
+                return_expectations={
+                    "float": {"distribution": "normal", "mean": 150, "stddev": 200},
+                    "date": {"earliest": "2019-09-16", "latest": "2020-03-15"},
+                    "incidence": 0.75,
+                },
+            )
     """
 
     return "mean_recorded_value", locals()
@@ -456,7 +461,8 @@ def min_recorded_value(
             Filters results to measurements between the two dates provided (inclusive).
             The two dates must be in chronological order.
         include_measurement_date: a boolean indicating if an extra column, named `<variable_name>_date_measured`,
-            should be included in the output.  Can only be used if include_measurement_date is `True`.
+            should be included in the output.  This option can only be True when `on_most_recent_day_of_measurement`
+            is `True` (i.e. the value returned is the minimum measurement taken on a single day).
         date_format: a string detailing the format of the dates to be returned. It can be `YYYY-MM-DD`,
             `YYYY-MM` or `YYYY` and wherever possible the least disclosive data should be returned. i.e returning
             only year is less disclosive than a date with day, month and year. Only used if
@@ -470,7 +476,7 @@ def min_recorded_value(
         This creates a variable `min_bp_sys` returning a float of the most recent systolic blood pressure from
         the record within the time period. In the event of repeated measurements on the same day, the minimum value
         is returned. Patient who do not have this information
-        available do not return a value.  The date of measurement is returned as `min_bp_sys_date_measured`:
+        available do not return a value.  The date of measurement is returned as `min_bp_sys_date_measured`, in YYYY-MM format:
 
             min_bp_sys=patients.min_recorded_value(
                 systolic_blood_pressure_codes,
@@ -485,19 +491,23 @@ def min_recorded_value(
                 },
             )
 
-        This creates a variable returning a float of the minimum recorded creatine level
-        creatinine level over a 6 month period:
+        Alternatively, the date of measurement can be defined as a separate variable, using `date_of`:
 
-        min_creatinine=patients.min_recorded_value(
-            creatinine_codes,
-            on_most_recent_day_of_measurement=False,
-            between=["2019-09-16", "2020-03-15"],
-            return_expectations={
-                "float": {"distribution": "normal", "mean": 150, "stddev": 200},
-                "date": {"earliest": "2019-09-16", "latest": "2020-03-15"},
-                "incidence": 0.75,
-            },
-        ),
+            date_of_min_bp=patients.date_of("min_bp_sys", date_format="YYYY-MM")
+
+        This creates a variable returning a float of the minimum recorded creatinine level
+        over a 6 month period:
+
+            min_creatinine=patients.min_recorded_value(
+                creatinine_codes,
+                on_most_recent_day_of_measurement=False,
+                between=["2019-09-16", "2020-03-15"],
+                return_expectations={
+                    "float": {"distribution": "normal", "mean": 150, "stddev": 200},
+                    "date": {"earliest": "2019-09-16", "latest": "2020-03-15"},
+                    "incidence": 0.75,
+                },
+            )
     """
 
     return "min_recorded_value", locals()
@@ -542,7 +552,8 @@ def max_recorded_value(
             Filters results to measurements between the two dates provided (inclusive).
             The two dates must be in chronological order.
         include_measurement_date: a boolean indicating if an extra column, named `<variable_name>_date_measured`,
-            should be included in the output.  Can only be used if include_measurement_date is `True`.
+            should be included in the output.  This option can only be True when `on_most_recent_day_of_measurement`
+            is `True` (i.e. the value returned is the minimum measurement taken on a single day).
         date_format: a string detailing the format of the dates to be returned. It can be `YYYY-MM-DD`,
             `YYYY-MM` or `YYYY` and wherever possible the least disclosive data should be returned. i.e returning
             only year is less disclosive than a date with day, month and year. Only used if
@@ -556,7 +567,7 @@ def max_recorded_value(
         This creates a variable `max_bp_sys` returning a float of the most recent systolic blood pressure from
         the record within the time period. In the event of repeated measurements on the same day, the maximum
         value is returned. Patient who do not have this information
-        available do not return a value.  The date of measurement is returned as `bp_sys_date_measured`:
+        available do not return a value.  The date of measurement is returned as `bp_sys_date_measured`, in YYYY-MM format:
 
             max_bp_sys=patients.max_recorded_value(
                 systolic_blood_pressure_codes,
@@ -571,19 +582,23 @@ def max_recorded_value(
                 },
             )
 
-        This creates a variable returning a float of the maximum recorded creatine level
-        creatinine level over a 6 month period:
+        Alternatively, the date of measurement can be defined as a separate variable, using `date_of`:
 
-        creatinine=patients.max_recorded_value(
-            creatinine_codes,
-            on_most_recent_day_of_measurement=False,
-            between=["2019-09-16", "2020-03-15"],
-            return_expectations={
-                "float": {"distribution": "normal", "mean": 150, "stddev": 200},
-                "date": {"earliest": "2019-09-16", "latest": "2020-03-15"},
-                "incidence": 0.75,
-            },
-        ),
+            date_of_max_bp=patients.date_of("max_bp_sys", date_format="YYYY-MM")
+
+        This creates a variable returning a float of the maximum recorded creatinine level
+        over a 6 month period:
+
+            creatinine=patients.max_recorded_value(
+                creatinine_codes,
+                on_most_recent_day_of_measurement=False,
+                between=["2019-09-16", "2020-03-15"],
+                return_expectations={
+                    "float": {"distribution": "normal", "mean": 150, "stddev": 200},
+                    "date": {"earliest": "2019-09-16", "latest": "2020-03-15"},
+                    "incidence": 0.75,
+                },
+            )
     """
 
     return "max_recorded_value", locals()
