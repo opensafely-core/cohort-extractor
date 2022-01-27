@@ -68,11 +68,12 @@ class StudyDefinition:
     ):
         if expectations_population:
             df = self.make_df_from_expectations(expectations_population)
-            # Add a patient ID - a randomly generated integer from an
-            # array 10x larger than the cohort.
-            df["patient_id"] = default_rng().choice(
-                (len(df) * 10), size=len(df), replace=False
-            )
+            if "patient_id" not in df:
+                # Add a patient ID - a randomly generated integer from an
+                # array 10x larger than the cohort.
+                df["patient_id"] = default_rng().choice(
+                    (len(df) * 10), size=len(df), replace=False
+                )
             if not is_csv_filename(filename):
                 # This slightly convoluted approach means that dummy data
                 # intended for a binary output format gets passed through the
@@ -280,11 +281,49 @@ class StudyDefinition:
     def make_df_from_expectations(self, population):
         df = pd.DataFrame()
 
-        # Start with dates, so we can use them as inputs for incidence
-        # matching on dependent columns
+        # Start with the user-supplied CSV file
+        for colname, definition_args in self.pandas_csv_args["args"].items():
+            if definition_args["funcname"] not in [
+                "with_value_from_file",
+                "which_exist_in_file",
+            ]:
+                continue
+            f_path = definition_args["f_path"]
+            if not is_csv_filename(f_path):
+                raise ValueError("`f_path` must be a path to a CSV file")
+
+            returning = definition_args.get("returning")
+            returning_type = definition_args.get("returning_type")
+            if returning is not None and returning_type is None:
+                raise ValueError(f"No `returning_type` defined for {colname}")
+            if returning is None and returning_type is not None:
+                raise ValueError(f"No `returning` defined for {colname}")
+            if returning is not None and not re.fullmatch(r"\w+", returning, re.ASCII):
+                raise ValueError(
+                    f"{colname} should contain only alphanumeric characters and the underscore character"
+                )
+
+            usecols = ["patient_id"]
+            if returning is not None:
+                usecols.append(returning)
+            user_df = pd.read_csv(f_path, usecols=usecols, dtype=str)
+            if returning_type == "date":
+                user_df[returning] = pd.to_datetime(
+                    user_df[returning], infer_datetime_format=True
+                )
+
+            df["patient_id"] = user_df["patient_id"]
+            df[colname] = user_df[returning] if returning is not None else 1
+
+        # Now dates, so we can use them as inputs for incidence matching on dependent
+        # columns
         for colname in self.pandas_csv_args["parse_dates"]:
             definition_args = self.pandas_csv_args["args"][colname]
-            if definition_args["funcname"] == "aggregate_of":
+            if definition_args["funcname"] in [
+                "aggregate_of",
+                "with_value_from_file",
+                "which_exist_in_file",
+            ]:
                 continue
             if "source" in definition_args:
                 source_args = self.pandas_csv_args["args"][definition_args["source"]]
@@ -313,7 +352,11 @@ class StudyDefinition:
         # its incidence calculated as a mask
         for colname, dtype in self.pandas_csv_args["dtype"].items():
             definition_args = self.pandas_csv_args["args"][colname]
-            if definition_args["funcname"] == "aggregate_of":
+            if definition_args["funcname"] in [
+                "aggregate_of",
+                "with_value_from_file",
+                "which_exist_in_file",
+            ]:
                 continue
             return_expectations = definition_args["return_expectations"] or {}
             if not self.default_expectations and not return_expectations:
