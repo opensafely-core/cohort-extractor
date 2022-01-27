@@ -727,52 +727,118 @@ class EMISBackend:
         -- XXX maybe add a "WHERE NULL..." here
         """
 
+    def _summarised_recorded_value(
+        self,
+        codelist,
+        on_most_recent_day_of_measurement,
+        between,
+        include_date_of_match,
+        summary_function,
+    ):
+        date_condition, date_joins = self.get_date_condition(
+            OBSERVATION_TABLE, "effective_date", between
+        )
+        codelist_sql = codelist_to_sql(codelist)
+
+        if on_most_recent_day_of_measurement:
+            # The subquery finds, for each patient, the most recent day on which
+            # they've had a measurement. The outer query selects, for each patient,
+            # the mean value on that day.
+            # Note, there's a CAST in the JOIN condition but apparently SQL Server can still
+            # use an index for this. See: https://stackoverflow.com/a/25564539
+            return f"""
+            SELECT
+            days.registration_id,
+            days.hashed_organisation,
+            {summary_function}({OBSERVATION_TABLE}."value_pq_1") AS value,
+            days.date_measured AS date
+            FROM (
+                SELECT
+                    {OBSERVATION_TABLE}.registration_id,
+                    {OBSERVATION_TABLE}.hashed_organisation,
+                    CAST(MAX(effective_date) AS date) AS date_measured
+                FROM {OBSERVATION_TABLE}
+                {date_joins}
+                WHERE snomed_concept_id IN ({codelist_sql}) AND {date_condition}
+                GROUP BY {OBSERVATION_TABLE}.registration_id, {OBSERVATION_TABLE}.hashed_organisation
+            ) AS days
+            LEFT JOIN {OBSERVATION_TABLE}
+            ON (
+            {OBSERVATION_TABLE}.registration_id = days.registration_id
+            AND {OBSERVATION_TABLE}.snomed_concept_id IN ({codelist_sql})
+            AND CAST({OBSERVATION_TABLE}.effective_date AS date) = days.date_measured
+            )
+            GROUP BY days.registration_id, days.hashed_organisation, days.date_measured
+            """
+        else:
+            assert (
+                include_date_of_match is False
+            ), "Can only include measurement date if on_most_recent_day_of_measurement is True"
+
+            return f"""
+            SELECT
+                {OBSERVATION_TABLE}.registration_id,
+                {OBSERVATION_TABLE}.hashed_organisation,
+                {summary_function}({OBSERVATION_TABLE}."value_pq_1") AS value
+            FROM {OBSERVATION_TABLE}
+                {date_joins}
+            WHERE snomed_concept_id IN ({codelist_sql}) AND {date_condition}
+            GROUP BY {OBSERVATION_TABLE}.registration_id, {OBSERVATION_TABLE}.hashed_organisation
+            """
+
     def patients_mean_recorded_value(
         self,
         codelist,
-        # What period is the mean over? (Only one supported option for now)
+        # What period is the mean over?
         on_most_recent_day_of_measurement=None,
         # Set date limits
         between=None,
         # Add additional columns indicating when measurement was taken
         include_date_of_match=False,
     ):
-        # We only support this option for now
-        assert on_most_recent_day_of_measurement
-        date_condition, date_joins = self.get_date_condition(
-            OBSERVATION_TABLE, "effective_date", between
+        return self._summarised_recorded_value(
+            codelist,
+            on_most_recent_day_of_measurement,
+            between,
+            include_date_of_match,
+            "AVG",
         )
-        codelist_sql = codelist_to_sql(codelist)
-        # The subquery finds, for each patient, the most recent day on which
-        # they've had a measurement. The outer query selects, for each patient,
-        # the mean value on that day.
-        # Note, there's a CAST in the JOIN condition but apparently SQL Server can still
-        # use an index for this. See: https://stackoverflow.com/a/25564539
-        sql = f"""
-        SELECT
-          days.registration_id,
-          days.hashed_organisation,
-          AVG({OBSERVATION_TABLE}."value_pq_1") AS value,
-          days.date_measured AS date
-        FROM (
-            SELECT
-                {OBSERVATION_TABLE}.registration_id,
-                {OBSERVATION_TABLE}.hashed_organisation,
-                CAST(MAX(effective_date) AS date) AS date_measured
-            FROM {OBSERVATION_TABLE}
-            {date_joins}
-            WHERE snomed_concept_id IN ({codelist_sql}) AND {date_condition}
-            GROUP BY {OBSERVATION_TABLE}.registration_id, {OBSERVATION_TABLE}.hashed_organisation
-        ) AS days
-        LEFT JOIN {OBSERVATION_TABLE}
-        ON (
-          {OBSERVATION_TABLE}.registration_id = days.registration_id
-          AND {OBSERVATION_TABLE}.snomed_concept_id IN ({codelist_sql})
-          AND CAST({OBSERVATION_TABLE}.effective_date AS date) = days.date_measured
+
+    def patients_min_recorded_value(
+        self,
+        codelist,
+        # What period is the mean over?
+        on_most_recent_day_of_measurement=None,
+        # Set date limits
+        between=None,
+        # Add additional columns indicating when measurement was taken
+        include_date_of_match=False,
+    ):
+        return self._summarised_recorded_value(
+            codelist,
+            on_most_recent_day_of_measurement,
+            between,
+            include_date_of_match,
+            "MIN",
         )
-        GROUP BY days.registration_id, days.hashed_organisation, days.date_measured
-        """
-        return sql
+
+    def patients_max_recorded_value(
+        self,
+        codelist,
+        # What period is the mean over?
+        on_most_recent_day_of_measurement=None,
+        # Set date limits
+        between=None,
+        # Add additional columns indicating when measurement was taken
+        include_date_of_match=False,
+    ):
+        return self._summarised_recorded_value(
+            codelist,
+            on_most_recent_day_of_measurement,
+            between,
+            include_date_of_match,
+            "MAX",
+        )
 
     def patients_registered_as_of(self, reference_date):
         """

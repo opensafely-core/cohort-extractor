@@ -770,48 +770,114 @@ class TPPBackend:
         -- XXX maybe add a "WHERE NULL..." here
         """
 
+    def _summarised_recorded_value(
+        self,
+        codelist,
+        on_most_recent_day_of_measurement,
+        between,
+        include_date_of_match,
+        summary_function,
+    ):
+        coded_event_table, coded_event_column = coded_event_table_column(codelist)
+        date_condition, date_joins = self.get_date_condition(
+            coded_event_table, "ConsultationDate", between
+        )
+        codelist_sql = codelist_to_sql(codelist)
+
+        if on_most_recent_day_of_measurement:
+            # The subquery finds, for each patient, the most recent day on which
+            # they've had a measurement. The outer query selects, for each patient,
+            # the mean value on that day.
+            # Note, there's a CAST in the JOIN condition but apparently SQL Server can still
+            # use an index for this. See: https://stackoverflow.com/a/25564539
+            return f"""
+            SELECT
+            days.Patient_ID AS patient_id,
+            {summary_function}({coded_event_table}.NumericValue) AS value,
+            days.date_measured AS date
+            FROM (
+                SELECT {coded_event_table}.Patient_ID, CAST(MAX(ConsultationDate) AS date) AS date_measured
+                FROM {coded_event_table}
+                {date_joins}
+                WHERE {coded_event_column} IN ({codelist_sql}) AND {date_condition}
+                GROUP BY {coded_event_table}.Patient_ID
+            ) AS days
+            LEFT JOIN {coded_event_table}
+            ON (
+            {coded_event_table}.Patient_ID = days.Patient_ID
+            AND {coded_event_table}.{coded_event_column} IN ({codelist_sql})
+            AND CAST({coded_event_table}.ConsultationDate AS date) = days.date_measured
+            )
+            GROUP BY days.Patient_ID, days.date_measured
+            """
+        else:
+            assert (
+                include_date_of_match is False
+            ), "Can only include measurement date if on_most_recent_day_of_measurement is True"
+
+            return f"""
+            SELECT
+                {coded_event_table}.Patient_ID AS patient_id,
+                {summary_function}({coded_event_table}.NumericValue) AS value
+            FROM {coded_event_table}
+                {date_joins}
+            WHERE {coded_event_column} IN ({codelist_sql}) AND {date_condition}
+            GROUP BY {coded_event_table}.Patient_ID
+            """
+
     def patients_mean_recorded_value(
         self,
         codelist,
-        # What period is the mean over? (Only one supported option for now)
+        # What period is the mean over?
         on_most_recent_day_of_measurement=None,
         # Set date limits
         between=None,
         # Add additional columns indicating when measurement was taken
         include_date_of_match=False,
     ):
-        # We only support this option for now
-        assert on_most_recent_day_of_measurement
-        coded_event_table, coded_event_column = coded_event_table_column(codelist)
-        date_condition, date_joins = self.get_date_condition(
-            coded_event_table, "ConsultationDate", between
+        return self._summarised_recorded_value(
+            codelist,
+            on_most_recent_day_of_measurement,
+            between,
+            include_date_of_match,
+            "AVG",
         )
-        codelist_sql = codelist_to_sql(codelist)
-        # The subquery finds, for each patient, the most recent day on which
-        # they've had a measurement. The outer query selects, for each patient,
-        # the mean value on that day.
-        # Note, there's a CAST in the JOIN condition but apparently SQL Server can still
-        # use an index for this. See: https://stackoverflow.com/a/25564539
-        return f"""
-        SELECT
-          days.Patient_ID AS patient_id,
-          AVG({coded_event_table}.NumericValue) AS value,
-          days.date_measured AS date
-        FROM (
-            SELECT {coded_event_table}.Patient_ID, CAST(MAX(ConsultationDate) AS date) AS date_measured
-            FROM {coded_event_table}
-            {date_joins}
-            WHERE {coded_event_column} IN ({codelist_sql}) AND {date_condition}
-            GROUP BY {coded_event_table}.Patient_ID
-        ) AS days
-        LEFT JOIN {coded_event_table}
-        ON (
-          {coded_event_table}.Patient_ID = days.Patient_ID
-          AND {coded_event_table}.{coded_event_column} IN ({codelist_sql})
-          AND CAST({coded_event_table}.ConsultationDate AS date) = days.date_measured
+
+    def patients_min_recorded_value(
+        self,
+        codelist,
+        # What period is the mean over?
+        on_most_recent_day_of_measurement=None,
+        # Set date limits
+        between=None,
+        # Add additional columns indicating when measurement was taken
+        include_date_of_match=False,
+    ):
+        return self._summarised_recorded_value(
+            codelist,
+            on_most_recent_day_of_measurement,
+            between,
+            include_date_of_match,
+            "MIN",
         )
-        GROUP BY days.Patient_ID, days.date_measured
-        """
+
+    def patients_max_recorded_value(
+        self,
+        codelist,
+        # What period is the mean over?
+        on_most_recent_day_of_measurement=None,
+        # Set date limits
+        between=None,
+        # Add additional columns indicating when measurement was taken
+        include_date_of_match=False,
+    ):
+        return self._summarised_recorded_value(
+            codelist,
+            on_most_recent_day_of_measurement,
+            between,
+            include_date_of_match,
+            "MAX",
+        )
 
     def patients_registered_as_of(self, reference_date):
         """

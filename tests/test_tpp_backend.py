@@ -11,6 +11,11 @@ import pytest
 from cohortextractor import StudyDefinition, codelist, patients
 from cohortextractor.date_expressions import InvalidExpressionError
 from cohortextractor.mssql_utils import mssql_connection_params_from_url
+from cohortextractor.patients import (
+    max_recorded_value,
+    mean_recorded_value,
+    min_recorded_value,
+)
 from cohortextractor.tpp_backend import (
     AppointmentStatus,
     escape_like_query_fragment,
@@ -873,11 +878,23 @@ def test_bmi_when_only_some_measurements_of_child():
     assert [x["BMI_date_measured"] for x in results] == ["2010-01-01"]
 
 
-def test_mean_recorded_value():
+@pytest.mark.parametrize(
+    "summary_function,expected",
+    [
+        (mean_recorded_value, [("96.0", "2020-02-10"), ("0.0", ""), ("0.0", "")]),
+        (min_recorded_value, [("90.0", "2020-02-10"), ("0.0", ""), ("0.0", "")]),
+        (max_recorded_value, [("100.0", "2020-02-10"), ("0.0", ""), ("0.0", "")]),
+    ],
+)
+def test_summary_recorded_values_on_most_recent_day(summary_function, expected):
     code = "2469."
     session = make_session()
     patient = Patient()
     values = [
+        # These days are within the period but not the most recent, and should be ignored
+        ("2020-01-01", 110),
+        ("2020-01-02", 80),
+        # This is the most recent day; mean taken from these 3 measurements
         ("2020-02-10", 90),
         ("2020-02-10", 100),
         ("2020-02-10", 98),
@@ -897,7 +914,7 @@ def test_mean_recorded_value():
     session.commit()
     study = StudyDefinition(
         population=patients.all(),
-        bp_systolic=patients.mean_recorded_value(
+        bp_systolic=summary_function(
             codelist([code], system="ctv3"),
             on_most_recent_day_of_measurement=True,
             between=["2018-01-01", "2020-03-01"],
@@ -908,7 +925,67 @@ def test_mean_recorded_value():
     )
     results = study.to_dicts()
     results = [(i["bp_systolic"], i["bp_systolic_date_measured"]) for i in results]
-    assert results == [("96.0", "2020-02-10"), ("0.0", ""), ("0.0", "")]
+    assert results == expected
+
+
+@pytest.mark.parametrize(
+    "summary_function,expected",
+    [
+        (mean_recorded_value, ["95.6", "0.0", "0.0"]),
+        (min_recorded_value, ["80.0", "0.0", "0.0"]),
+        (max_recorded_value, ["110.0", "0.0", "0.0"]),
+    ],
+)
+def test_summary_recorded_values_across_date_range(summary_function, expected):
+    code = "44J3."
+    session = make_session()
+    patient = Patient()
+    values = [
+        # these 5 are within the period
+        ("2020-01-01", 110),
+        ("2020-01-02", 80),
+        ("2020-02-10", 90),
+        ("2020-02-10", 100),
+        ("2020-02-10", 98),
+        # This day is outside period and should be ignored
+        ("2020-04-01", 110),
+    ]
+    for date, value in values:
+        patient.CodedEvents.append(
+            CodedEvent(CTV3Code=code, NumericValue=value, ConsultationDate=date)
+        )
+    patient_with_old_reading = Patient()
+    patient_with_old_reading.CodedEvents.append(
+        CodedEvent(CTV3Code=code, NumericValue=100, ConsultationDate="2010-01-01")
+    )
+    patient_with_no_reading = Patient()
+    session.add_all([patient, patient_with_old_reading, patient_with_no_reading])
+    session.commit()
+    study = StudyDefinition(
+        population=patients.all(),
+        creatine=summary_function(
+            codelist([code], system="ctv3"),
+            on_most_recent_day_of_measurement=False,
+            between=["2018-01-01", "2020-03-01"],
+        ),
+    )
+    assert_results(study.to_dicts(), creatine=expected)
+
+
+def test_mean_recorded_value_across_date_range_include_measurement_date_error():
+    with pytest.raises(
+        AssertionError,
+        match="Can only include measurement date if on_most_recent_day_of_measurement is True",
+    ):
+        StudyDefinition(
+            population=patients.all(),
+            creatine=patients.mean_recorded_value(
+                codelist(["44J3."], system="ctv3"),
+                on_most_recent_day_of_measurement=False,
+                between=["2018-01-01", "2020-03-01"],
+                include_measurement_date=True,
+            ),
+        )
 
 
 def test_patient_random_sample():

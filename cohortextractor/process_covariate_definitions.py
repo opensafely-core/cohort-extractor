@@ -274,6 +274,12 @@ class GetColumnType:
     def type_of_mean_recorded_value(self, **kwargs):
         return "float"
 
+    def type_of_min_recorded_value(self, **kwargs):
+        return "float"
+
+    def type_of_max_recorded_value(self, **kwargs):
+        return "float"
+
     def type_of_registered_as_of(self, **kwargs):
         return "bool"
 

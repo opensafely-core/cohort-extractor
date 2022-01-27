@@ -342,10 +342,11 @@ def mean_recorded_value(
 ):
     """
     Return patients' mean recorded value of a numerical value as defined by
-    a codelist on a particular day within the defined period. This is important as allows
+    a codelist within the specified period. Optionally, limit to recordings taken on the
+    most recent day of measurement only.  This is important as it allows
     us to account for multiple measurements taken on one day.
 
-    The date of the measurement can be included by flagging with date format options.
+    The date of the most recent measurement can be included by flagging with date format options.
 
     Args:
         codelist: a codelist for requested value
@@ -364,12 +365,13 @@ def mean_recorded_value(
         between: two dates of interest as a list with each date as a string with the format `YYYY-MM-DD`.
             Filters results to measurements between the two dates provided (inclusive).
             The two dates must be in chronological order.
-        include_measurement_date: a boolean indicating if an extra column, named `date_of_bmi`,
-            should be included in the output.
+        include_measurement_date: a boolean indicating if an extra column, named `<variable_name>_date_measured`,
+            should be included in the output.  This option can only be True when `on_most_recent_day_of_measurement`
+            is `True` (i.e. the value returned is the mean of measurements on a single day).
         date_format: a string detailing the format of the dates to be returned. It can be `YYYY-MM-DD`,
             `YYYY-MM` or `YYYY` and wherever possible the least disclosive data should be returned. i.e returning
             only year is less disclosive than a date with day, month and year. Only used if
-            include_measurement_date is `True`
+            include_measurement_date is `True`.
         include_month: a boolean indicating if day should be included in addition to year (deprecated: use
             `date_format` instead).
         include_day: a boolean indicating if day should be included in addition to year and
@@ -383,7 +385,7 @@ def mean_recorded_value(
         This creates a variable `bp_sys` returning a float of the most recent systolic blood pressure from
         the record within the time period. In the event of repeated measurements on the same day, these
         are averaged. Patient who do not have this information
-        available do not return a value:
+        available do not return a value.  The date of measurement is returned as `bp_sys_date_measured`, in YYYY-MM format:
 
             bp_sys=patients.mean_recorded_value(
                 systolic_blood_pressure_codes,
@@ -397,9 +399,209 @@ def mean_recorded_value(
                     "incidence": 0.95,
                 },
             )
+
+        Alternatively, the date of measurement can be defined as a separate variable, using `date_of`:
+
+            date_of_bp_sys=patients.date_of("bp_sys", date_format="YYYY-MM")
+
+        This creates a variable returning a float of the mean recorded creatinine level
+        over a 6 month period:
+
+            creatinine=patients.mean_recorded_value(
+                creatinine_codes,
+                on_most_recent_day_of_measurement=False,
+                between=["2019-09-16", "2020-03-15"],
+                return_expectations={
+                    "float": {"distribution": "normal", "mean": 150, "stddev": 200},
+                    "date": {"earliest": "2019-09-16", "latest": "2020-03-15"},
+                    "incidence": 0.75,
+                },
+            )
     """
 
     return "mean_recorded_value", locals()
+
+
+def min_recorded_value(
+    codelist,
+    on_most_recent_day_of_measurement=None,
+    # Required keyword
+    return_expectations=None,
+    # Set date limits
+    on_or_before=None,
+    on_or_after=None,
+    between=None,
+    # Add additional columns indicating when measurement was taken
+    include_measurement_date=False,
+    date_format=None,
+):
+    """
+    Return patients' minimum recorded value of a numerical value as defined by
+    a codelist within the specified period. Optionally, limit to recordings taken on the
+    most recent day of measurement only.  This is important as it allows
+    us to account for multiple measurements taken on one day.
+
+    The date of the most recent measurement can be included by flagging with date format options.
+
+    Args:
+        codelist: a codelist for requested value
+        on_most_recent_day_of_measurement: boolean flag for requesting measurements be on most recent date
+        return_expectations: a dictionary defining the incidence and distribution of expected value
+            within the population in question. This is a 3-item key-value dictionary of "date" and "float".
+            "date" is dictionary itself and should contain the `earliest` and `latest` dates needed in the
+            dummy data. `float` is a dictionary of `distribution`, `mean`, and `stddev`. These values determine
+            the shape of the dummy data returned, and the float means a float will be returned rather than an
+            integer. `incidence` must have a value and this is what percentage of dummy patients have
+            a value. It needs to be a number between 0 and 1.
+        on_or_before: date of interest as a string with the format `YYYY-MM-DD`. Filters results to measurements
+            on or before the given date.
+        on_or_after: date of interest as a string with the format `YYYY-MM-DD`. Filters results to measurements
+            on or after the given date.
+        between: two dates of interest as a list with each date as a string with the format `YYYY-MM-DD`.
+            Filters results to measurements between the two dates provided (inclusive).
+            The two dates must be in chronological order.
+        include_measurement_date: a boolean indicating if an extra column, named `<variable_name>_date_measured`,
+            should be included in the output.  This option can only be True when `on_most_recent_day_of_measurement`
+            is `True` (i.e. the value returned is the minimum measurement taken on a single day).
+        date_format: a string detailing the format of the dates to be returned. It can be `YYYY-MM-DD`,
+            `YYYY-MM` or `YYYY` and wherever possible the least disclosive data should be returned. i.e returning
+            only year is less disclosive than a date with day, month and year. Only used if
+            include_measurement_date is `True`.
+
+    Returns:
+        float: min of value
+
+    Example:
+
+        This creates a variable `min_bp_sys` returning a float of the most recent systolic blood pressure from
+        the record within the time period. In the event of repeated measurements on the same day, the minimum value
+        is returned. Patient who do not have this information
+        available do not return a value.  The date of measurement is returned as `min_bp_sys_date_measured`, in YYYY-MM format:
+
+            min_bp_sys=patients.min_recorded_value(
+                systolic_blood_pressure_codes,
+                on_most_recent_day_of_measurement=True,
+                between=["2017-02-01", "2020-01-31"],
+                include_measurement_date=True,
+                date_format="YYYY-MM",
+                return_expectations={
+                    "float": {"distribution": "normal", "mean": 80, "stddev": 10},
+                    "date": {"earliest": "2019-02-01", "latest": "2020-01-31"},
+                    "incidence": 0.95,
+                },
+            )
+
+        Alternatively, the date of measurement can be defined as a separate variable, using `date_of`:
+
+            date_of_min_bp=patients.date_of("min_bp_sys", date_format="YYYY-MM")
+
+        This creates a variable returning a float of the minimum recorded creatinine level
+        over a 6 month period:
+
+            min_creatinine=patients.min_recorded_value(
+                creatinine_codes,
+                on_most_recent_day_of_measurement=False,
+                between=["2019-09-16", "2020-03-15"],
+                return_expectations={
+                    "float": {"distribution": "normal", "mean": 150, "stddev": 200},
+                    "date": {"earliest": "2019-09-16", "latest": "2020-03-15"},
+                    "incidence": 0.75,
+                },
+            )
+    """
+
+    return "min_recorded_value", locals()
+
+
+def max_recorded_value(
+    codelist,
+    on_most_recent_day_of_measurement=None,
+    # Required keyword
+    return_expectations=None,
+    # Set date limits
+    on_or_before=None,
+    on_or_after=None,
+    between=None,
+    # Add additional columns indicating when measurement was taken
+    include_measurement_date=False,
+    date_format=None,
+):
+    """
+    Return patients' maximum recorded value of a numerical value as defined by
+    a codelist within the specified period. Optionally, limit to recordings taken on the
+    most recent day of measurement only.  This is important as it allows
+    us to account for multiple measurements taken on one day.
+
+    The date of the most recent measurement can be included by flagging with date format options.
+
+    Args:
+        codelist: a codelist for requested value
+        on_most_recent_day_of_measurement: boolean flag for requesting measurements be on most recent date
+        return_expectations: a dictionary defining the incidence and distribution of expected value
+            within the population in question. This is a 3-item key-value dictionary of "date" and "float".
+            "date" is dictionary itself and should contain the `earliest` and `latest` dates needed in the
+            dummy data. `float` is a dictionary of `distribution`, `mean`, and `stddev`. These values determine
+            the shape of the dummy data returned, and the float means a float will be returned rather than an
+            integer. `incidence` must have a value and this is what percentage of dummy patients have
+            a value. It needs to be a number between 0 and 1.
+        on_or_before: date of interest as a string with the format `YYYY-MM-DD`. Filters results to measurements
+            on or before the given date.
+        on_or_after: date of interest as a string with the format `YYYY-MM-DD`. Filters results to measurements
+            on or after the given date.
+        between: two dates of interest as a list with each date as a string with the format `YYYY-MM-DD`.
+            Filters results to measurements between the two dates provided (inclusive).
+            The two dates must be in chronological order.
+        include_measurement_date: a boolean indicating if an extra column, named `<variable_name>_date_measured`,
+            should be included in the output.  This option can only be True when `on_most_recent_day_of_measurement`
+            is `True` (i.e. the value returned is the minimum measurement taken on a single day).
+        date_format: a string detailing the format of the dates to be returned. It can be `YYYY-MM-DD`,
+            `YYYY-MM` or `YYYY` and wherever possible the least disclosive data should be returned. i.e returning
+            only year is less disclosive than a date with day, month and year. Only used if
+            include_measurement_date is `True`.
+
+    Returns:
+        float: max of value
+
+    Example:
+
+        This creates a variable `max_bp_sys` returning a float of the most recent systolic blood pressure from
+        the record within the time period. In the event of repeated measurements on the same day, the maximum
+        value is returned. Patient who do not have this information
+        available do not return a value.  The date of measurement is returned as `bp_sys_date_measured`, in YYYY-MM format:
+
+            max_bp_sys=patients.max_recorded_value(
+                systolic_blood_pressure_codes,
+                on_most_recent_day_of_measurement=True,
+                between=["2017-02-01", "2020-01-31"],
+                include_measurement_date=True,
+                date_format="YYYY-MM",
+                return_expectations={
+                    "float": {"distribution": "normal", "mean": 80, "stddev": 10},
+                    "date": {"earliest": "2019-02-01", "latest": "2020-01-31"},
+                    "incidence": 0.95,
+                },
+            )
+
+        Alternatively, the date of measurement can be defined as a separate variable, using `date_of`:
+
+            date_of_max_bp=patients.date_of("max_bp_sys", date_format="YYYY-MM")
+
+        This creates a variable returning a float of the maximum recorded creatinine level
+        over a 6 month period:
+
+            creatinine=patients.max_recorded_value(
+                creatinine_codes,
+                on_most_recent_day_of_measurement=False,
+                between=["2019-09-16", "2020-03-15"],
+                return_expectations={
+                    "float": {"distribution": "normal", "mean": 150, "stddev": 200},
+                    "date": {"earliest": "2019-09-16", "latest": "2020-03-15"},
+                    "incidence": 0.75,
+                },
+            )
+    """
+
+    return "max_recorded_value", locals()
 
 
 def with_these_medications(
