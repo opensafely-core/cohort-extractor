@@ -55,6 +55,7 @@ from tests.tpp_backend_setup import (
     SGSS_AllTests_Positive,
     SGSS_Negative,
     SGSS_Positive,
+    Therapeutics,
     Vaccination,
     VaccinationReference,
     clear_database,
@@ -116,6 +117,7 @@ def setup_function(function):
     session.query(HighCostDrugs).delete()
     session.query(DecisionSupportValue).delete()
     session.query(HealthCareWorker).delete()
+    session.query(Therapeutics).delete()
     session.query(Patient).delete()
     session.commit()
 
@@ -4764,4 +4766,182 @@ def test_coded_events_reference_ranges():
         comparator=[">="],
         ref_range_lower=["3.0"],
         ref_range_upper=["8.0"],
+    )
+
+
+def test_therapeutics():
+    session = make_session()
+    session.add_all(
+        [
+            Patient(
+                Therapeutics=[
+                    Therapeutics(
+                        Intervention="Casirivimab and imdevimab ",
+                        COVID_indication="non_hospitalised",
+                        CurrentStatus="Approved",
+                        TreatmentStartDate="2021-12-10 00:00:00.000",
+                        Received="2021-12-10 00:00:00.000",
+                        MOL1_high_risk_cohort="",
+                        SOT02_risk_cohorts=None,
+                        CASIM05_risk_cohort="solid cancer",
+                        Region="South West",
+                    ),
+                    Therapeutics(
+                        Intervention="Molnupiravir",
+                        COVID_indication="hospitalised_with",
+                        CurrentStatus="Approved",
+                        TreatmentStartDate="2021-12-14 00:00:00.000",
+                        Received="2021-12-14 00:00:00.000",
+                        MOL1_high_risk_cohort="IMID",
+                        Region="North",
+                    ),
+                    # not started
+                    Therapeutics(
+                        Intervention="Remdesivir",
+                        COVID_indication="non_hospitalised",
+                        CurrentStatus="Treatment Not Started",
+                        TreatmentStartDate="2021-12-13 00:00:00.000",
+                        Received="2021-12-13 00:00:00.000",
+                        MOL1_high_risk_cohort="cancer",
+                        Region="London",
+                    ),
+                ],
+            ),
+            Patient(
+                Therapeutics=[
+                    Therapeutics(
+                        Intervention="Remdesivir",
+                        COVID_indication="non_hospitalised",
+                        CurrentStatus="Approved",
+                        TreatmentStartDate="2021-12-09 00:00:00.000",
+                        Received="2021-12-09 00:00:00.000",
+                        MOL1_high_risk_cohort="Patients with a cancer",
+                        SOT02_risk_cohorts="solid cancer",
+                        CASIM05_risk_cohort="IMID and Patients with a tumour",
+                        Region="South West",
+                    ),
+                ]
+            ),
+        ],
+    )
+    session.commit()
+    study = StudyDefinition(
+        population=patients.all(),
+        # returning values: date, therapeutic, risk group, region
+        first_theraputic_date=patients.with_covid_therapeutics(
+            find_first_match_in_period=True,
+            returning="date",
+            date_format="YYYY-MM-DD",
+        ),
+        # drug names are returned comma separated, whitespace and "and" removed
+        first_theraputic=patients.with_covid_therapeutics(
+            find_first_match_in_period=True,
+            returning="therapeutic",
+            date_format="YYYY-MM",
+        ),
+        # risk groups are concatenated from the 3 risk columns, returned comma separated,
+        # whitespace, "and", "patient with [a]" removed
+        first_risk_group=patients.with_covid_therapeutics(
+            find_first_match_in_period=True,
+            returning="risk_group",
+            date_format="YYYY-MM",
+        ),
+        latest_region=patients.with_covid_therapeutics(
+            find_last_match_in_period=True,
+            returning="region",
+            date_format="YYYY-MM",
+        ),
+        count=patients.with_covid_therapeutics(
+            returning="number_of_matches_in_period",
+        ),
+        # status filter; whitespace and case insensitve
+        not_started_region=patients.with_covid_therapeutics(
+            with_these_statuses="treatment not Started ",
+            find_last_match_in_period=True,
+            returning="region",
+            date_format="YYYY-MM",
+        ),
+        # status filter can be a list
+        all_status_region=patients.with_covid_therapeutics(
+            with_these_statuses=["treatment not Started", "Approved"],
+            find_last_match_in_period=True,
+            returning="region",
+            date_format="YYYY-MM",
+        ),
+        # therapeutic filter
+        # Match partial string, case insensitive
+        therapeutic_match=patients.with_covid_therapeutics(
+            with_these_therapeutics="Imdevimab",
+            find_last_match_in_period=True,
+            returning="date",
+            date_format="YYYY-MM-DD",
+        ),
+        # Match list
+        therapeutic_list_match=patients.with_covid_therapeutics(
+            with_these_therapeutics=["Casirivimab", "Molnupiravir"],
+            find_last_match_in_period=True,
+            returning="therapeutic",
+            date_format="YYYY-MM-DD",
+        ),
+        # Match codelist
+        therapeutic_codelist_match=patients.with_covid_therapeutics(
+            with_these_therapeutics=codelist(
+                ["Casirivimab", "Molnupiravir"], "therapeutics"
+            ),
+            find_last_match_in_period=True,
+            returning="therapeutic",
+            date_format="YYYY-MM-DD",
+        ),
+        # Indication filter
+        # match single indication on first match
+        indication_match=patients.with_covid_therapeutics(
+            with_these_indications="hospitalised_with",
+            find_first_match_in_period=True,
+            returning="date",
+            date_format="YYYY-MM-DD",
+        ),
+        # Indication filter
+        # match list of indications; for more than one, returns the first match
+        indication_list_match=patients.with_covid_therapeutics(
+            with_these_indications=["hospitalised_with", "non_hospitalised"],
+            find_first_match_in_period=True,
+            returning="date",
+            date_format="YYYY-MM-DD",
+        ),
+        indication_list_match_therapeutic=patients.with_covid_therapeutics(
+            with_these_indications=["hospitalised_with", "non_hospitalised"],
+            find_first_match_in_period=True,
+            returning="therapeutic",
+            date_format="YYYY-MM-DD",
+        ),
+        # Multiple filters
+        non_hospitalised_approved_cas_or_mol=patients.with_covid_therapeutics(
+            with_these_statuses="approved",
+            with_these_indications="non_hospitalised",
+            with_these_therapeutics=["Casirivimab", "Molnupiravir"],
+            find_last_match_in_period=True,
+            returning="date",
+            date_format="YYYY-MM-DD",
+        ),
+    )
+    results = study.to_dicts()
+    assert_results(
+        results,
+        # dates are timestamps with 0 times in db, returned as date strings
+        first_theraputic_date=["2021-12-10", "2021-12-09"],
+        # drugs joined with "and" are replaced with ","
+        first_theraputic=["Casirivimab,imdevimab", "Remdesivir"],
+        # risk groups are join across the 3 columns with ",". Nulls and empty strings are ignored.
+        first_risk_group=["solid cancer", "cancer,solid cancer,IMID,tumour"],
+        latest_region=["North", "South West"],
+        count=["3", "1"],
+        not_started_region=["London", ""],
+        all_status_region=["North", "South West"],
+        therapeutic_match=["2021-12-10", ""],
+        therapeutic_list_match=["Molnupiravir", ""],
+        therapeutic_codelist_match=["Molnupiravir", ""],
+        indication_match=["2021-12-14", ""],
+        indication_list_match=["2021-12-10", "2021-12-09"],
+        indication_list_match_therapeutic=["Casirivimab,imdevimab", "Remdesivir"],
+        non_hospitalised_approved_cas_or_mol=["2021-12-10", ""],
     )

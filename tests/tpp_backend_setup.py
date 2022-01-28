@@ -290,6 +290,11 @@ class Patient(Base):
         back_populates="Patient",
         cascade="all, delete, delete-orphan",
     )
+    Therapeutics = relationship(
+        "Therapeutics",
+        back_populates="Patient",
+        cascade="all, delete, delete-orphan",
+    )
 
 
 class RegistrationHistory(Base):
@@ -915,3 +920,43 @@ class ClusterRandomisedTrialReference(Base):
     TrialName = Column(String)
     TrialDescription = Column(String)
     CPMSNumber = Column(Integer)
+
+
+class Therapeutics(Base):
+    __tablename__ = "Therapeutics"
+
+    # This column isn't in the actual database but SQLAlchemy gets a bit upset
+    # if we don't give it a primary key
+    id = Column(Integer, primary_key=True)
+    Patient_ID = Column(Integer, ForeignKey("Patient.Patient_ID"))
+    Patient = relationship(
+        "Patient", back_populates="Therapeutics", cascade="all, delete"
+    )
+
+    # 'Casirivimab and imdevimab '[note trailing space], 'Molnupiravir', 'Remdesivir', 'sarilumab', 'Sotrovimab' , 'Tocilizumab'
+    Intervention = Column(String)
+
+    # 'hospital_onset', 'hospitalised_with', 'non_hospitalised'
+    COVID_indication = Column(String)
+
+    # 'Approved','Treatment Complete','Treatment Not Started','Treatment Stopped'
+    CurrentStatus = Column(String)
+    TreatmentStartDate = Column(String)
+    Received = Column(String)
+
+    # e.g. 'solid cancer', 'IMID',
+    # look consistent but can be a combination of 2 or more separated with ' and ' e.g. 'renal disease and IMID'
+    # sometimes also contains string "Patients with[ a]"
+    MOL1_high_risk_cohort = Column(String)
+    SOT02_risk_cohorts = Column(String)
+    CASIM05_risk_cohort = Column(String)
+
+    Region = Column(String)
+
+    # Other columns in the table which we don't use:
+    #   AgeAtReceivedDate
+    #   FormName
+    #   MOL1_onset_of_symptoms
+    #   SOT02_onset_of_symptoms
+    #   Count
+    #   Der_LoadDate
