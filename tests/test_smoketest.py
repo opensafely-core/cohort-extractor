@@ -150,7 +150,14 @@ def test_patients_from_file(tmp_path):
     # The number of rows in the output file must equal the number of rows in the
     # user-supplied CSV file
     assert len(contents) == 2
-    assert contents[0] == ["patient_id", "case_index_date", "exists_in_file", "age"]
+    assert contents[0] == [
+        "patient_id",
+        "case_index_date",
+        "exists_in_file",
+        "bmi_date_measured",
+        "age",
+        "bmi",
+    ]
     # The following values come from the user-supplied CSV file
     assert contents[1][0] == "1"  # integer
     assert contents[1][1] == "2021-01-01"
