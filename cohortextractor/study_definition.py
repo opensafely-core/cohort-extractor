@@ -6,6 +6,7 @@ import shutil
 from pathlib import Path
 
 import pandas as pd
+import structlog
 from numpy.random import default_rng
 
 from .csv_utils import is_csv_filename
@@ -19,6 +20,8 @@ from .expectation_generators import generate
 from .pandas_utils import dataframe_from_rows, dataframe_to_file, dataframe_to_rows
 from .process_covariate_definitions import process_covariate_definitions
 from .validate_dummy_data import validate_dummy_data
+
+logger = structlog.get_logger()
 
 
 class StudyDefinition:
@@ -314,6 +317,15 @@ class StudyDefinition:
 
             df["patient_id"] = user_df["patient_id"]
             df[colname] = user_df[returning] if returning is not None else 1
+            # The population should be the same size as the number of patients in the
+            # user-supplied CSV file. This ensures we generate no more dummy data than
+            # is necessary.
+            new_population = len(df)
+            if population != new_population:
+                logger.info(
+                    f"Setting population size to {new_population} (was {population}) to match user-supplied CSV file"
+                )
+                population = new_population
 
         # Now dates, so we can use them as inputs for incidence matching on dependent
         # columns

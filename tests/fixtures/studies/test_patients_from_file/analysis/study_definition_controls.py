@@ -29,4 +29,16 @@ study = StudyDefinition(
             "int": {"distribution": "population_ages"},
         },
     ),
+    # By including the measurement date, we're following a different code path to `age`.
+    bmi=patients.most_recent_bmi(
+        between=["2020-01-01", "index_date"],
+        minimum_age_at_measurement=18,
+        include_measurement_date=True,
+        date_format="YYYY-MM-DD",
+        return_expectations={
+            "date": {"earliest": "2010-02-01", "latest": "2022-01-27"},
+            "float": {"distribution": "normal", "mean": 28, "stddev": 8},
+            "incidence": 0.8,
+        },
+    ),
 )
