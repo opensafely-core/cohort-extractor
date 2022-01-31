@@ -422,6 +422,7 @@ class GetColumnType:
             "nuts1_region_name": "str",
             "patient_classification": "str",
             "percentage_of_members_with_data_in_this_backend": "int",
+            "place_of_death": "str",
             "primary_diagnosis": "str",
             "pseudo_id": "int",
             "rural_urban_classification": "int",

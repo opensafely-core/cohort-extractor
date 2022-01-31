@@ -1804,6 +1804,8 @@ class TPPBackend:
             column_definition = "MIN(dod)"
         elif returning == "underlying_cause_of_death":
             column_definition = "MIN(icd10u)"
+        elif returning == "place_of_death":
+            column_definition = "MIN(Place_of_occurrence)"
         else:
             raise ValueError(f"Unsupported `returning` value: {returning}")
         return f"""

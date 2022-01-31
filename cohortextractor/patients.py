@@ -1376,6 +1376,8 @@ def with_these_codes_on_death_certificate(
             * `date_of_death`: Date of death
             * `binary_flag`: If they died or not
             * `underlying_cause_of_death`: The icd10 code corresponding to the underlying cause of death
+            * `place_of_death`: Place of death (currently only available for TPP)
+              Possible values are: "Care home", "Elsewhere", "Home", "Hospice", "Hospital", "Other communal establishment"
 
         date_format: a string detailing the format of the dates to be returned. It can be `YYYY-MM-DD`,
             `YYYY-MM` or `YYYY` and wherever possible the least disclosive data should be returned. i.e returning
@@ -1388,8 +1390,9 @@ def with_these_codes_on_death_certificate(
             within the population in question.
 
     Returns:
-        list: of integers of `1` or `0` if `returning` argument is set to `binary_flag` or `underlying_cause_of_death`;
+        list: of integers of `1` or `0` if `returning` argument is set to `binary_flag`;
             list of strings with a date format returned if `returning` argument is set to `date_of_death`
+            list of strings returned if `returning` argument is set to `underlying_cause_of_death` or `place_of_death`
 
     Example:
 
@@ -1438,6 +1441,9 @@ def died_from_any_cause(
 
             * `date_of_death`: Date of death
             * `binary_flag`: If they died or not
+            * `underlying_cause_of_death`: The icd10 code corresponding to the underlying cause of death
+            * `place_of_death`: Place of death (currently only available for TPP)
+               Possible values are: "Care home", "Elsewhere", "Home", "Hospice", "Hospital", "Other communal establishment"
 
         date_format: a string detailing the format of the dates to be returned. It can be `YYYY-MM-DD`,
             `YYYY-MM` or `YYYY` and wherever possible the least disclosive data should be returned. i.e returning
@@ -1452,6 +1458,7 @@ def died_from_any_cause(
     Returns:
         list: of integers of `1` or `0` if `returning` argument is set to `binary_flag`;
             list of strings with a date format returned if `returning` argument is set to `date_of_death`
+            list of strings returned if `returning` argument is set to `underlying_cause_of_death` or `place_of_death`
 
     Example:
 

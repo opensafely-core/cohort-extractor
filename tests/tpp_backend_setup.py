@@ -395,6 +395,7 @@ class ONSDeaths(Base):
     ICD10013 = Column(String)
     ICD10014 = Column(String)
     ICD10015 = Column(String)
+    Place_of_occurrence = Column(String)
 
 
 class CPNS(Base):

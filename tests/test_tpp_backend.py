@@ -1855,24 +1855,58 @@ def test_patients_with_these_codes_on_death_certificate():
             # Not dead
             Patient(),
             # Died after date cutoff
-            ONSDeaths(Patient=Patient(), dod="2021-01-01", icd10u=code),
+            ONSDeaths(
+                Patient=Patient(),
+                dod="2021-01-01",
+                icd10u=code,
+                Place_of_occurrence="Home",
+            ),
             # Died of something else
-            ONSDeaths(Patient=Patient(), dod="2020-02-01", icd10u="MI"),
+            ONSDeaths(
+                Patient=Patient(),
+                dod="2020-02-01",
+                icd10u="MI",
+                Place_of_occurrence="Hospital",
+            ),
             # Covid underlying cause
             ONSDeaths(
-                Patient=patient_with_dupe, dod="2020-02-01", icd10u=code, ICD10014="MI"
+                Patient=patient_with_dupe,
+                dod="2020-02-01",
+                icd10u=code,
+                ICD10014="MI",
+                Place_of_occurrence="Hospice",
             ),
             # A duplicate (the raw data does contain exact dupes, unfortunately)
             ONSDeaths(
-                Patient=patient_with_dupe, dod="2020-02-01", icd10u=code, ICD10014="MI"
+                Patient=patient_with_dupe,
+                dod="2020-02-01",
+                icd10u=code,
+                ICD10014="MI",
+                Place_of_occurrence="Hospice",
             ),
             # A duplicate with a different date of death (which now we have to handle)
             ONSDeaths(
-                Patient=patient_with_dupe, dod="2020-02-02", icd10u=code, ICD10014="MI"
+                Patient=patient_with_dupe,
+                dod="2020-02-02",
+                icd10u=code,
+                ICD10014="MI",
+                Place_of_occurrence="Hospice",
             ),
             # A duplicate with a different date of death (which now we have to handle)
             ONSDeaths(
-                Patient=patient_with_dupe, dod="2020-02-02", icd10u=code, ICD10014="MI"
+                Patient=patient_with_dupe,
+                dod="2020-02-02",
+                icd10u=code,
+                ICD10014="MI",
+                Place_of_occurrence="Hospice",
+            ),
+            # A duplicate with a different place of death (which now we have to handle)
+            ONSDeaths(
+                Patient=patient_with_dupe,
+                dod="2020-02-02",
+                icd10u=code,
+                ICD10014="MI",
+                Place_of_occurrence="Elsewhere",
             ),
             # A duplicate with a different underlying CoD (which now we have to handle)
             ONSDeaths(
@@ -1880,9 +1914,16 @@ def test_patients_with_these_codes_on_death_certificate():
                 dod="2020-02-02",
                 icd10u="MI",
                 ICD10014="COVID",
+                Place_of_occurrence="Hospice",
             ),
             # Covid not underlying cause
-            ONSDeaths(Patient=Patient(), dod="2020-03-01", icd10u="MI", ICD10014=code),
+            ONSDeaths(
+                Patient=Patient(),
+                dod="2020-03-01",
+                icd10u="MI",
+                ICD10014=code,
+                Place_of_occurrence="Care home",
+            ),
         ]
     )
     session.commit()
@@ -1908,12 +1949,25 @@ def test_patients_with_these_codes_on_death_certificate():
             match_only_underlying_cause=False,
             returning="underlying_cause_of_death",
         ),
+        place_of_death=patients.with_these_codes_on_death_certificate(
+            covid_codelist,
+            on_or_before="2020-06-01",
+            match_only_underlying_cause=False,
+            returning="place_of_death",
+        ),
     )
     results = study.to_dicts()
     assert [i["died_of_covid"] for i in results] == ["0", "0", "0", "1", "0"]
     assert [i["died_with_covid"] for i in results] == ["0", "0", "0", "1", "1"]
     assert [i["date_died"] for i in results] == ["", "", "", "2020-02-01", "2020-03-01"]
     assert [i["underlying_cause"] for i in results] == ["", "", "", code, "MI"]
+    assert [i["place_of_death"] for i in results] == [
+        "",
+        "",
+        "",
+        "Elsewhere",
+        "Care home",
+    ]
 
 
 def test_patients_died_from_any_cause():
@@ -1923,9 +1977,15 @@ def test_patients_died_from_any_cause():
             # Not dead
             Patient(),
             # Died after date cutoff
-            Patient(ONSDeath=[ONSDeaths(dod="2021-01-01")]),
+            Patient(ONSDeath=[ONSDeaths(dod="2021-01-01", Place_of_occurrence="Home")]),
             # Died
-            Patient(ONSDeath=[ONSDeaths(dod="2020-02-01", icd10u="A")]),
+            Patient(
+                ONSDeath=[
+                    ONSDeaths(
+                        dod="2020-02-01", icd10u="A", Place_of_occurrence="Hospice"
+                    )
+                ]
+            ),
         ]
     )
     session.commit()
@@ -1941,11 +2001,16 @@ def test_patients_died_from_any_cause():
             on_or_before="2020-06-01",
             returning="underlying_cause_of_death",
         ),
+        place_of_death=patients.died_from_any_cause(
+            on_or_before="2020-06-01",
+            returning="place_of_death",
+        ),
     )
     results = study.to_dicts()
     assert [i["died"] for i in results] == ["0", "0", "1"]
     assert [i["date_died"] for i in results] == ["", "", "2020-02-01"]
     assert [i["underlying_cause"] for i in results] == ["", "", "A"]
+    assert [i["place_of_death"] for i in results] == ["", "", "Hospice"]
 
 
 def test_patients_with_death_recorded_in_cpns():
