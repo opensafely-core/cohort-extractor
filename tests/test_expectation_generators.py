@@ -1120,3 +1120,39 @@ def test_make_df_from_expectations_with_using_dates_as_categories():
     population_size = 100
     result = study.make_df_from_expectations(population_size)
     assert set(result.eligible_date) == set(["2020-08-18", "2020-06-16", "2020-04-14"])
+
+
+def test_make_df_from_expectations_with_covid_therapeutics():
+    study = StudyDefinition(
+        population=patients.all(),
+        therapeutic_approved=patients.with_covid_therapeutics(
+            with_these_statuses=["Approved", "Treatment Complete"],
+            returning="therapeutic",
+            return_expectations={
+                "rate": "universal",
+                "date": {"earliest": "1900-01-01", "latest": "today"},
+                "category": {
+                    "ratios": {
+                        "Approved": 0.25,
+                        "Treatment Complete": 0.25,
+                        "Treatment Not Started": 0.25,
+                        "Treatment Stopped": 0.25,
+                    }
+                },
+            },
+        ),
+        start_date=patients.with_covid_therapeutics(
+            with_these_statuses=["Approved", "Treatment Complete"],
+            returning="date",
+            return_expectations={
+                "rate": "exponential_increase",
+                "incidence": 0.2,
+                "date": {"earliest": "1900-01-01", "latest": "today"},
+            },
+        ),
+    )
+    population_size = 1000
+    # Just ensuring no exception is raised
+    result = study.make_df_from_expectations(population_size)
+    assert len(result[pd.isnull(result.therapeutic_approved)]) == 0
+    assert len(result[pd.isnull(result.start_date)]) == 800
