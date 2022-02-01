@@ -29,6 +29,7 @@ class TPPBackend:
         self.covariate_definitions = covariate_definitions
         self.temporary_database = temporary_database
         self.next_temp_table_id = 1
+        self._therapeutics_table_name = None
         self.queries = self.get_queries(self.covariate_definitions)
 
     def to_file(self, filename):
@@ -2787,6 +2788,31 @@ class TPPBackend:
               OPA.Patient_ID
             """
 
+    def create_therapeutics_table(self):
+        if self._therapeutics_table_name is None:
+            self._therapeutics_table_name = self.get_temp_table_name("therapeutics")
+            collation = "Latin1_General_CI_AS"
+            queries = [
+                f"""
+            -- Creating theraputics temp table
+            SELECT
+                Patient_ID,
+                CAST(TreatmentStartDate AS DATE) AS TreatmentStartDate,
+                CAST(Received AS DATE) AS Received,
+                Intervention COLLATE {collation} AS Intervention,
+                CurrentStatus COLLATE {collation} AS CurrentStatus,
+                COVID_Indication,
+                Region,
+                MOL1_high_risk_cohort,
+                SOT02_risk_cohorts,
+                CASIM05_risk_cohort
+             INTO {self._therapeutics_table_name} FROM Therapeutics
+            """
+            ]
+        else:
+            queries = []
+        return self._therapeutics_table_name, queries
+
     def patients_with_covid_therapeutics(
         self,
         with_these_statuses=None,
@@ -2801,13 +2827,14 @@ class TPPBackend:
         find_last_match_in_period=None,
         include_date_of_match=False,
     ):
+        therapeutics_table_name, therapeutic_queries = self.create_therapeutics_table()
         filter_conditions = []
         # status may be provided as a single string or a list
         # Available options are: 'Approved','Treatment Complete','Treatment Not Started','Treatment Stopped'
         # Deal with whitespace/case before matching
         status_matches = to_list(with_these_statuses)
         if status_matches:
-            statuses = [quote(status.strip().title()) for status in status_matches]
+            statuses = [quote(status.strip()) for status in status_matches]
             filter_conditions.append(f"CurrentStatus IN ({', '.join(statuses)})")
 
         # Data (Jan 2022) contains the following values:
@@ -2816,7 +2843,7 @@ class TPPBackend:
         therapeutic_matches = to_list(with_these_therapeutics)
         if therapeutic_matches:
             fragments = [
-                f"Intervention COLLATE Latin1_General_CI_AS LIKE {pattern} ESCAPE '!'"
+                f"Intervention LIKE {pattern} ESCAPE '!'"
                 for pattern in codelist_to_like_patterns(
                     therapeutic_matches, prefix="%", suffix="%"
                 )
@@ -2836,6 +2863,11 @@ class TPPBackend:
                 ), f"'{indication}' is not a valid indication; options are {', '.join(valid_indications)}"
             indications = [quote(indication) for indication in indication_matches]
             filter_conditions.append(f"COVID_indication IN ({', '.join(indications)})")
+
+        date_condition, date_joins = self.get_date_condition(
+            "t", "TreatmentStartDate", between
+        )
+        filter_conditions.append(date_condition)
 
         where_filter_conditions = (
             f"WHERE {' AND '.join(filter_conditions)}" if filter_conditions else ""
@@ -2880,19 +2912,15 @@ class TPPBackend:
         else:
             raise ValueError(f"Unsupported `returning` value: {returning}")
 
-        date_condition, date_joins = self.get_date_condition(
-            "t", "t.TreatmentStartDate", between
-        )
-
         if use_partition_query:
             sql = f"""
             SELECT
               t.Patient_ID AS patient_id,
               {column_definition} AS {returning},
-              CAST(t.TreatmentStartDate AS DATE) AS date
+              t.TreatmentStartDate AS date
             FROM (
               SELECT
-                Therapeutics.Patient_ID,
+                {therapeutics_table_name}.Patient_ID,
                 TreatmentStartDate,
                 Received,
                 Intervention,
@@ -2903,10 +2931,10 @@ class TPPBackend:
                 CASIM05_risk_cohort,
                 Region,
                 ROW_NUMBER() OVER (
-                  PARTITION BY Therapeutics.Patient_ID
+                  PARTITION BY {therapeutics_table_name}.Patient_ID
                   ORDER BY TreatmentStartDate {ordering}, Received, Intervention
                 ) AS rownum
-              FROM Therapeutics
+              FROM {therapeutics_table_name}
               {date_joins}
               {where_filter_conditions}
             ) t
@@ -2926,14 +2954,13 @@ class TPPBackend:
                 COVID_indication,
                 CurrentStatus
             FROM
-                Therapeutics
+                {therapeutics_table_name}
             {where_filter_conditions}
             ) t
             {date_joins}
-            WHERE {date_condition}
             GROUP BY t.Patient_ID
             """
-        return sql
+        return therapeutic_queries + [sql]
 
     def patients_with_value_from_file(
         self, f_path, returning=None, returning_type=None

@@ -4945,3 +4945,57 @@ def test_therapeutics():
         indication_list_match_therapeutic=["Casirivimab,imdevimab", "Remdesivir"],
         non_hospitalised_approved_cas_or_mol=["2021-12-10", ""],
     )
+
+
+def test_therapeutics_dates():
+    session = make_session()
+    session.add_all(
+        [
+            Patient(
+                Therapeutics=[
+                    Therapeutics(
+                        Intervention="A",
+                        TreatmentStartDate="2021-12-10 00:00:00.000",
+                    ),
+                    Therapeutics(
+                        Intervention="B",
+                        TreatmentStartDate="2022-01-10 00:00:00.000",
+                    ),
+                ]
+            ),
+            Patient(
+                Therapeutics=[
+                    Therapeutics(
+                        Intervention="C",
+                        TreatmentStartDate="2022-01-15 00:00:00.000",
+                    )
+                ]
+            ),
+            Patient(
+                Therapeutics=[
+                    Therapeutics(
+                        Intervention="D",
+                        TreatmentStartDate="2021-12-19 00:00:00.000",
+                    )
+                ]
+            ),
+        ]
+    )
+    session.commit()
+    study = StudyDefinition(
+        population=patients.all(),
+        # returning values: date, therapeutic, risk group, region
+        therapeutic=patients.with_covid_therapeutics(
+            find_first_match_in_period=True,
+            returning="therapeutic",
+            on_or_after="2022-01-01",
+        ),
+        therapeutic_counts=patients.with_covid_therapeutics(
+            find_first_match_in_period=True,
+            returning="number_of_matches_in_period",
+            on_or_after="2021-12-15",
+        ),
+    )
+    assert_results(
+        study.to_dicts(), therapeutic=["B", "C", ""], therapeutic_counts=["1", "1", "1"]
+    )
