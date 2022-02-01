@@ -4769,7 +4769,7 @@ def test_coded_events_reference_ranges():
     )
 
 
-def test_therapeutics():
+def test_with_covid_therapeutics():
     session = make_session()
     session.add_all(
         [
@@ -4947,7 +4947,7 @@ def test_therapeutics():
     )
 
 
-def test_therapeutics_dates():
+def test_with_covid_therapeutics_date_filters():
     session = make_session()
     session.add_all(
         [
@@ -4999,3 +4999,20 @@ def test_therapeutics_dates():
     assert_results(
         study.to_dicts(), therapeutic=["B", "C", ""], therapeutic_counts=["1", "1", "1"]
     )
+
+
+def test_with_covid_therapeutics_invalid_indiction():
+
+    with pytest.raises(
+        AssertionError,
+        match="'foo' is not a valid indication; options are hospital_onset, hospitalised_with, non_hospitalised",
+    ):
+        StudyDefinition(
+            population=patients.all(),
+            # returning values: date, therapeutic, risk group, region
+            therapeutic=patients.with_covid_therapeutics(
+                find_first_match_in_period=True,
+                returning="date",
+                with_these_indications=["foo"],
+            ),
+        )
