@@ -29,6 +29,7 @@ class TPPBackend:
         self.covariate_definitions = covariate_definitions
         self.temporary_database = temporary_database
         self.next_temp_table_id = 1
+        self._therapeutics_table_name = None
         self.queries = self.get_queries(self.covariate_definitions)
 
     def to_file(self, filename):
@@ -2786,6 +2787,211 @@ class TPPBackend:
             GROUP BY
               OPA.Patient_ID
             """
+
+    def create_therapeutics_table(self):
+        """
+        Create a temporarary Therapeutics table to use for `with_covid_therapeutics` queries
+        All columns in the Therapeutics table are VARCHAR.  This casts the two date columns that
+        we use in queries to DATE type, and adds case insensitive collation to the Interventaion
+        and CurrentStatus columns.
+        All columns are included, including those that we don't use, so that when we remove
+        duplicates, we only remove complete duplicate rows
+        """
+        if self._therapeutics_table_name is None:
+            self._therapeutics_table_name = self.get_temp_table_name("therapeutics")
+            collation = "Latin1_General_CI_AS"
+            queries = [
+                f"""
+            -- Creating theraputics temp table
+            SELECT DISTINCT
+                Patient_ID,
+                CAST(TreatmentStartDate AS DATE) AS TreatmentStartDate,
+                CAST(Received AS DATE) AS Received,
+                Intervention COLLATE {collation} AS Intervention,
+                CurrentStatus COLLATE {collation} AS CurrentStatus,
+                COVID_Indication,
+                Region,
+                MOL1_high_risk_cohort,
+                SOT02_risk_cohorts,
+                CASIM05_risk_cohort,
+                AgeAtReceivedDate,
+                FormName,
+                MOL1_onset_of_symptoms,
+                SOT02_onset_of_symptoms,
+                Count,
+                Der_LoadDate
+             INTO {self._therapeutics_table_name} FROM Therapeutics
+            """
+            ]
+        else:
+            queries = []
+        return self._therapeutics_table_name, queries
+
+    def patients_with_covid_therapeutics(
+        self,
+        with_these_statuses=None,
+        with_these_therapeutics=None,
+        with_these_indications=None,
+        # Set date limits
+        between=None,
+        # Set return type
+        returning="binary_flag",
+        # Matching rule
+        find_first_match_in_period=None,
+        find_last_match_in_period=None,
+        include_date_of_match=False,
+    ):
+        therapeutics_table_name, therapeutic_queries = self.create_therapeutics_table()
+        filter_conditions = []
+        # status may be provided as a single string or a list
+        # Available options are: 'Approved','Treatment Complete','Treatment Not Started','Treatment Stopped'
+        # Deal with whitespace/case before matching
+        status_matches = to_list(with_these_statuses)
+        if status_matches:
+            statuses = [quote(status.strip()) for status in status_matches]
+            filter_conditions.append(f"CurrentStatus IN ({', '.join(statuses)})")
+
+        # Data (Jan 2022) contains the following values:
+        # 'Casirivimab and imdevimab '[note trailing space], 'Molnupiravir', 'Remdesivir', 'sarilumab', 'Sotrovimab' , 'Tocilizumab'
+        # Allow for case insensitive matching and whitespace
+        therapeutic_matches = to_list(with_these_therapeutics)
+        if therapeutic_matches:
+            fragments = [
+                f"Intervention LIKE {pattern} ESCAPE '!'"
+                for pattern in codelist_to_like_patterns(
+                    therapeutic_matches, prefix="%", suffix="%"
+                )
+            ]
+            filter_conditions.append("(" + " OR ".join(fragments) + ")")
+
+        indication_matches = to_list(with_these_indications)
+        if indication_matches:
+            valid_indications = [
+                "hospital_onset",
+                "hospitalised_with",
+                "non_hospitalised",
+            ]
+            for indication in indication_matches:
+                assert (
+                    indication in valid_indications
+                ), f"'{indication}' is not a valid indication; options are {', '.join(valid_indications)}"
+            indications = [quote(indication) for indication in indication_matches]
+            filter_conditions.append(f"COVID_indication IN ({', '.join(indications)})")
+
+        date_condition, date_joins = self.get_date_condition(
+            "t", "TreatmentStartDate", between
+        )
+        filter_conditions.append(date_condition)
+
+        where_filter_conditions = (
+            f"WHERE {' AND '.join(filter_conditions)}" if filter_conditions else ""
+        )
+
+        # Result ordering
+        if find_first_match_in_period:
+            ordering = "ASC"
+        else:
+            ordering = "DESC"
+
+        use_partition_query = True
+        if returning == "binary_flag" or returning == "date":
+            returning = "binary_flag"
+            column_definition = "1"
+        elif returning == "therapeutic":
+            # remove whitespace, convert to comma-separated string
+            column_definition = "REPLACE(LTRIM(RTRIM(Intervention)), ' and ', ',')"
+        elif returning == "risk_group":
+            # First remove any "Patients with a" and replace " and " with "," within individual risk group fields
+            # Then join the 3 risk cohort fields with ","
+            # Note that the last "s" in SOT02_risk_cohorts is correct
+            parts = [
+                f"REPLACE(REPLACE({risk_col}, 'Patients with a ', ''), ' and ', ',')"
+                for risk_col in [
+                    "MOL1_high_risk_cohort",
+                    "SOT02_risk_cohorts",
+                    "CASIM05_risk_cohort",
+                ]
+            ]
+            # coalesce the parts with a leading ','
+            coalesced_parts = " + ".join(
+                f"coalesce(',' + NULLIF({part}, ''), '')" for part in parts
+            )
+            # use stuff to remove the first ','
+            column_definition = f"STUFF({coalesced_parts}, 1, 1, '')"
+        elif returning == "region":
+            column_definition = "Region"
+        elif returning == "number_of_matches_in_period":
+            column_definition = "COUNT(*)"
+            use_partition_query = False
+        else:
+            raise ValueError(f"Unsupported `returning` value: {returning}")
+
+        if use_partition_query:
+            # There can be duplicates per patient in the Therapeutics dataset, which differ on one
+            # or more field (We remove fully duplicate rows in the temp table only)
+            # These are likely to be invalid in some way, e.g. the result of entering the form twice
+            # We keep these data in - users can identify whether there are duplicates by using the
+            # `number_of_matches_in_period` return value and deal with them as appropriate
+
+            # We always return just one row per patient, either the first or last by TreatmentStartDate.
+            # The query sorts per-patient rows by all the fields that have been identified to
+            # contain duplicate values for a patient.  In the case of duplicate TreatmentStartDates, this
+            # ensures a consistent return value each time.
+            sql = f"""
+            SELECT
+              t.Patient_ID AS patient_id,
+              {column_definition} AS {returning},
+              t.TreatmentStartDate AS date
+            FROM (
+              SELECT
+                {therapeutics_table_name}.Patient_ID,
+                TreatmentStartDate,
+                Received,
+                Intervention,
+                COVID_indication,
+                CurrentStatus,
+                MOL1_high_risk_cohort,
+                SOT02_risk_cohorts,
+                CASIM05_risk_cohort,
+                Region,
+                ROW_NUMBER() OVER (
+                  PARTITION BY {therapeutics_table_name}.Patient_ID
+                  ORDER BY TreatmentStartDate {ordering},
+                    Received,
+                    CurrentStatus,
+                    Intervention,
+                    Region,
+                    MOL1_high_risk_cohort,
+                    SOT02_risk_cohorts,
+                    CASIM05_risk_cohort
+                ) AS rownum
+              FROM {therapeutics_table_name}
+              {date_joins}
+              {where_filter_conditions}
+            ) t
+            WHERE t.rownum = 1
+            """
+        else:
+            # number_of_matches_in_period only
+            sql = f"""
+            SELECT
+            t.Patient_ID as patient_id,
+            {column_definition} AS {returning}
+            FROM (
+            SELECT
+                Patient_ID,
+                TreatmentStartDate,
+                Intervention,
+                COVID_indication,
+                CurrentStatus
+            FROM
+                {therapeutics_table_name}
+            {where_filter_conditions}
+            ) t
+            {date_joins}
+            GROUP BY t.Patient_ID
+            """
+        return therapeutic_queries + [sql]
 
     def patients_with_value_from_file(
         self, f_path, returning=None, returning_type=None

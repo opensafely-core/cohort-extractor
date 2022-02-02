@@ -2635,6 +2635,75 @@ def outpatient_appointment_date(
     return "outpatient_appointment_date", locals()
 
 
+def with_covid_therapeutics(
+    with_these_statuses=None,
+    with_these_therapeutics=None,
+    with_these_indications=None,
+    # Set date limits
+    on_or_before=None,
+    on_or_after=None,
+    between=None,
+    # Set return type
+    returning="binary_flag",
+    date_format=None,
+    # Matching rule
+    find_first_match_in_period=None,
+    find_last_match_in_period=None,
+    return_expectations=None,
+):
+    """
+    Returns data from the Therapeutics Dataset (TPP backend only)
+
+    Args:
+        with_these_statuses: a status as a string, or a list of such names.
+        Possible values are "Approved", "Treatment Complete", "Treatment Not Started",
+        "Treatment Stopped"
+        with_these_therapeutics: a drug name as a string, or a list of such names, or
+            a codelist containing such names. Results will be filtered to just
+            rows containing any of the supplied names. Note these are not
+            standardised names, they are just the names however they come to us
+            in the original data.
+        with_these_indications: a Covid indication name as a string, or a list
+           of such names.  Possible values are "hospital_onset", "hospitalised_with",
+           "non_hospitalised"
+        returning: string indicating value to be returned. Options are:
+
+            * `binary_flag`: if the patient received any matching therapeutic intervention
+            * `date`: date intervention started
+            * `therapeutic`: string of comma-separated drug names
+            * `risk_group`: string of comma-separated risk conditions
+            * `region`: Region recorded for the therapeutic intervention; note this may be different
+              to the patient's region
+            * `number_of_matches_in_period`
+
+        on_or_before: as described elsewhere
+        on_or_after: as described elsewhere
+        between: as described elsewhere
+        find_first_match_in_period: as described elsewhere
+        find_last_match_in_period: as described elsewhere
+        date_format: a string detailing the format of the treatment dates to be returned.
+            It can be "YYYY-MM-DD", "YYYY-MM" or "YYYY" and wherever possible the least disclosive data should be
+            returned. i.e returning only year is less disclosive than a date with month and year.
+        return_expectations: as described elsewhere
+
+    Example:
+        The first date on which non-hospitalised patients had any approved theraputic
+        after 01 Jan 2022:
+
+            covid_therapeutics=patients.with_covid_therapeutics(
+                therapeutic_matches=therapeutic_codelist,
+                indication_matches="non-hospitalised",
+                approved=True,
+                on_or_after="2022-01-01",
+                find_first_match_in_period=True,
+                returning="date",
+                date_format="YYYY-MM-DD",
+                return_expectations={"date": {"earliest": "2022-01-01"}},
+            )
+    """
+    return "with_covid_therapeutics", locals()
+
+
 def with_value_from_file(f_path, returning, returning_type, date_format="YYYY-MM-DD"):
     """
     Returns values from a file.

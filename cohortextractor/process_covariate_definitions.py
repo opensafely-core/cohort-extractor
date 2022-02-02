@@ -380,6 +380,9 @@ class GetColumnType:
     def type_of_which_exist_in_file(self, **kwargs):
         return "bool"
 
+    def type_of_with_covid_therapeutics(self, returning, **kwargs):
+        return self._type_from_return_value(returning)
+
     def _type_from_return_value(self, returning):
         if returning == "nhse_region_name":
             raise ValueError(
@@ -425,11 +428,14 @@ class GetColumnType:
             "place_of_death": "str",
             "primary_diagnosis": "str",
             "pseudo_id": "int",
+            "region": "str",
+            "risk_group": "str",
             "rural_urban_classification": "int",
             "s_gene_target_failure": "str",
             "source_of_admission": "str",
             "stp_code": "str",
             "symptomatic": "str",
+            "therapeutic": "str",
             "underlying_cause_of_death": "str",
             "upper_bound": "float",
             "variant": "str",
