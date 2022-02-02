@@ -2927,12 +2927,16 @@ class TPPBackend:
             raise ValueError(f"Unsupported `returning` value: {returning}")
 
         if use_partition_query:
-            # There can be duplicates per patient in the Therapeutics dataset
-            # These are likely to be invalid in some way, but we keep them in so users
-            # can identify them and deal with them as appropriate
-            # (We remove fully duplicate rows in the temp table only)
-            # Duplicate rows are sorted by all the fields that have been identified to
-            # contain duplicate values for a patient, to ensure a consistent return value
+            # There can be duplicates per patient in the Therapeutics dataset, which differ on one
+            # or more field (We remove fully duplicate rows in the temp table only)
+            # These are likely to be invalid in some way, e.g. the result of entering the form twice
+            # We keep these data in - users can identify whether there are duplicates by using the
+            # `number_of_matches_in_period` return value and deal with them as appropriate
+
+            # We always return just one row per patient, either the first or last by TreatmentStartDate.
+            # The query sorts per-patient rows by all the fields that have been identified to
+            # contain duplicate values for a patient.  In the case of duplicate TreatmentStartDates, this
+            # ensures a consistent return value each time.
             sql = f"""
             SELECT
               t.Patient_ID AS patient_id,
