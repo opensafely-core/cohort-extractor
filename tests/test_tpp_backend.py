@@ -4820,6 +4820,18 @@ def test_with_covid_therapeutics():
                         CASIM05_risk_cohort="IMID and Patients with a tumour",
                         Region="South West",
                     ),
+                    # fully duplicate row is removed and doesn't count when returning number of matches
+                    Therapeutics(
+                        Intervention="Remdesivir",
+                        COVID_indication="non_hospitalised",
+                        CurrentStatus="Approved",
+                        TreatmentStartDate="2021-12-09 00:00:00.000",
+                        Received="2021-12-09 00:00:00.000",
+                        MOL1_high_risk_cohort="Patients with a cancer",
+                        SOT02_risk_cohorts="solid cancer",
+                        CASIM05_risk_cohort="IMID and Patients with a tumour",
+                        Region="South West",
+                    ),
                 ]
             ),
         ],

@@ -2789,13 +2789,21 @@ class TPPBackend:
             """
 
     def create_therapeutics_table(self):
+        """
+        Create a temporarary Therapeutics table to use for `with_covid_therapeutics` queries
+        All columns in the Therapeutics table are VARCHAR.  This casts the two date columns that
+        we use in queries to DATE type, and adds case insensitive collation to the Interventaion
+        and CurrentStatus columns.
+        All columns are included, including those that we don't use, so that when we remove
+        duplicates, we only remove complete duplicate rows
+        """
         if self._therapeutics_table_name is None:
             self._therapeutics_table_name = self.get_temp_table_name("therapeutics")
             collation = "Latin1_General_CI_AS"
             queries = [
                 f"""
             -- Creating theraputics temp table
-            SELECT
+            SELECT DISTINCT
                 Patient_ID,
                 CAST(TreatmentStartDate AS DATE) AS TreatmentStartDate,
                 CAST(Received AS DATE) AS Received,
@@ -2805,7 +2813,13 @@ class TPPBackend:
                 Region,
                 MOL1_high_risk_cohort,
                 SOT02_risk_cohorts,
-                CASIM05_risk_cohort
+                CASIM05_risk_cohort,
+                AgeAtReceivedDate,
+                FormName,
+                MOL1_onset_of_symptoms,
+                SOT02_onset_of_symptoms,
+                Count,
+                Der_LoadDate
              INTO {self._therapeutics_table_name} FROM Therapeutics
             """
             ]

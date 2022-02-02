@@ -953,10 +953,11 @@ class Therapeutics(Base):
 
     Region = Column(String)
 
-    # Other columns in the table which we don't use:
-    #   AgeAtReceivedDate
-    #   FormName
-    #   MOL1_onset_of_symptoms
-    #   SOT02_onset_of_symptoms
-    #   Count
-    #   Der_LoadDate
+    # Other columns in the table which we add into the temp table (for removing duplicates) but
+    # don't use in queries:
+    AgeAtReceivedDate = Column(String)
+    FormName = Column(String)
+    MOL1_onset_of_symptoms = Column(String)
+    SOT02_onset_of_symptoms = Column(String)
+    Count = Column(String)
+    Der_LoadDate = Column(String)
