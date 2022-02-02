@@ -2927,6 +2927,12 @@ class TPPBackend:
             raise ValueError(f"Unsupported `returning` value: {returning}")
 
         if use_partition_query:
+            # There can be duplicates per patient in the Therapeutics dataset
+            # These are likely to be invalid in some way, but we keep them in so users
+            # can identify them and deal with them as appropriate
+            # (We remove fully duplicate rows in the temp table only)
+            # Duplicate rows are sorted by all the fields that have been identified to
+            # contain duplicate values for a patient, to ensure a consistent return value
             sql = f"""
             SELECT
               t.Patient_ID AS patient_id,
@@ -2946,7 +2952,14 @@ class TPPBackend:
                 Region,
                 ROW_NUMBER() OVER (
                   PARTITION BY {therapeutics_table_name}.Patient_ID
-                  ORDER BY TreatmentStartDate {ordering}, Received, Intervention
+                  ORDER BY TreatmentStartDate {ordering},
+                    Received,
+                    CurrentStatus,
+                    Intervention,
+                    Region,
+                    MOL1_high_risk_cohort,
+                    SOT02_risk_cohorts,
+                    CASIM05_risk_cohort
                 ) AS rownum
               FROM {therapeutics_table_name}
               {date_joins}
