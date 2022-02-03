@@ -16,8 +16,8 @@ from .mssql_utils import (
     mssql_fetch_table,
 )
 from .pandas_utils import dataframe_from_rows, dataframe_to_file
-from .therapeutics_utils import ALLOWED_RISK_GROUPS
 from .process_covariate_definitions import ISARIC_COLUMN_MAPPINGS
+from .therapeutics_utils import ALLOWED_RISK_GROUPS
 
 logger = structlog.get_logger()
 
