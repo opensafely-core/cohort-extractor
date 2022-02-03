@@ -129,18 +129,23 @@ class TPPBackend:
             row[index] = cleaned_groups
         return tuple(row)
 
-    def _convert_row(self, row, keys, risk_group_variables):
-        if risk_group_variables:
-            row = self._clean_risk_groups(row, keys, risk_group_variables)
-        return dict(zip(keys, map(str, row)))
-
-    def to_dicts(self):
+    def to_dicts(self, convert_to_strings=True):
         result = self.execute_queries(self.queries)
         keys = [x[0] for x in result.description]
-        # Convert all values to str as that's what will end in the CSV
-        # This also checks any risk group variables and replaces disallowed values
+
+        # This checks any risk group variables and replaces disallowed values
         risk_group_variables = self.get_therapeutic_risk_groups()
-        output = [self._convert_row(row, keys, risk_group_variables) for row in result]
+
+        output = []
+
+        for row in result:
+            if risk_group_variables:
+                row = self._clean_risk_groups(row, keys, risk_group_variables)
+            if convert_to_strings:
+                # Convert all values to str as that's what will end in a CSV
+                row = map(str, row)
+            output.append(dict(zip(keys, row)))
+
         unique_ids = set(item["patient_id"] for item in output)
         duplicates = len(output) - len(unique_ids)
         if duplicates != 0:

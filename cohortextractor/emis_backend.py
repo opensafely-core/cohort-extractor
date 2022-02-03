@@ -108,11 +108,15 @@ class EMISBackend:
         if duplicates != 0:
             raise RuntimeError(f"Duplicate IDs found ({duplicates} rows)")
 
-    def to_dicts(self):
+    def to_dicts(self, convert_to_strings=True):
         result = self.execute_query()
         keys = [x[0] for x in result.description]
-        # Convert all values to str as that's what will end in the CSV
-        output = [dict(zip(keys, map(str, row))) for row in result]
+        if convert_to_strings:
+            # Convert all values to str as that's what will end in the CSV
+            output = [dict(zip(keys, map(str, row))) for row in result]
+        else:
+            output = [dict(zip(keys, row)) for row in result]
+
         unique_ids = set(item["patient_id"] for item in output)
         duplicates = len(output) - len(unique_ids)
         if duplicates != 0:
