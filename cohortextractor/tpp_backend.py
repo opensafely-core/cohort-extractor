@@ -17,6 +17,7 @@ from .mssql_utils import (
 )
 from .pandas_utils import dataframe_from_rows, dataframe_to_file
 from .therapeutics_utils import ALLOWED_RISK_GROUPS
+from .process_covariate_definitions import ISARIC_COLUMN_MAPPINGS
 
 logger = structlog.get_logger()
 
@@ -3203,6 +3204,74 @@ class TPPBackend:
 
     def patients_which_exist_in_file(self, f_path):
         return self.patients_with_value_from_file(f_path)
+
+    def patients_with_an_isaric_record(
+        self,
+        returning,
+        between=None,
+        date_filter_column=None,
+        return_expectations=None,
+    ):
+
+        queries = []
+        table = "ISARIC_Patient_Data_TopLine"
+
+        if returning not in ISARIC_COLUMN_MAPPINGS:
+            raise TypeError(f"returning={returning} is not a valid ISARIC column")
+
+        value_type = ISARIC_COLUMN_MAPPINGS[returning]
+
+        if value_type == "str":
+            cast = returning
+        elif value_type == "date":  # int, float, date
+            # 103 is British date format, dd/mm/yyyy, which the ISARIC dates are in
+            cast = f"CONVERT(DATE, {returning}, 103)"
+        else:  # int, float, date
+            cast = f"CAST({returning} AS {value_type.upper()})"
+
+        if between not in [None, (None, None)] and date_filter_column:
+            filter_type = ISARIC_COLUMN_MAPPINGS.get(date_filter_column)
+            if filter_type is None:
+                raise TypeError(
+                    f"date_filter_column={date_filter_column} is not a valid ISARIC column"
+                )
+            elif filter_type != "date":
+                raise TypeError(
+                    f"date_filter_column={date_filter_column} is type {filter_type}, not a date"
+                )
+
+            # 103 is British date format, dd/mm/yyyy, which the ISARIC dates are in
+            date_expression = f"""
+                CASE WHEN {date_filter_column} IN ('', 'NA') THEN NULL
+                ELSE CONVERT(DATE, {date_filter_column}, 103)
+                END
+            """
+            date_condition, date_joins = self.get_date_condition(
+                table, date_expression, between
+            )
+        elif date_filter_column:
+            raise TypeError("you specified `date_filter_column` but not between")
+        elif between not in [None, (None, None)]:
+            raise TypeError("you specified `between` but not date_filter_column")
+        else:
+            date_condition = None
+            date_joins = ""
+
+        query = f"""
+            SELECT
+                Patient_ID as patient_id,
+                CASE WHEN {returning} IN ('', 'NA') THEN NULL
+                ELSE {cast}
+                END AS {returning}
+            FROM {table}
+            {date_joins}
+        """
+
+        if date_condition:
+            query += f" WHERE {date_condition}"
+
+        queries.append(query)
+        return queries
 
 
 class ColumnExpression:
