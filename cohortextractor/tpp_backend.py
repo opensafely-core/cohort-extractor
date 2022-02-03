@@ -16,6 +16,7 @@ from .mssql_utils import (
     mssql_fetch_table,
 )
 from .pandas_utils import dataframe_from_rows, dataframe_to_file
+from .therapeutics_utils import ALLOWED_RISK_GROUPS
 
 logger = structlog.get_logger()
 
@@ -76,11 +77,14 @@ class TPPBackend:
         total_rows = 0
 
         def check_ids_and_log(results):
+            risk_group_variables = self.get_therapeutic_risk_groups()
             nonlocal total_rows
             headers = next(results)
             id_column_index = headers.index("patient_id")
             yield headers
             for row in results:
+                if risk_group_variables:
+                    row = self._clean_risk_groups(row, headers, risk_group_variables)
                 unique_ids.add(row[id_column_index])
                 total_rows += 1
                 if total_rows % 1000000 == 0:
@@ -106,11 +110,33 @@ class TPPBackend:
         if duplicates != 0:
             raise RuntimeError(f"Duplicate IDs found ({duplicates} rows)")
 
+    def _clean_risk_groups(self, row, keys, risk_group_variables):
+        indices = [keys.index(variable_name) for variable_name in risk_group_variables]
+        row = list(row)
+
+        for index in indices:
+            risk_groups = row[index]
+            cleaned_groups = ",".join(
+                [
+                    group if group.lower() in ALLOWED_RISK_GROUPS else "other"
+                    for group in risk_groups.split(",")
+                ]
+            )
+            row[index] = cleaned_groups
+        return tuple(row)
+
+    def _convert_row(self, row, keys, risk_group_variables):
+        if risk_group_variables:
+            row = self._clean_risk_groups(row, keys, risk_group_variables)
+        return dict(zip(keys, map(str, row)))
+
     def to_dicts(self):
         result = self.execute_queries(self.queries)
         keys = [x[0] for x in result.description]
         # Convert all values to str as that's what will end in the CSV
-        output = [dict(zip(keys, map(str, row))) for row in result]
+        # This also checks any risk group variables and replaces disallowed values
+        risk_group_variables = self.get_therapeutic_risk_groups()
+        output = [self._convert_row(row, keys, risk_group_variables) for row in result]
         unique_ids = set(item["patient_id"] for item in output)
         duplicates = len(output) - len(unique_ids)
         if duplicates != 0:
@@ -225,6 +251,16 @@ class TPPBackend:
         if self._db_connection:
             self._db_connection.close()
         self._db_connection = None
+
+    def get_therapeutic_risk_groups(self):
+        therapeutics_risk_group_variables = set()
+        for name, (query_type, query_args) in self.covariate_definitions.items():
+            if (
+                query_type == "with_covid_therapeutics"
+                and query_args["returning"] == "risk_group"
+            ):
+                therapeutics_risk_group_variables.add(name)
+        return therapeutics_risk_group_variables
 
     def get_queries(self, covariate_definitions):
         output_columns = {}
