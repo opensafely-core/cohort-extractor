@@ -2788,6 +2788,15 @@ class TPPBackend:
               OPA.Patient_ID
             """
 
+    @staticmethod
+    def _format_risk_group(original_string):
+        # First remove any "Patients with [a]" and replace " and " with "," within individual risk group fields
+        replaced = f"REPLACE(REPLACE(REPLACE({original_string}, 'Patients with a ', ''),  'Patients with ', ''), ' and ', ',')"
+        # coalesce with a leading ',' and replace nulls with empty strings
+        coalesced = f"coalesce(',' + NULLIF({replaced}, ''), '')"
+        # use stuff to remove the first ','
+        return f"STUFF({coalesced}, 1, 1, '')"
+
     def create_therapeutics_table(self):
         """
         Create a temporarary Therapeutics table to use for `with_covid_therapeutics` queries
@@ -2811,9 +2820,9 @@ class TPPBackend:
                 CurrentStatus COLLATE {collation} AS CurrentStatus,
                 COVID_Indication,
                 Region,
-                MOL1_high_risk_cohort,
-                SOT02_risk_cohorts,
-                CASIM05_risk_cohort,
+                {self._format_risk_group('MOL1_high_risk_cohort')} as MOL1_high_risk_cohort,
+                {self._format_risk_group('SOT02_risk_cohorts')} as SOT02_risk_cohorts,
+                {self._format_risk_group('CASIM05_risk_cohort')} as CASIM05_risk_cohort,
                 AgeAtReceivedDate,
                 FormName,
                 MOL1_onset_of_symptoms,
@@ -2901,20 +2910,16 @@ class TPPBackend:
             # remove whitespace, convert to comma-separated string
             column_definition = "REPLACE(LTRIM(RTRIM(Intervention)), ' and ', ',')"
         elif returning == "risk_group":
-            # First remove any "Patients with a" and replace " and " with "," within individual risk group fields
-            # Then join the 3 risk cohort fields with ","
+            # Join the 3 risk cohort fields with ","
             # Note that the last "s" in SOT02_risk_cohorts is correct
-            parts = [
-                f"REPLACE(REPLACE({risk_col}, 'Patients with a ', ''), ' and ', ',')"
-                for risk_col in [
+            # coalesce the parts with a leading ','
+            coalesced_parts = " + ".join(
+                f"coalesce(',' + NULLIF({risk_group_column}, ''), '')"
+                for risk_group_column in [
                     "MOL1_high_risk_cohort",
                     "SOT02_risk_cohorts",
                     "CASIM05_risk_cohort",
                 ]
-            ]
-            # coalesce the parts with a leading ','
-            coalesced_parts = " + ".join(
-                f"coalesce(',' + NULLIF({part}, ''), '')" for part in parts
             )
             # use stuff to remove the first ','
             column_definition = f"STUFF({coalesced_parts}, 1, 1, '')"

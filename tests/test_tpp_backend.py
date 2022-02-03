@@ -4827,7 +4827,7 @@ def test_with_covid_therapeutics():
                         CurrentStatus="Approved",
                         TreatmentStartDate="2021-12-09 00:00:00.000",
                         Received="2021-12-09 00:00:00.000",
-                        MOL1_high_risk_cohort="Patients with a cancer",
+                        MOL1_high_risk_cohort="Patients with cancer",
                         SOT02_risk_cohorts="solid cancer",
                         CASIM05_risk_cohort="IMID and Patients with a tumour",
                         Region="South West",
