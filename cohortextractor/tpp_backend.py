@@ -2928,7 +2928,7 @@ class TPPBackend:
             filter_conditions.append(f"COVID_indication IN ({', '.join(indications)})")
 
         date_condition, date_joins = self.get_date_condition(
-            "t", "TreatmentStartDate", between
+            therapeutics_table_name, "TreatmentStartDate", between
         )
         filter_conditions.append(date_condition)
 
@@ -3024,16 +3024,16 @@ class TPPBackend:
             {column_definition} AS {returning}
             FROM (
             SELECT
-                Patient_ID,
+                {therapeutics_table_name}.Patient_ID,
                 TreatmentStartDate,
                 Intervention,
                 COVID_indication,
                 CurrentStatus
             FROM
                 {therapeutics_table_name}
-            {where_filter_conditions}
+                {date_joins}
+                {where_filter_conditions}
             ) t
-            {date_joins}
             GROUP BY t.Patient_ID
             """
         return therapeutic_queries + [sql]

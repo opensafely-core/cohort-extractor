@@ -5240,3 +5240,112 @@ def test_with_covid_therapeutics_invalid_indiction():
                 with_these_indications=["foo"],
             ),
         )
+
+
+def test_with_covid_therapeutics_variable_dates():
+    session = make_session()
+    session.add_all(
+        [
+            Patient(
+                Therapeutics=[
+                    Therapeutics(
+                        Intervention="Casirivimab and imdevimab ",
+                        COVID_indication="non_hospitalised",
+                        CurrentStatus="Approved",
+                        TreatmentStartDate="2021-12-17 00:00:00.000",
+                        Received="2021-12-10 00:00:00.000",
+                        MOL1_high_risk_cohort="",
+                        SOT02_risk_cohorts=None,
+                        CASIM05_risk_cohort="solid cancer",
+                        Region="South West",
+                    ),
+                    Therapeutics(
+                        Intervention="Molnupiravir",
+                        COVID_indication="non_hospitalised",
+                        CurrentStatus="Approved",
+                        TreatmentStartDate="2021-12-18 00:00:00.000",
+                        Received="2021-12-14 00:00:00.000",
+                        MOL1_high_risk_cohort="IMID",
+                        Region="North",
+                    ),
+                    Therapeutics(
+                        Intervention="Sotrovimab",
+                        COVID_indication="non_hospitalised",
+                        CurrentStatus="Approved",
+                        TreatmentStartDate="2021-12-19 00:00:00.000",
+                        Received="2021-12-13 00:00:00.000",
+                        MOL1_high_risk_cohort="cancer",
+                        Region="London",
+                    ),
+                ],
+            ),
+        ],
+    )
+
+    session.commit()
+    study = StudyDefinition(
+        population=patients.all(),
+        index_date="2021-12-16",
+        molnupiravir_covid_therapeutics=patients.with_covid_therapeutics(
+            with_these_therapeutics="Molnupiravir",
+            with_these_indications="non_hospitalised",
+            on_or_after="index_date",
+            find_first_match_in_period=True,
+            returning="date",
+            date_format="YYYY-MM-DD",
+        ),
+        sotrovimab_covid_therapeutics=patients.with_covid_therapeutics(
+            with_these_therapeutics="Sotrovimab",
+            with_these_indications="non_hospitalised",
+            on_or_after="index_date",
+            find_first_match_in_period=True,
+            returning="date",
+            date_format="YYYY-MM-DD",
+        ),
+        casirivimab_covid_therapeutics=patients.with_covid_therapeutics(
+            # with_these_statuses = ["Approved", "Treatment Complete"],
+            with_these_therapeutics="Casirivimab and imdevimab",
+            with_these_indications="non_hospitalised",
+            on_or_after="index_date",
+            find_first_match_in_period=True,
+            returning="date",
+            date_format="YYYY-MM-DD",
+        ),
+        start_date=patients.minimum_of(
+            "sotrovimab_covid_therapeutics",
+            "molnupiravir_covid_therapeutics",
+            "casirivimab_covid_therapeutics",
+        ),
+        region_covid_therapeutics=patients.with_covid_therapeutics(
+            with_these_therapeutics=[
+                "Sotrovimab",
+                "Molnupiravir",
+                "Casirivimab and imdevimab",
+            ],
+            with_these_indications="non_hospitalised",
+            on_or_after="start_date",
+            find_first_match_in_period=True,
+            returning="region",
+        ),
+        count=patients.with_covid_therapeutics(
+            with_these_therapeutics=[
+                "Sotrovimab",
+                "Molnupiravir",
+                "Casirivimab and imdevimab",
+            ],
+            with_these_indications="non_hospitalised",
+            on_or_after="molnupiravir_covid_therapeutics",
+            find_first_match_in_period=True,
+            returning="number_of_matches_in_period",
+        ),
+    )
+
+    assert_results(
+        study.to_dicts(),
+        molnupiravir_covid_therapeutics=["2021-12-18"],
+        sotrovimab_covid_therapeutics=["2021-12-19"],
+        casirivimab_covid_therapeutics=["2021-12-17"],
+        start_date=["2021-12-17"],
+        region_covid_therapeutics=["South West"],
+        count=["2"],
+    )
