@@ -111,6 +111,10 @@ class TPPBackend:
             raise RuntimeError(f"Duplicate IDs found ({duplicates} rows)")
 
     def _clean_risk_groups(self, row, keys, risk_group_variables):
+        """
+        Check that risk group variables only contain verified allowed risk
+        groups, and remove duplicates
+        """
         indices = [keys.index(variable_name) for variable_name in risk_group_variables]
         row = list(row)
 
