@@ -117,10 +117,10 @@ class TPPBackend:
         for index in indices:
             risk_groups = row[index]
             cleaned_groups = ",".join(
-                [
+                {
                     group if group.lower() in ALLOWED_RISK_GROUPS else "other"
                     for group in risk_groups.split(",")
-                ]
+                }
             )
             row[index] = cleaned_groups
         return tuple(row)

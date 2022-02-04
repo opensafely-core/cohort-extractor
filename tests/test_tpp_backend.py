@@ -196,10 +196,13 @@ def test_study_to_file_with_therapeutic_risk_groups(tmp_path, format):
         results = pandas.read_feather(filename).to_dict("records")
     elif format in ("dta", "dta.gz"):
         results = pandas.read_stata(filename).to_dict("records")
-    assert results == [
-        {"patient_id": cast(patient_1.Patient_ID), "risk_group": "other"},
-        {"patient_id": cast(patient_2.Patient_ID), "risk_group": "liver disease,other"},
+
+    patient_results = [result["patient_id"] for result in results]
+    assert patient_results == [cast(patient_1.Patient_ID), cast(patient_2.Patient_ID)]
+    risk_groups_results = [
+        ",".join(sorted(result["risk_group"].split(","))) for result in results
     ]
+    assert risk_groups_results == ["other", "liver disease,other"]
 
 
 def test_sql_error_propagates(tmp_path):
@@ -4864,7 +4867,7 @@ def test_with_covid_therapeutics():
                         Received="2021-12-09 00:00:00.000",
                         MOL1_high_risk_cohort="Patients with Liver disease",
                         SOT02_risk_cohorts="solid cancer and an unknown group that will be replaced",
-                        CASIM05_risk_cohort="IMID and Patients with a renal disease",
+                        CASIM05_risk_cohort="IMID and Patients with a renal disease and solid cancer",
                         Region="South West",
                     ),
                     # fully duplicate row is removed and doesn't count when returning number of matches
@@ -4876,7 +4879,7 @@ def test_with_covid_therapeutics():
                         Received="2021-12-09 00:00:00.000",
                         MOL1_high_risk_cohort="Patients with Liver disease",
                         SOT02_risk_cohorts="solid cancer and an unknown group that will be replaced",
-                        CASIM05_risk_cohort="IMID and Patients with a renal disease",
+                        CASIM05_risk_cohort="IMID and Patients with a renal disease and solid cancer",
                         Region="South West",
                     ),
                 ]
@@ -4990,12 +4993,6 @@ def test_with_covid_therapeutics():
         first_theraputic_date=["2021-12-10", "2021-12-09"],
         # drugs joined with "and" are replaced with ","
         first_theraputic=["Casirivimab,imdevimab", "Remdesivir"],
-        # risk groups are join across the 3 columns with ",". Nulls and empty strings are ignored.
-        # groups that are not in the ALLOWED_RISK_GROUPS are replaced with "other"
-        first_risk_group=[
-            "solid cancer",
-            "Liver disease,solid cancer,other,IMID,renal disease",
-        ],
         latest_region=["North", "South West"],
         count=["3", "1"],
         not_started_region=["London", ""],
@@ -5008,6 +5005,17 @@ def test_with_covid_therapeutics():
         indication_list_match_therapeutic=["Casirivimab,imdevimab", "Remdesivir"],
         non_hospitalised_approved_cas_or_mol=["2021-12-10", ""],
     )
+    # risk groups are joined across the 3 columns with ",". Nulls and empty strings are ignored.
+    # groups that are not in the ALLOWED_RISK_GROUPS are replaced with "other"
+    # Duplicates are removed
+    # Order is not deterministic, so we sort and rejoin here to test
+    first_risk_group = [
+        ",".join(sorted(result["first_risk_group"].split(","))) for result in results
+    ]
+    assert first_risk_group == [
+        "solid cancer",
+        "IMID,Liver disease,other,renal disease,solid cancer",
+    ]
 
 
 def test_with_covid_therapeutics_date_filters():
@@ -5166,8 +5174,9 @@ def test_with_covid_therapeutics_duplicates_sort_order():
         region=patients.with_covid_therapeutics(returning="region"),
         risk_group=patients.with_covid_therapeutics(returning="risk_group"),
     )
+    results = study.to_dicts()
     assert_results(
-        study.to_dicts(),
+        results,
         first_start_date=[
             "2021-12-10",
             "2021-12-10",
@@ -5199,17 +5208,21 @@ def test_with_covid_therapeutics_duplicates_sort_order():
             "London",
             "London",
         ],
-        risk_group=[
-            "IMID,solid cancer,renal disease",
-            "IMID,solid cancer,renal disease",
-            "IMID,solid cancer,renal disease",
-            "Downs Syndrome,solid cancer,renal disease",
-            "IMID,Downs Syndrome,renal disease",
-            "IMID,solid cancer,Downs Syndrome",
-            "IMID,solid cancer,renal disease",
-            "IMID,solid cancer,renal disease",
-        ],
     )
+
+    risk_group = [
+        ",".join(sorted(result["risk_group"].split(","))) for result in results
+    ]
+    assert risk_group == [
+        "IMID,renal disease,solid cancer",
+        "IMID,renal disease,solid cancer",
+        "IMID,renal disease,solid cancer",
+        "Downs Syndrome,renal disease,solid cancer",
+        "Downs Syndrome,IMID,renal disease",
+        "Downs Syndrome,IMID,solid cancer",
+        "IMID,renal disease,solid cancer",
+        "IMID,renal disease,solid cancer",
+    ]
 
 
 def test_with_covid_therapeutics_invalid_indiction():
