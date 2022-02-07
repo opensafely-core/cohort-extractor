@@ -2657,17 +2657,16 @@ def with_covid_therapeutics(
     Returns data from the Therapeutics Dataset (TPP backend only)
 
     Args:
-        with_these_statuses: a status as a string, or a list of such names.
-        Possible values are "Approved", "Treatment Complete", "Treatment Not Started",
-        "Treatment Stopped"
+        with_these_statuses: a status as a string, or a list of such names. Possible values are
+            "Approved", "Treatment Complete", "Treatment Not Started", "Treatment Stopped"
         with_these_therapeutics: a drug name as a string, or a list of such names, or
             a codelist containing such names. Results will be filtered to just
             rows containing any of the supplied names. Note these are not
             standardised names, they are just the names however they come to us
             in the original data.
         with_these_indications: a Covid indication name as a string, or a list
-           of such names.  Possible values are "hospital_onset", "hospitalised_with",
-           "non_hospitalised"
+            of such names. Possible values are "hospital_onset", "hospitalised_with",
+            "non_hospitalised"
         returning: string indicating value to be returned. Options are:
 
             * `binary_flag`: if the patient received any matching therapeutic intervention
