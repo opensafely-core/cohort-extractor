@@ -2649,6 +2649,7 @@ def with_covid_therapeutics(
     # Matching rule
     find_first_match_in_period=None,
     find_last_match_in_period=None,
+    episode_defined_as=None,
     return_expectations=None,
 ):
     """
@@ -2675,6 +2676,7 @@ def with_covid_therapeutics(
             * `region`: Region recorded for the therapeutic intervention; note this may be different
               to the patient's region
             * `number_of_matches_in_period`
+            * `number_of_episodes`
 
         on_or_before: as described elsewhere
         on_or_after: as described elsewhere
@@ -2684,6 +2686,7 @@ def with_covid_therapeutics(
         date_format: a string detailing the format of the treatment dates to be returned.
             It can be "YYYY-MM-DD", "YYYY-MM" or "YYYY" and wherever possible the least disclosive data should be
             returned. i.e returning only year is less disclosive than a date with month and year.
+        episode_defined_as: a string expression indicating how an episode should be defined (used when `returning`="number_of_episodes")
         return_expectations: as described elsewhere
 
     Example:

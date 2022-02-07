@@ -5225,20 +5225,40 @@ def test_with_covid_therapeutics_duplicates_sort_order():
     ]
 
 
-def test_with_covid_therapeutics_invalid_indiction():
-
-    with pytest.raises(
-        AssertionError,
-        match="'foo' is not a valid indication; options are hospital_onset, hospitalised_with, non_hospitalised",
-    ):
-        StudyDefinition(
-            population=patients.all(),
-            # returning values: date, therapeutic, risk group, region
-            therapeutic=patients.with_covid_therapeutics(
+@pytest.mark.parametrize(
+    "error_match,query_kwargs",
+    [
+        (
+            "'foo' is not a valid indication; options are hospital_onset, hospitalised_with, non_hospitalised",
+            dict(
                 find_first_match_in_period=True,
                 returning="date",
                 with_these_indications=["foo"],
             ),
+        ),
+        (
+            "Cannot use 'find_first_match_in_period' when returning 'number_of_episodes'",
+            dict(returning="number_of_episodes", find_first_match_in_period=True),
+        ),
+        (
+            "Cannot use 'find_last_match_in_period' when returning 'number_of_episodes'",
+            dict(returning="number_of_episodes", find_last_match_in_period=True),
+        ),
+        (
+            "Cannot use 'include_date_of_match' when returning 'number_of_episodes'",
+            dict(returning="number_of_episodes", include_date_of_match=True),
+        ),
+        (
+            "Can only use 'episode_defined_as' when returning 'number_of_episodes'",
+            dict(returning="date", episode_defined_as=True),
+        ),
+    ],
+)
+def test_with_covid_therapeutics_errors(error_match, query_kwargs):
+    with pytest.raises(AssertionError, match=error_match):
+        StudyDefinition(
+            population=patients.all(),
+            therapeutic=patients.with_covid_therapeutics(**query_kwargs),
         )
 
 
@@ -5348,4 +5368,152 @@ def test_with_covid_therapeutics_variable_dates():
         start_date=["2021-12-17"],
         region_covid_therapeutics=["South West"],
         count=["2"],
+    )
+
+
+def test_covid_therapeutics_number_of_episodes():
+    session = make_session()
+    session.add_all(
+        [
+            Patient(
+                Therapeutics=[
+                    Therapeutics(
+                        Intervention="Sotrovimab",
+                        COVID_indication="non_hospitalised",
+                        TreatmentStartDate="2010-01-01 00:00:00.000",
+                    ),
+                    # Throw in some irrelevant interventions and indications
+                    Therapeutics(
+                        Intervention="Casirivimab and imdevimab ",
+                        COVID_indication="non_hospitalised",
+                        TreatmentStartDate="2010-01-01 00:00:00.000",
+                    ),
+                    Therapeutics(
+                        Intervention="Sotrovimab",
+                        COVID_indication="hospitalised_with",
+                        TreatmentStartDate="2010-01-01 00:00:00.000",
+                    ),
+                    # These two should be merged in to the previous event
+                    # because there's not more than 14 days between them
+                    Therapeutics(
+                        Intervention="Sotrovimab",
+                        COVID_indication="non_hospitalised",
+                        TreatmentStartDate="2010-01-14 00:00:00.000",
+                    ),
+                    Therapeutics(
+                        Intervention="Sotrovimab",
+                        COVID_indication="non_hospitalised",
+                        TreatmentStartDate="2010-01-20 00:00:00.000",
+                    ),
+                    # This is just outside the limit so should count as another event
+                    Therapeutics(
+                        Intervention="Sotrovimab",
+                        COVID_indication="non_hospitalised",
+                        TreatmentStartDate="2010-02-04 00:00:00.000",
+                    ),
+                    # This excludes the next Sotrovimab from the counts based on Molnupiravir dates
+                    Therapeutics(
+                        Intervention="Molnupiravir",
+                        COVID_indication="non_hospitalised",
+                        TreatmentStartDate="2015-06-01 00:00:00.000",
+                    ),
+                    # This should be another episode in the counts based on or before 2020-01-01
+                    Therapeutics(
+                        Intervention="Sotrovimab",
+                        COVID_indication="non_hospitalised",
+                        TreatmentStartDate="2015-06-05 00:00:00.000",
+                    ),
+                    # This is after the time limit and so shouldn't count
+                    Therapeutics(
+                        Intervention="Sotrovimab",
+                        COVID_indication="non_hospitalised",
+                        TreatmentStartDate="2020-06-05 00:00:00.000",
+                    ),
+                ]
+            ),
+            # This patient doesn't have any relevant events
+            Patient(
+                Therapeutics=[
+                    Therapeutics(
+                        Intervention="Molnupiravir",
+                        COVID_indication="non_hospitalised",
+                        TreatmentStartDate="2010-01-01 00:00:00.000",
+                    ),
+                    Therapeutics(
+                        Intervention="Molnupiravir",
+                        COVID_indication="non_hospitalised",
+                        TreatmentStartDate="2010-01-14 00:00:00.000",
+                    ),
+                    Therapeutics(
+                        Intervention="Casirivimab and imdevimab ",
+                        COVID_indication="non_hospitalised",
+                        TreatmentStartDate="2010-01-20 00:00:00.000",
+                    ),
+                    Therapeutics(
+                        Intervention="Casirivimab and imdevimab ",
+                        COVID_indication="non_hospitalised",
+                        TreatmentStartDate="2010-02-04 00:00:00.000",
+                    ),
+                    Therapeutics(
+                        Intervention="Sotrovimab",
+                        COVID_indication="hospitalised_with",
+                        TreatmentStartDate="2012-01-01 00:00:00.000",
+                    ),
+                    Therapeutics(
+                        Intervention="Sotrovimab",
+                        COVID_indication="hospitalised_with",
+                        TreatmentStartDate="2015-03-05 00:00:00.000",
+                    ),
+                    Therapeutics(
+                        Intervention="Sotrovimab",
+                        COVID_indication="non_hospitalised",
+                        TreatmentStartDate="2020-02-05 00:00:00.000",
+                    ),
+                ]
+            ),
+        ]
+    )
+    session.commit()
+    study = StudyDefinition(
+        population=patients.all(),
+        first_molnupiravir_date=patients.with_covid_therapeutics(
+            with_these_therapeutics="Molnupiravir",
+            returning="date",
+            date_format="YYYY-MM-DD",
+            find_first_match_in_period=True,
+        ),
+        episode_count=patients.with_covid_therapeutics(
+            with_these_therapeutics="Sotrovimab",
+            with_these_indications="non_hospitalised",
+            on_or_before="2020-01-01",
+            returning="number_of_episodes",
+            episode_defined_as="series of events each <= 14 days apart",
+        ),
+        event_count=patients.with_covid_therapeutics(
+            with_these_therapeutics="Sotrovimab",
+            with_these_indications="non_hospitalised",
+            on_or_before="2020-01-01",
+            returning="number_of_matches_in_period",
+        ),
+        episode_count_by_molnupiravir_date=patients.with_covid_therapeutics(
+            with_these_therapeutics="Sotrovimab",
+            with_these_indications="non_hospitalised",
+            on_or_before="first_molnupiravir_date",
+            returning="number_of_episodes",
+            episode_defined_as="series of events each <= 14 days apart",
+        ),
+        event_count_by_molnupiravir_date=patients.with_covid_therapeutics(
+            with_these_therapeutics="Sotrovimab",
+            with_these_indications="non_hospitalised",
+            on_or_before="first_molnupiravir_date",
+            returning="number_of_matches_in_period",
+        ),
+    )
+    assert_results(
+        study.to_dicts(),
+        first_molnupiravir_date=["2015-06-01", "2010-01-01"],
+        episode_count=["3", "0"],
+        event_count=["5", "0"],
+        episode_count_by_molnupiravir_date=["2", "0"],
+        event_count_by_molnupiravir_date=["4", "0"],
     )
