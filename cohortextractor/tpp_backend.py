@@ -2889,8 +2889,10 @@ class TPPBackend:
         find_first_match_in_period=None,
         find_last_match_in_period=None,
         include_date_of_match=False,
+        episode_defined_as=None,
     ):
         therapeutics_table_name, therapeutic_queries = self.create_therapeutics_table()
+
         filter_conditions = []
         # status may be provided as a single string or a list
         # Available options are: 'Approved','Treatment Complete','Treatment Not Started','Treatment Stopped'
@@ -2935,6 +2937,30 @@ class TPPBackend:
         where_filter_conditions = (
             f"WHERE {' AND '.join(filter_conditions)}" if filter_conditions else ""
         )
+
+        if returning == "number_of_episodes":
+            # Check unhandled arguments are unused
+            assert (
+                not find_first_match_in_period
+            ), "Cannot use 'find_first_match_in_period' when returning 'number_of_episodes'"
+            assert (
+                not find_last_match_in_period
+            ), "Cannot use 'find_last_match_in_period' when returning 'number_of_episodes'"
+            assert (
+                not include_date_of_match
+            ), "Cannot use 'include_date_of_match' when returning 'number_of_episodes'"
+            return self._number_of_episodes_by_covid_therapeutics(
+                therapeutics_table_name,
+                therapeutic_queries,
+                date_joins,
+                where_filter_conditions,
+                episode_defined_as,
+            )
+        # This is the default code path for most queries
+        else:
+            assert (
+                not episode_defined_as
+            ), "Can only use 'episode_defined_as' when returning 'number_of_episodes'"
 
         # Result ordering
         if find_first_match_in_period:
@@ -3036,6 +3062,55 @@ class TPPBackend:
             ) t
             GROUP BY t.Patient_ID
             """
+        return therapeutic_queries + [sql]
+
+    def _number_of_episodes_by_covid_therapeutics(
+        self,
+        therapeutics_table_name,
+        therapeutic_queries,
+        date_joins,
+        where_filter_conditions,
+        episode_defined_as,
+    ):
+        if episode_defined_as is not None:
+            pattern = r"^series of events each <= (\d+) days apart$"
+            match = re.match(pattern, episode_defined_as)
+            if not match:
+                raise ValueError(
+                    f"Argument `episode_defined_as` must match " f"pattern: {pattern}"
+                )
+            washout_period = int(match.group(1))
+        else:
+            washout_period = 0
+
+        sql = f"""
+        SELECT
+          t.Patient_ID AS patient_id,
+          SUM(is_new_episode) AS number_of_episodes
+        FROM (
+            SELECT
+              {therapeutics_table_name}.Patient_ID,
+              Intervention,
+              COVID_indication,
+              CurrentStatus,
+              CASE
+                WHEN
+                  DATEDIFF(
+                    day,
+                    LAG(TreatmentStartDate) OVER (
+                      PARTITION BY {therapeutics_table_name}.Patient_ID ORDER BY TreatmentStartDate
+                    ),
+                    TreatmentStartDate
+                  ) <= {washout_period}
+                THEN 0
+                ELSE 1
+              END AS is_new_episode
+            FROM {therapeutics_table_name}
+            {date_joins}
+            {where_filter_conditions}
+        ) t
+        GROUP BY t.Patient_ID
+        """
         return therapeutic_queries + [sql]
 
     def patients_with_value_from_file(
