@@ -4907,6 +4907,7 @@ def test_with_covid_therapeutics():
             find_first_match_in_period=True,
             returning="risk_group",
             date_format="YYYY-MM",
+            include_date_of_match=True,  # includes a first_risk_group_date column with YYYY-MM format only
         ),
         latest_region=patients.with_covid_therapeutics(
             find_last_match_in_period=True,
@@ -5004,6 +5005,7 @@ def test_with_covid_therapeutics():
         indication_list_match=["2021-12-10", "2021-12-09"],
         indication_list_match_therapeutic=["Casirivimab,imdevimab", "Remdesivir"],
         non_hospitalised_approved_cas_or_mol=["2021-12-10", ""],
+        first_risk_group_date=["2021-12", "2021-12"],
     )
     # risk groups are joined across the 3 columns with ",". Nulls and empty strings are ignored.
     # groups that are not in the ALLOWED_RISK_GROUPS are replaced with "other"
