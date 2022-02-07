@@ -128,7 +128,7 @@ class VaccinationsStudyDefinition:
         {events_sql};
         """
 
-    def to_dicts(self):
+    def to_dicts(self, convert_to_strings=True):
         raise NotImplementedError()
 
     def to_data(self):

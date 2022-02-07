@@ -42,6 +42,7 @@ from tests.tpp_backend_setup import (
     HighCostDrugs,
     Household,
     HouseholdMember,
+    ISARICData,
     MedicationDictionary,
     MedicationIssue,
     ONSDeaths,
@@ -118,6 +119,7 @@ def setup_function(function):
     session.query(DecisionSupportValue).delete()
     session.query(HealthCareWorker).delete()
     session.query(Therapeutics).delete()
+    session.query(ISARICData).delete()
     session.query(Patient).delete()
     session.commit()
 
@@ -5518,4 +5520,108 @@ def test_covid_therapeutics_number_of_episodes():
         event_count=["5", "0"],
         episode_count_by_molnupiravir_date=["2", "0"],
         event_count_by_molnupiravir_date=["4", "0"],
+    )
+
+
+def test_isaric_column_selection():
+    session = make_session()
+    session.add_all(
+        [
+            Patient(
+                ISARIC=[
+                    ISARICData(
+                        assess_or_admit_date="01/01/2010",
+                        arm_participant="1",
+                        asthma_comorb="N",
+                    ),
+                ],
+            ),
+            Patient(
+                ISARIC=[
+                    ISARICData(
+                        assess_or_admit_date="01/01/2012",
+                        arm_participant="2",
+                        asthma_comorb="Y",
+                    ),
+                ],
+            ),
+            Patient(
+                ISARIC=[
+                    ISARICData(
+                        assess_or_admit_date="NA",
+                        arm_participant="NA",
+                        asthma_comorb="",  # empty string rather than NA
+                    ),
+                ],
+            ),
+        ]
+    )
+    session.commit()
+    # test types and NA handling
+    study = StudyDefinition(
+        population=patients.all(),
+        test_date=patients.with_an_isaric_record(returning="assess_or_admit_date"),
+        test_int=patients.with_an_isaric_record(returning="arm_participant"),
+        test_str=patients.with_an_isaric_record(returning="asthma_comorb"),
+    )
+
+    assert_results(
+        study.to_dicts(convert_to_strings=False),
+        test_date=["2010-01-01", "2012-01-01", ""],
+        test_int=[1, 2, 0],
+        test_str=["N", "Y", ""],
+    )
+
+
+def test_isaric_date_filtering():
+    session = make_session()
+    session.add_all(
+        [
+            Patient(
+                ISARIC=[
+                    ISARICData(
+                        assess_or_admit_date="01/01/2010",
+                        asthma_comorb="N",
+                    ),
+                ],
+            ),
+            Patient(
+                ISARIC=[
+                    ISARICData(
+                        assess_or_admit_date="01/01/2012",
+                        asthma_comorb="Y",
+                    ),
+                ],
+            ),
+            Patient(
+                ISARIC=[
+                    ISARICData(
+                        assess_or_admit_date="01/01/2014",
+                        asthma_comorb="N",
+                    ),
+                ],
+            ),
+            # check NULL dates are excluded
+            Patient(
+                ISARIC=[
+                    ISARICData(
+                        assess_or_admit_date="NA",
+                        asthma_comorb="NA",
+                    ),
+                ],
+            ),
+        ]
+    )
+    session.commit()
+    study = StudyDefinition(
+        population=patients.all(),
+        asthma_comorb=patients.with_an_isaric_record(
+            returning="asthma_comorb",
+            between=("2011-01-01", "2015-01-01"),
+            date_filter_column="assess_or_admit_date",
+        ),
+    )
+
+    assert_results(
+        study.to_dicts(convert_to_strings=False), asthma_comorb=["", "Y", "N", ""]
     )

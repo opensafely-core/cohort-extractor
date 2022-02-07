@@ -19,6 +19,7 @@ from cohortextractor.mssql_utils import (
     mssql_sqlalchemy_engine_from_url,
     wait_for_mssql_to_be_ready,
 )
+from cohortextractor.process_covariate_definitions import ISARIC_COLUMN_MAPPINGS
 from cohortextractor.tpp_backend import AppointmentStatus
 
 Base = declarative_base()
@@ -292,6 +293,11 @@ class Patient(Base):
     )
     Therapeutics = relationship(
         "Therapeutics",
+        back_populates="Patient",
+        cascade="all, delete, delete-orphan",
+    )
+    ISARIC = relationship(
+        "ISARICData",
         back_populates="Patient",
         cascade="all, delete, delete-orphan",
     )
@@ -961,3 +967,19 @@ class Therapeutics(Base):
     SOT02_onset_of_symptoms = Column(String)
     Count = Column(String)
     Der_LoadDate = Column(String)
+
+
+class ISARICData(Base):
+    __tablename__ = "ISARIC_Patient_Data_TopLine"
+
+    # fake pk to satisfy the ORM
+    id = Column(Integer, primary_key=True)
+
+    Patient_ID = Column(Integer, ForeignKey("Patient.Patient_ID"))
+    Patient = relationship("Patient", back_populates="ISARIC")
+
+
+# There are lots of string columns for ISARIC, so we create the ORM columns
+# dynamically
+for name, type_ in ISARIC_COLUMN_MAPPINGS.items():
+    setattr(ISARICData, name, Column(String))

@@ -2742,3 +2742,24 @@ def which_exist_in_file(f_path):
     This function does not accept a `return_expectations` argument because the file can contain dummy data.
     """
     return "which_exist_in_file", locals()
+
+
+def with_an_isaric_record(
+    returning,
+    between=None,
+    date_filter_column=None,
+    date_format="YYYY-MM-DD",
+    return_expectations=None,
+):
+    """
+    Return whether patient has an ISARIC record
+
+    Args:
+        returning: the ISARIC table column to return
+        between: two dates of interest as a list with each date as a string with the format `YYYY-MM-DD`.
+            Filters results to measurements between the two dates provided (inclusive).
+            The two dates must be in chronological order.
+        date_filter_column: the ISARIC column to use with `between` arg.
+        return_expectations: as described elsewhere.
+    """
+    return "with_an_isaric_record", locals()

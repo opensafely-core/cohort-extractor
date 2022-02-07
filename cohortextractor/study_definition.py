@@ -111,9 +111,9 @@ class StudyDefinition:
         self.assert_backend_is_configured()
         return self.backend.to_sql()
 
-    def to_dicts(self):
+    def to_dicts(self, convert_to_strings=True):
         self.assert_backend_is_configured()
-        return self.backend.to_dicts()
+        return self.backend.to_dicts(convert_to_strings)
 
     def to_data(self):
         hidden_columns = []
