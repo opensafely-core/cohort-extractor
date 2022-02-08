@@ -5533,6 +5533,7 @@ def test_isaric_column_selection():
                         assess_or_admit_date="01/01/2010",
                         arm_participant="1",
                         asthma_comorb="N",
+                        assess_age="1.2",
                     ),
                 ],
             ),
@@ -5542,6 +5543,7 @@ def test_isaric_column_selection():
                         assess_or_admit_date="01/01/2012",
                         arm_participant="2",
                         asthma_comorb="Y",
+                        assess_age="3.4",
                     ),
                 ],
             ),
@@ -5551,6 +5553,7 @@ def test_isaric_column_selection():
                         assess_or_admit_date="NA",
                         arm_participant="NA",
                         asthma_comorb="",  # empty string rather than NA
+                        assess_age="NA",
                     ),
                 ],
             ),
@@ -5563,6 +5566,7 @@ def test_isaric_column_selection():
         test_date=patients.with_an_isaric_record(returning="assess_or_admit_date"),
         test_int=patients.with_an_isaric_record(returning="arm_participant"),
         test_str=patients.with_an_isaric_record(returning="asthma_comorb"),
+        test_float=patients.with_an_isaric_record(returning="assess_age"),
     )
 
     assert_results(
@@ -5570,6 +5574,7 @@ def test_isaric_column_selection():
         test_date=["2010-01-01", "2012-01-01", ""],
         test_int=[1, 2, 0],
         test_str=["N", "Y", ""],
+        test_float=[1.2, 3.4, 0.0],
     )
 
 
