@@ -309,8 +309,10 @@ def _generate_measures(
         if date is None:
             continue
         filepath = os.path.join(output_dir, file)
+        logger.info(f"Calculating measures for {filepath}")
         patient_df = None
         for measure in measures:
+            logger.info(f"Calculating {measure.id}")
             output_file = f"{output_dir}/measure_{measure.id}_{date}.csv"
             measure_outputs[measure.id].append(output_file)
             if skip_existing and os.path.exists(output_file):
@@ -319,8 +321,13 @@ def _generate_measures(
             # We do this lazily so that if all corresponding output files
             # already exist we can avoid loading the patient data entirely
             if patient_df is None:
+                logger.info(f"Loading patient data from {filepath}")
                 patient_df = _load_dataframe_for_measures(filepath, measures)
+                logger.info(patient_df.memory_usage())
+
             measure_df = measure.calculate(patient_df, _report)
+            logger.info(f"Data size for measure {measure.id}:")
+            logger.info(measure_df.memory_usage())
             measure_df.to_csv(output_file, index=False)
             logger.info(f"Created measure output at {output_file}")
     if not measure_outputs:
