@@ -870,13 +870,40 @@ def set_format_for_date_categories(covariate_definitions):
     return covariate_definitions
 
 
+def _get_date_formats(
+    covariate_definitions, column_name, query_args, date_formats=None
+):
+    date_formats = date_formats or []
+    if covariate_definitions[column_name][0] == "aggregate_of":
+        assert query_args["column_type"] == "date"
+        aggregate_query_args = covariate_definitions[column_name][1]
+        for aggregate_column_name in aggregate_query_args["column_names"]:
+            date_formats = _get_date_formats(
+                covariate_definitions,
+                aggregate_column_name,
+                aggregate_query_args,
+                date_formats,
+            )
+    else:
+        date_formats.append(
+            (column_name, covariate_definitions[column_name][1]["date_format"])
+        )
+    return date_formats
+
+
 def check_for_consistent_aggregate_date_formats(covariate_definitions):
     for name, (query_type, query_args) in covariate_definitions.items():
         if query_type == "aggregate_of" and query_args["column_type"] == "date":
-            date_formats = [
-                (column_name, covariate_definitions[column_name][1]["date_format"])
-                for column_name in query_args["column_names"]
-            ]
+            # Get all the date formats for the columns that form the aggregate query
+            # If one of the aggregate query's columns is itself an aggregate query,
+            # retrieve the date formats recursively so we can check they all match
+            date_formats = sum(
+                [
+                    _get_date_formats(covariate_definitions, column_name, query_args)
+                    for column_name in query_args["column_names"]
+                ],
+                [],
+            )
             column_name, target_format = date_formats.pop()
             for other_column, other_format in date_formats:
                 if other_format != target_format:
