@@ -5630,3 +5630,129 @@ def test_isaric_date_filtering():
     assert_results(
         study.to_dicts(convert_to_strings=False), asthma_comorb=["", "Y", "N", ""]
     )
+
+
+def test_nested_minimum_of_dates():
+    # test that we can use a `minimum_of` date variable in another minimum_of
+
+    session = make_session()
+
+    def _make_therapeutics():
+        return [
+            Therapeutics(
+                Intervention="Casirivimab and imdevimab ",
+                COVID_indication="non_hospitalised",
+                CurrentStatus="Approved",
+                TreatmentStartDate="2019-01-01 00:00:00.000",
+                MOL1_high_risk_cohort="",
+                SOT02_risk_cohorts=None,
+                CASIM05_risk_cohort="solid cancer",
+                Region="South West",
+            ),
+            Therapeutics(
+                Intervention="Molnupiravir",
+                COVID_indication="non_hospitalised",
+                CurrentStatus="Approved",
+                TreatmentStartDate="2020-01-01 00:00:00.000",
+                MOL1_high_risk_cohort="IMID",
+                Region="North",
+            ),
+            Therapeutics(
+                Intervention="Sotrovimab",
+                COVID_indication="non_hospitalised",
+                CurrentStatus="Approved",
+                TreatmentStartDate="2021-01-01 00:00:00.000",
+                MOL1_high_risk_cohort="cancer",
+                Region="London",
+            ),
+        ]
+
+    session.add_all(
+        [
+            # +ve test before 1st treated
+            Patient(
+                Patient_ID=1,
+                Therapeutics=_make_therapeutics(),
+                SGSS_AllTests_Positives=[
+                    SGSS_AllTests_Positive(
+                        Specimen_Date="2018-12-15",
+                    ),
+                ],
+            ),
+            # +ve test after 1st treated
+            Patient(
+                Patient_ID=2,
+                Therapeutics=_make_therapeutics(),
+                SGSS_AllTests_Positives=[
+                    SGSS_AllTests_Positive(
+                        Specimen_Date="2019-02-01",
+                    ),
+                ],
+            ),
+            # no +ve test
+            Patient(
+                Patient_ID=3,
+                Therapeutics=_make_therapeutics(),
+            ),
+        ],
+    )
+
+    session.commit()
+    study = StudyDefinition(
+        population=patients.all(),
+        index_date="2017-12-16",
+        molnupiravir_covid_therapeutics=patients.with_covid_therapeutics(
+            with_these_therapeutics="Molnupiravir",
+            with_these_indications="non_hospitalised",
+            on_or_after="index_date",
+            find_first_match_in_period=True,
+            returning="date",
+            date_format="YYYY-MM-DD",
+        ),
+        sotrovimab_covid_therapeutics=patients.with_covid_therapeutics(
+            with_these_therapeutics="Sotrovimab",
+            with_these_indications="non_hospitalised",
+            on_or_after="index_date",
+            find_first_match_in_period=True,
+            returning="date",
+            date_format="YYYY-MM-DD",
+        ),
+        casirivimab_covid_therapeutics=patients.with_covid_therapeutics(
+            with_these_therapeutics="Casirivimab and imdevimab",
+            with_these_indications="non_hospitalised",
+            on_or_after="index_date",
+            find_first_match_in_period=True,
+            returning="date",
+            date_format="YYYY-MM-DD",
+        ),
+        covid_test_positive_date=patients.with_test_result_in_sgss(
+            pathogen="SARS-CoV-2",
+            test_result="positive",
+            find_first_match_in_period=True,
+            restrict_to_earliest_specimen_date=False,
+            returning="date",
+            date_format="YYYY-MM-DD",
+            on_or_after="index_date - 5 days",
+            return_expectations={
+                "date": {"earliest": "2021-12-20", "latest": "index_date"},
+                "incidence": 0.9,
+            },
+        ),
+        date_treated=patients.minimum_of(
+            "sotrovimab_covid_therapeutics",
+            "molnupiravir_covid_therapeutics",
+            "casirivimab_covid_therapeutics",
+        ),
+        start_date=patients.minimum_of("covid_test_positive_date", "date_treated"),
+    )
+
+    assert_results(
+        study.to_dicts(),
+        patient_id=["1", "2", "3"],
+        molnupiravir_covid_therapeutics=["2020-01-01", "2020-01-01", "2020-01-01"],
+        sotrovimab_covid_therapeutics=["2021-01-01", "2021-01-01", "2021-01-01"],
+        casirivimab_covid_therapeutics=["2019-01-01", "2019-01-01", "2019-01-01"],
+        covid_test_positive_date=["2018-12-15", "2019-02-01", ""],
+        date_treated=["2019-01-01", "2019-01-01", "2019-01-01"],
+        start_date=["2018-12-15", "2019-01-01", "2019-01-01"],
+    )
