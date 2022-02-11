@@ -315,3 +315,81 @@ def test_booleans_correctly_handled_in_dummy_data(tmp_path, file_format):
     counts = df.has_event.value_counts()
     assert counts[bools[0]] > 10
     assert counts[bools[1]] > 10
+
+
+@pytest.mark.parametrize(
+    "inconsistent_date_formats,expect_error,error_match",
+    [
+        ({}, False, ""),
+        ({"date_1": "YYYY-MM"}, True, "'date_1' has 'YYYY-MM'"),
+        ({"date_2": "YYYY-MM"}, True, "'date_2' has format 'YYYY-MM'"),
+        ({"date_3": "YYYY-MM"}, True, "'date_3' has 'YYYY-MM'"),
+        ({"date_4": "YYYY-MM"}, True, "'date_4' has format 'YYYY-MM'"),
+        ({"date_5": "YYYY-MM"}, True, "'date_5' has 'YYYY-MM'"),
+        ({"date_6": "YYYY-MM"}, True, "'date_6' has format 'YYYY-MM'"),
+    ],
+)
+def test_nested_aggregate_date_format_validation(
+    inconsistent_date_formats, expect_error, error_match
+):
+    """Test that inconsistent date formats can be detected and reported in nested aggregated dates"""
+
+    def study():
+        return StudyDefinition(
+            default_expectations={
+                "rate": "exponential_increase",
+                "incidence": 0.2,
+                "date": {"earliest": "1900-01-01", "latest": "today"},
+            },
+            population=patients.all(),
+            date_1=patients.with_these_clinical_events(
+                codelist(["A"], system="ctv3"),
+                returning="date",
+                date_format=inconsistent_date_formats.get("date_1", "YYYY-MM-DD"),
+            ),
+            first_min_date=patients.minimum_of(
+                "date_1",
+                date_2=patients.with_these_clinical_events(
+                    codelist(["B"], system="ctv3"),
+                    returning="date",
+                    date_format=inconsistent_date_formats.get("date_2", "YYYY-MM-DD"),
+                ),
+            ),
+            second_min_date=patients.minimum_of(
+                date_3=patients.with_these_clinical_events(
+                    codelist(["Y"], system="ctv3"),
+                    returning="date",
+                    date_format=inconsistent_date_formats.get("date_3", "YYYY-MM-DD"),
+                ),
+                date_4=patients.with_these_clinical_events(
+                    codelist(["Z"], system="ctv3"),
+                    returning="date",
+                    date_format=inconsistent_date_formats.get("date_4", "YYYY-MM-DD"),
+                ),
+            ),
+            third_min_date=patients.minimum_of(
+                date_5=patients.with_these_clinical_events(
+                    codelist(["Y"], system="ctv3"),
+                    returning="date",
+                    date_format=inconsistent_date_formats.get("date_5", "YYYY-MM-DD"),
+                ),
+                date_6=patients.with_these_clinical_events(
+                    codelist(["Z"], system="ctv3"),
+                    returning="date",
+                    date_format=inconsistent_date_formats.get("date_6", "YYYY-MM-DD"),
+                ),
+            ),
+            min_of_second_and_third=patients.minimum_of(
+                "second_min_date", "third_min_date"
+            ),
+            min_overall=patients.minimum_of(
+                "min_of_second_and_third", "first_min_date"
+            ),
+            min_date_1_third_min=patients.minimum_of("date_1", "third_min_date"),
+        )
+
+    if expect_error:
+        with pytest.raises(ValueError, match=error_match):
+            study()
+    else:
+        study()
