@@ -1,6 +1,7 @@
 import functools
 import math
 
+import dateutil.parser
 import pandas
 import structlog
 
@@ -159,22 +160,19 @@ def memoize(fn):
     return wrapper
 
 
-# dates that different systems use to represent the max date, but are greater
-# than pandas.Timestamp can represent, so we clamp to pandas.Timestamp.max
-MAX_DATES = [
-    # TPP
-    "9999-12-31",
-    "9999-12-31 00:00:00",
-]
-
-
 @memoize
 def to_datetime(datestr):
     try:
         return pandas.to_datetime(datestr)
-    except pandas.errors.OutOfBoundsDatetime:
-        if datestr in MAX_DATES:
-            # clamp to pandas max
-            return pandas.Timestamp.max
-        else:
-            raise
+    except pandas.errors.OutOfBoundsDatetime as exc:
+        # parse and clamp to upper or lower range
+        try:
+            date = dateutil.parser.parse(datestr)
+            if date >= pandas.Timestamp.max:
+                return pandas.Timestamp.max
+            elif date <= pandas.Timestamp.min:
+                return pandas.Timestamp.min
+        except dateutil.parser.ParserError:
+            pass
+
+        raise exc

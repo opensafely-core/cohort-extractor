@@ -1,12 +1,12 @@
 import math
 
+import dateutil.parser
 import numpy
 import pandas
 import pytest
 from pandas import NaT, Timestamp
-from structlog.testing import capture_logs
 
-from cohortextractor.pandas_utils import dataframe_from_rows
+from cohortextractor.pandas_utils import dataframe_from_rows, to_datetime
 
 
 def test_dataframe_from_rows():
@@ -107,26 +107,26 @@ def test_dataframe_from_rows():
     assert df.date_died.dtype == numpy.dtype("datetime64[ns]")
 
 
-def test_dataframe_errors():
-    rows = [
-        ("patient_id", "age", "sex", "bmi", "stp", "date_admitted", "date_died"),
-        (1, 20, "M", 18.5, "STP1", "2018-08-01", ("2020-05", "9000-12-31")),
-    ]
-    covariate_definitions = {
-        "population": ("satisfying", {"column_type": "bool"}),
-        "age": ("age_as_of", {"column_type": "int"}),
-        "sex": ("sex", {"column_type": "str"}),
-        "bmi": ("bmi", {"column_type": "float"}),
-        "stp": ("practice_as_of", {"column_type": "str"}),
-        "date_admitted": ("admitted_to_hospital", {"column_type": "date"}),
-        "date_died": ("with_death_recorded_in_cpns", {"column_type": "date"}),
-    }
+@pytest.mark.parametrize(
+    "datestr, expected",
+    [
+        # test below max
+        ("2262-04-10", pandas.Timestamp(year=2262, month=4, day=10)),
+        # test above max
+        ("2262-04-11 23:48", pandas.Timestamp.max),
+        ("9999-12-30 00:00:00", pandas.Timestamp.max),
+        ("9999-12-30", pandas.Timestamp.max),
+        ("9003-05-18", pandas.Timestamp.max),  # seen in the wild
+        # test above min
+        ("1677-09-22", pandas.Timestamp(year=1677, month=9, day=22)),
+        # test below min
+        ("1677-09-20", pandas.Timestamp.min),
+    ],
+)
+def test_to_datetime(datestr, expected):
+    assert to_datetime(datestr) == expected
 
-    with capture_logs() as cap_logs:
-        with pytest.raises(pandas.errors.OutOfBoundsDatetime):
-            dataframe_from_rows(covariate_definitions, iter(rows))
 
-    log_msg = cap_logs[0]["event"]
-    assert "date_died" in log_msg
-    assert "to_datetime" in log_msg
-    assert "9000-12-31" in log_msg
+def test_to_datetime_bad_str():
+    with pytest.raises(dateutil.parser.ParserError):
+        to_datetime("not a date")
