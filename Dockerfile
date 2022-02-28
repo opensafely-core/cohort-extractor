@@ -17,7 +17,6 @@ ENV VIRTUAL_ENV=/opt/venv/ \
 
 RUN mkdir /workspace
 WORKDIR /workspace
-VOLUME /workspace
 
 # We are going to use an apt cache on the host, so disable the default debian
 # docker clean up that deletes that cache on every apt install
@@ -127,6 +126,3 @@ FROM cohortextractor-base as cohortextractor-dev
 COPY requirements.dev.txt /root/requirements.dev.txt
 # hadolint ignore=DL3042
 RUN --mount=type=cache,target=/root/.cache python -m pip install -r /root/requirements.dev.txt
-
-# the code is intended to be mounted in to /app
-VOLUME /app
