@@ -2411,7 +2411,10 @@ class TPPBackend:
             "duration_of_elective_wait": "Duration_of_Elective_Wait",
         }
 
-        if returning == "total_bed_days_in_period":
+        if returning in [
+            "total_bed_days_in_period",
+            "total_critical_care_days_in_period",
+        ]:
             # Check unhandled arguments are unused
             assert (
                 not find_first_match_in_period
@@ -2459,6 +2462,14 @@ class TPPBackend:
             # max value by admission date
             returning_column = "MAX(Der_Spell_LoS)"
             use_sum_query = True
+            sum_adjustment = " + 1"
+            use_partition_query = False
+        elif returning == "total_critical_care_days_in_period":
+            # In case of duplicate spells that start on the same date, we take the
+            # max value by admission date
+            returning_column = "MAX(CAST(APCS_Der.Spell_PbR_CC_Day AS INTEGER))"
+            use_sum_query = True
+            sum_adjustment = ""
             use_partition_query = False
         elif returning in supported_columns:
             returning_column = supported_columns[returning]
@@ -2536,7 +2547,7 @@ class TPPBackend:
             """
         elif use_sum_query:
             sql = f"""
-            SELECT patient_id, SUM({returning} + 1) AS {returning}
+            SELECT patient_id, SUM({returning}{sum_adjustment}) AS {returning}
             FROM (
               SELECT
                 APCS.Patient_ID AS patient_id,

@@ -3470,7 +3470,11 @@ def test_patients_admitted_to_hospital():
                         Der_Diagnosis_All="||EEEE ,XXXE, XXXF",
                         Der_Procedure_All="||EEEE ,YYYE, YYYF",
                         Der_Spell_LoS="2",
-                        APCS_Der=APCS_Der(Patient_ID=4, Spell_Primary_Diagnosis="EEEE"),
+                        APCS_Der=APCS_Der(
+                            Patient_ID=4,
+                            Spell_Primary_Diagnosis="EEEE",
+                            Spell_PbR_CC_Day="3",
+                        ),
                     ),
                     # duplicate admission date; count only the longest stay
                     APCS(
@@ -3480,7 +3484,11 @@ def test_patients_admitted_to_hospital():
                         Der_Diagnosis_All="||FFFF ,XXXF, XXXG",
                         Der_Procedure_All="||FFFF ,YYYF, YYYG",
                         Der_Spell_LoS="2",
-                        APCS_Der=APCS_Der(Patient_ID=4, Spell_Primary_Diagnosis="FFFF"),
+                        APCS_Der=APCS_Der(
+                            Patient_ID=4,
+                            Spell_Primary_Diagnosis="FFFF",
+                            Spell_PbR_CC_Day="1",
+                        ),
                     ),
                     APCS(
                         APCS_Ident=7,
@@ -3489,7 +3497,10 @@ def test_patients_admitted_to_hospital():
                         Der_Diagnosis_All="||FFFF ,XXXF, XXXG",
                         Der_Procedure_All="||FFFF ,YYYF, YYYG",
                         Der_Spell_LoS="1",
-                        APCS_Der=APCS_Der(Patient_ID=4, Spell_Primary_Diagnosis="FFFF"),
+                        APCS_Der=APCS_Der(
+                            Patient_ID=4,
+                            Spell_Primary_Diagnosis="FFFF",
+                        ),
                     ),
                 ],
             ),
@@ -3591,6 +3602,15 @@ def test_patients_admitted_to_hospital():
             with_these_primary_diagnoses=codelist(["AAA"], "icd10"),
             returning="total_bed_days_in_period",
         ),
+        total_critical_care_days=patients.admitted_to_hospital(
+            on_or_after="2020-02-01",
+            returning="total_critical_care_days_in_period",
+        ),
+        total_critical_care_days_with_primary_diagnoses=patients.admitted_to_hospital(
+            on_or_after="2020-01-01",
+            with_these_primary_diagnoses=codelist(["AAA"], "icd10"),
+            returning="total_critical_care_days_in_period",
+        ),
     )
 
     assert_results(
@@ -3614,6 +3634,8 @@ def test_patients_admitted_to_hospital():
         primary_diagnosis_prefix=["0", "1", "0", "0"],
         total_bed_days=["0", "0", "3", "9"],
         total_bed_days_with_primary_diagnoses=["0", "3", "0", "0"],
+        total_critical_care_days=["0", "0", "0", "9"],
+        total_critical_care_days_with_primary_diagnoses=["0", "3", "0", "0"],
     )
 
 
