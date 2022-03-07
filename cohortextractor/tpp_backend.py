@@ -2410,6 +2410,16 @@ class TPPBackend:
             "administrative_category": "Administrative_Category",
             "duration_of_elective_wait": "Duration_of_Elective_Wait",
         }
+
+        if returning == "total_bed_days_in_period":
+            # Check unhandled arguments are unused
+            assert (
+                not find_first_match_in_period
+            ), f"Cannot use 'find_first_match_in_period' when returning '{returning}'"
+            assert (
+                not find_last_match_in_period
+            ), f"Cannot use 'find_last_match_in_period' when returning '{returning}'"
+
         column_conditions = {}
         for column in supported_columns.keys():
             keyword = f"with_{column}"
@@ -2426,6 +2436,7 @@ class TPPBackend:
             ordering = "DESC"
             date_aggregate = "MAX"
 
+        use_sum_query = False
         if returning == "binary_flag":
             returning_column = "1"
             use_partition_query = False
@@ -2441,6 +2452,14 @@ class TPPBackend:
         elif returning == "primary_diagnosis":
             returning_column = "Spell_Primary_Diagnosis"
             use_partition_query = True
+        elif returning == "total_bed_days_in_period":
+            # We need to return total bed DAYS from the column Der_Spell_LoS, which represents
+            # length of stay in NIGHTS (0 represents one day's stay)
+            # In case of duplicate spells that start on the same date, we take the
+            # max value by admission date
+            returning_column = "MAX(Der_Spell_LoS)"
+            use_sum_query = True
+            use_partition_query = False
         elif returning in supported_columns:
             returning_column = supported_columns[returning]
             use_partition_query = True
@@ -2514,6 +2533,22 @@ class TPPBackend:
               WHERE {conditions}
             ) t
             WHERE rownum = 1
+            """
+        elif use_sum_query:
+            sql = f"""
+            SELECT patient_id, SUM({returning} + 1) AS {returning}
+            FROM (
+              SELECT
+                APCS.Patient_ID AS patient_id,
+                {returning_column} AS {returning}
+                FROM APCS
+                INNER JOIN APCS_Der
+                  ON APCS.APCS_Ident = APCS_Der.APCS_Ident
+                {date_joins}
+                WHERE {conditions}
+                GROUP BY APCS.Patient_ID, APCS.Admission_Date
+              ) t
+            GROUP BY patient_id
             """
         else:
             sql = f"""

@@ -2387,6 +2387,7 @@ def admitted_to_hospital(
             * `days_in_critical_care`: number of days in critical care during spell,
             * `administrative_category`: private vs NHS funded treatment,
             * `duration_of_elective_wait`: days on waiting list for planned procedures (use with caution).
+            * `total_bed_days_in_period`: total number of bed days for all admissisions during the time period specified
 
         find_first_match_in_period: a boolean that indicates if the data returned is first event
             if there are multiple matches within the time period

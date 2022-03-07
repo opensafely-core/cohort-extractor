@@ -3403,6 +3403,7 @@ def test_patients_admitted_to_hospital():
                         Discharge_Destination="11",
                         Source_of_Admission="2A",
                         Admission_Method="11",
+                        Der_Spell_LoS="2",
                         APCS_Der=APCS_Der(
                             Patient_ID=2,
                             Spell_Primary_Diagnosis="AAAA",
@@ -3424,6 +3425,7 @@ def test_patients_admitted_to_hospital():
                         Discharge_Destination="99",
                         Source_of_Admission="2A",
                         Admission_Method="50",
+                        Der_Spell_LoS="2",
                         APCS_Der=APCS_Der(
                             Patient_ID=3,
                             Spell_Primary_Diagnosis="BBBB",
@@ -3436,6 +3438,7 @@ def test_patients_admitted_to_hospital():
                         Discharge_Date="2020-04-01",
                         Der_Diagnosis_All="||CCCC ,XXXC, XXXD",
                         Der_Procedure_All="||CCCC ,YYYC, YYYD",
+                        Der_Spell_LoS="2",
                         APCS_Der=APCS_Der(Patient_ID=3, Spell_Primary_Diagnosis="CCCC"),
                     ),
                 ],
@@ -3453,6 +3456,7 @@ def test_patients_admitted_to_hospital():
                         Discharge_Destination="11",
                         Source_of_Admission="3B",
                         Admission_Method="99",
+                        Der_Spell_LoS="2",
                         APCS_Der=APCS_Der(
                             Patient_ID=4,
                             Spell_Primary_Diagnosis="DDDD",
@@ -3465,14 +3469,26 @@ def test_patients_admitted_to_hospital():
                         Discharge_Date="2020-06-01",
                         Der_Diagnosis_All="||EEEE ,XXXE, XXXF",
                         Der_Procedure_All="||EEEE ,YYYE, YYYF",
+                        Der_Spell_LoS="2",
                         APCS_Der=APCS_Der(Patient_ID=4, Spell_Primary_Diagnosis="EEEE"),
                     ),
+                    # duplicate admission date; count only the longest stay
                     APCS(
                         APCS_Ident=6,
                         Admission_Date="2020-07-01",
                         Discharge_Date="2020-08-01",
                         Der_Diagnosis_All="||FFFF ,XXXF, XXXG",
                         Der_Procedure_All="||FFFF ,YYYF, YYYG",
+                        Der_Spell_LoS="2",
+                        APCS_Der=APCS_Der(Patient_ID=4, Spell_Primary_Diagnosis="FFFF"),
+                    ),
+                    APCS(
+                        APCS_Ident=7,
+                        Admission_Date="2020-07-01",
+                        Discharge_Date="2020-07-02",
+                        Der_Diagnosis_All="||FFFF ,XXXF, XXXG",
+                        Der_Procedure_All="||FFFF ,YYYF, YYYG",
+                        Der_Spell_LoS="1",
                         APCS_Der=APCS_Der(Patient_ID=4, Spell_Primary_Diagnosis="FFFF"),
                     ),
                 ],
@@ -3566,12 +3582,21 @@ def test_patients_admitted_to_hospital():
             returning="binary_flag",
             with_these_primary_diagnoses=codelist(["AAA"], "icd10"),
         ),
+        total_bed_days=patients.admitted_to_hospital(
+            on_or_after="2020-02-01",
+            returning="total_bed_days_in_period",
+        ),
+        total_bed_days_with_primary_diagnoses=patients.admitted_to_hospital(
+            on_or_after="2020-01-01",
+            with_these_primary_diagnoses=codelist(["AAA"], "icd10"),
+            returning="total_bed_days_in_period",
+        ),
     )
 
     assert_results(
         study.to_dicts(),
         admitted=["0", "0", "1", "1"],
-        count=["0", "0", "1", "3"],
+        count=["0", "0", "1", "4"],
         first_date_admitted=["", "", "2020-03-01", "2020-03-01"],
         last_date_admitted=["", "", "2020-03-01", "2020-07-01"],
         first_date_discharged=["", "", "2020-04-01", "2020-04-01"],
@@ -3579,7 +3604,7 @@ def test_patients_admitted_to_hospital():
         with_particular_primary_diagnosis=["0", "0", "0", "1"],
         with_particular_diagnoses_1=["0", "0", "1", "1"],
         with_particular_diagnoses_2=["0", "0", "0", "2"],
-        with_particular_diagnoses_3=["0", "0", "1", "3"],
+        with_particular_diagnoses_3=["0", "0", "1", "4"],
         with_particular_diagnoses_4=["0", "0", "1", "2"],
         with_particular_procedures=["0", "0", "1", "2"],
         first_primary_diagnosis=["", "", "CCCC", "DDDD"],
@@ -3587,6 +3612,8 @@ def test_patients_admitted_to_hospital():
         discharge_dest=["", "11", "99", ""],
         critical_care_days=["", "3", "", "5"],
         primary_diagnosis_prefix=["0", "1", "0", "0"],
+        total_bed_days=["0", "0", "3", "9"],
+        total_bed_days_with_primary_diagnoses=["0", "3", "0", "0"],
     )
 
 
