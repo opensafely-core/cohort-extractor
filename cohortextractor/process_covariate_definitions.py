@@ -803,6 +803,8 @@ class GetColumnType:
             "stp_code": "str",
             "symptomatic": "str",
             "therapeutic": "str",
+            "total_bed_days_in_period": "int",
+            "total_critical_care_days_in_period": "int",
             "underlying_cause_of_death": "str",
             "upper_bound": "float",
             "variant": "str",

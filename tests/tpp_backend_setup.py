@@ -742,6 +742,7 @@ class APCS(Base):
     Der_Admit_Treatment_Function_Code = Column(String)
     Administrative_Category = Column(String)
     Duration_of_Elective_Wait = Column(String)
+    Der_Spell_LoS = Column(Integer)
 
 
 class APCS_Der(Base):
