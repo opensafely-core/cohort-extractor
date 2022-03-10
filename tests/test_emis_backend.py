@@ -708,6 +708,58 @@ def test_patient_registered_as_of():
     assert len(results) == 2
 
 
+def test_patient_registered_as_of_with_date_variable():
+    session = make_session()
+
+    patient_unregistered_on_date_of_death = Patient(
+        registered_date="2001-01-01",
+        registration_end_date="2011-04-01",
+        date_of_death="2011-05-01",
+    )
+    patient_registered_on_date_of_death = Patient(
+        registered_date="2002-01-01",
+        registration_end_date=None,
+        date_of_death="2003-01-01",
+    )
+    patient_registered_on_ons_date_of_death = Patient(
+        registered_date="2001-01-01",
+        registration_end_date="2011-04-01",
+        date_of_death=None,
+        ONSDeath=[ONSDeaths(reg_stat_dod=20100101, upload_date="2021-02-02")],
+    )
+    patient_not_dead = Patient(
+        registered_date="2001-01-01",
+        registration_end_date="2002-01-01",
+        date_of_death=None,
+    )
+
+    session.add(patient_unregistered_on_date_of_death)
+    session.add(patient_registered_on_date_of_death)
+    session.add(patient_registered_on_ons_date_of_death)
+    session.add(patient_not_dead)
+    session.commit()
+
+    study = StudyDefinition(
+        date_of_death=patients.with_death_recorded_in_primary_care(
+            returning="date_of_death", date_format="YYYY-MM-DD"
+        ),
+        population=patients.registered_as_of("date_of_death"),
+    )
+    results = study.to_dicts()
+    assert len(results) == 1
+    assert results[0]["date_of_death"] == "2003-01-01"
+
+    study = StudyDefinition(
+        ons_death_date=patients.died_from_any_cause(
+            returning="date_of_death", date_format="YYYY-MM-DD"
+        ),
+        population=patients.registered_as_of("ons_death_date"),
+    )
+    results = study.to_dicts()
+    assert len(results) == 1
+    assert results[0]["ons_death_date"] == "2010-01-01"
+
+
 def test_patients_registered_with_one_practice_between():
     session = make_session()
 
