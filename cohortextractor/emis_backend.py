@@ -862,7 +862,7 @@ class EMISBackend:
         return f"""
             SELECT
                 {self.patient_no_duplicates_table}.registration_id,
-                hashed_organisation,
+                {self.patient_no_duplicates_table}.hashed_organisation,
                 1 AS value
             FROM {self.patient_no_duplicates_table}
             {date_joins}
