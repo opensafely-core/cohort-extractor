@@ -24,7 +24,6 @@ setup(
         "requests",
         "retry",
         "seaborn",
-        "sqlalchemy",
         "sqlparse",
         "structlog",
         "tabulate",

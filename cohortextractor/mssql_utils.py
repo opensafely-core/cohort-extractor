@@ -3,9 +3,6 @@ import time
 import warnings
 from urllib.parse import unquote, urlparse
 
-import sqlalchemy
-from sqlalchemy.engine.url import URL
-
 # Some drivers warn about the use of features marked "optional" in the DB-ABI
 # spec, using a standardised set of warnings. See:
 # https://www.python.org/dev/peps/pep-0249/#optional-db-api-extensions
@@ -103,12 +100,6 @@ def _pymssql_connect(pymssql, params):
     return pymssql.connect(**params)
 
 
-def mssql_sqlalchemy_engine_from_url(url):
-    params = mssql_connection_params_from_url(url)
-    params["drivername"] = "mssql+pymssql"
-    return sqlalchemy.create_engine(URL(**params))
-
-
 def mssql_fetch_table(
     get_cursor,
     table,
@@ -184,20 +175,3 @@ class BatchFetcher:
                     retries -= 1
                     time.sleep(self.sleep)
                     self.cursor = None
-
-
-def wait_for_mssql_to_be_ready(engine, timeout):
-    """
-    Waits for the MS SQL database to be ready by repeatedly attempting to
-    connect, raising the last received error after `timeout` seconds.
-    """
-    start = time.time()
-    while True:
-        try:
-            engine.connect()
-            break
-        except sqlalchemy.exc.DBAPIError:
-            if time.time() - start < timeout:
-                time.sleep(1)
-            else:
-                raise
