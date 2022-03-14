@@ -63,12 +63,7 @@ def write_to_temp_file(contents, **kwargs):
 
 
 def adapt_connection(conn, conn_params, env=os.environ):
-    """Adapt connection to use passphrase-protected PKCS#12 certificate.
-
-    For instructions for getting a certificate, see
-    https://ebmdatalab.github.io/datalab-team-manual/opensafely/accessing-emis-data/
-    """
-
+    """Adapt connection to use TLS client certificate."""
     session = requests.Session()
     # PRESTO_TLS_CERT and PRESTO_TLS_KEY are now legacy.
     # These environment variables are included for backwards compatibility only and will
@@ -80,8 +75,6 @@ def adapt_connection(conn, conn_params, env=os.environ):
     presto_key = env.get("PRESTO_TLS_KEY")
     trino_crt = env.get("TRINO_TLS_CERT")
     trino_key = env.get("TRINO_TLS_KEY")
-    pfx_pass = env.get("PFX_PASSWORD_PATH")
-    pfx_path = env.get("PFX_PATH")
 
     # unencrypted cert in env
     if trino_crt and trino_key:
@@ -101,19 +94,6 @@ def adapt_connection(conn, conn_params, env=os.environ):
             write_to_temp_file(presto_key, prefix="presto_key"),
         )
 
-    # support encyrpted cert
-    elif pfx_pass and pfx_path:
-        from requests_pkcs12 import Pkcs12Adapter
-
-        with open(pfx_pass, "rb") as f:
-            pkcs12_password = f.read().strip()
-
-        mount_prefix = "{http_scheme}://{host}:{port}".format(**conn_params)
-        mount_adaptor = Pkcs12Adapter(
-            pkcs12_filename=pfx_path,
-            pkcs12_password=pkcs12_password,
-        )
-        session.mount(mount_prefix, mount_adaptor)
     else:
         raise Exception(
             "Could not load certificate for Trino connection from environment"

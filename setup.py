@@ -22,7 +22,6 @@ setup(
         "pyarrow",
         "pyyaml",
         "requests",
-        "requests-pkcs12",
         "retry",
         "seaborn",
         "sqlalchemy",
