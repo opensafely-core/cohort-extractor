@@ -832,31 +832,40 @@ class TPPBackend:
         codelist_sql = codelist_to_sql(codelist)
 
         if on_most_recent_day_of_measurement:
-            # The subquery finds, for each patient, the most recent day on which
-            # they've had a measurement. The outer query selects, for each patient,
-            # the mean value on that day.
+            # The first query finds, for each patient, the most recent day on which
+            # they've had a measurement. The final query selects, for each patient, the
+            # aggregated value on that day.
             # Note, there's a CAST in the JOIN condition but apparently SQL Server can still
             # use an index for this. See: https://stackoverflow.com/a/25564539
-            return f"""
-            SELECT
-            days.Patient_ID AS patient_id,
-            {summary_function}({coded_event_table}.NumericValue) AS value,
-            days.date_measured AS date
-            FROM (
-                SELECT {coded_event_table}.Patient_ID, CAST(MAX(ConsultationDate) AS date) AS date_measured
+            latest_date_table = self.get_temp_table_name("latest_date")
+            return [
+                f"""
+                SELECT {coded_event_table}.Patient_ID, CAST(MAX(ConsultationDate) AS date) AS day
+                INTO {latest_date_table}
                 FROM {coded_event_table}
                 {date_joins}
                 WHERE {coded_event_column} IN ({codelist_sql}) AND {date_condition}
                 GROUP BY {coded_event_table}.Patient_ID
-            ) AS days
-            LEFT JOIN {coded_event_table}
-            ON (
-            {coded_event_table}.Patient_ID = days.Patient_ID
-            AND {coded_event_table}.{coded_event_column} IN ({codelist_sql})
-            AND CAST({coded_event_table}.ConsultationDate AS date) = days.date_measured
-            )
-            GROUP BY days.Patient_ID, days.date_measured
-            """
+                """,
+                f"""
+                CREATE CLUSTERED INDEX ix ON {latest_date_table} (Patient_ID, day)
+                """,
+                f"""
+                SELECT
+                  {latest_date_table}.Patient_ID AS patient_id,
+                  {summary_function}({coded_event_table}.NumericValue) AS value,
+                  {latest_date_table}.day AS date
+                FROM {latest_date_table}
+                LEFT JOIN {coded_event_table}
+                ON (
+                  {coded_event_table}.Patient_ID = {latest_date_table}.Patient_ID
+                  AND CAST({coded_event_table}.ConsultationDate AS date) = {latest_date_table}.day
+                )
+                WHERE
+                  {coded_event_table}.{coded_event_column} IN ({codelist_sql})
+                GROUP BY {latest_date_table}.Patient_ID, {latest_date_table}.day
+                """,
+            ]
         else:
             assert (
                 include_date_of_match is False
