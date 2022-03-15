@@ -35,11 +35,8 @@ from cohortextractor.emis_backend import (
     ONS_TABLE,
     PATIENT_TABLE,
 )
-from cohortextractor.mssql_utils import (
-    mssql_sqlalchemy_engine_from_url,
-    wait_for_mssql_to_be_ready,
-)
 from cohortextractor.trino_utils import wait_for_trino_to_be_ready
+from tests.helpers import mssql_sqlalchemy_engine_from_url, wait_for_mssql_to_be_ready
 
 Base = declarative_base()
 metadata = Base.metadata

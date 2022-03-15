@@ -15,12 +15,9 @@ from sqlalchemy import (
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship, sessionmaker
 
-from cohortextractor.mssql_utils import (
-    mssql_sqlalchemy_engine_from_url,
-    wait_for_mssql_to_be_ready,
-)
 from cohortextractor.process_covariate_definitions import ISARIC_COLUMN_MAPPINGS
 from cohortextractor.tpp_backend import AppointmentStatus
+from tests.helpers import mssql_sqlalchemy_engine_from_url, wait_for_mssql_to_be_ready
 
 Base = declarative_base()
 

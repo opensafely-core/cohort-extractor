@@ -17,19 +17,16 @@ setup(
     author_email="tech@opensafely.org",
     python_requires=">=3.7",
     install_requires=[
-        "lz4",
-        "pandas",
+        "lz4",  # implicit import for compressed feather files
         "pyarrow",
+        "pandas",
         "pyyaml",
         "requests",
-        "requests-pkcs12",
         "retry",
         "seaborn",
-        "sqlalchemy",
         "sqlparse",
         "structlog",
         "tabulate",
-        "tinynetrc",
     ],
     extras_require={
         "drivers": [
