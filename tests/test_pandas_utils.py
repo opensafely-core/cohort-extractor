@@ -1,3 +1,4 @@
+import gzip
 import math
 
 import dateutil.parser
@@ -6,7 +7,11 @@ import pandas
 import pytest
 from pandas import NaT, Timestamp
 
-from cohortextractor.pandas_utils import dataframe_from_rows, to_datetime
+from cohortextractor.pandas_utils import (
+    dataframe_from_rows,
+    dataframe_to_file,
+    to_datetime,
+)
 
 
 def test_dataframe_from_rows():
@@ -130,3 +135,49 @@ def test_to_datetime(datestr, expected):
 def test_to_datetime_bad_str():
     with pytest.raises(dateutil.parser.ParserError):
         to_datetime("not a date")
+
+
+@pytest.mark.parametrize(
+    "filename, gzipped, read",
+    [
+        ("file.csv", False, pandas.read_csv),
+        ("file.csv.gz", True, pandas.read_csv),
+        ("file.feather", False, pandas.read_feather),
+        ("file.dta", False, pandas.read_stata),
+        ("file.dta.gz", True, pandas.read_stata),
+    ],
+)
+def test_dateframe_to_file_csv(filename, gzipped, read, tmp_path):
+
+    rows = [
+        ("patient_id", "age", "sex", "bmi", "stp", "date_admitted", "date_died"),
+        (1, 20, "M", 18.5, "STP1", "2018-08-01", "2020-05"),
+        (2, 38, "F", None, "STP2", "2019-12-12", "2020-06"),
+        (3, 65, "M", 0, "STP2", "", "2020-07"),
+        (4, 42, "F", 17.8, "", "2020-04-10", "2020-08"),
+        (5, 18, "M", 26.2, "STP3", "2020-06-20", ""),
+    ]
+    covariate_definitions = {
+        "population": ("satisfying", {"column_type": "bool"}),
+        "age": ("age_as_of", {"column_type": "int"}),
+        "sex": ("sex", {"column_type": "str"}),
+        "bmi": ("bmi", {"column_type": "float"}),
+        "stp": ("practice_as_of", {"column_type": "str"}),
+        "date_admitted": ("admitted_to_hospital", {"column_type": "date"}),
+        "date_died": ("with_death_recorded_in_cpns", {"column_type": "date"}),
+    }
+
+    df = dataframe_from_rows(covariate_definitions, iter(rows))
+
+    path = tmp_path / filename
+    dataframe_to_file(df, path)
+
+    if gzipped:
+        # test it's valid gzip
+        gzip.open(path).read()
+
+    # note: ideally, we'd compare for equality, but this is hard to do, as the
+    # types and data can change depending on the output format.  So, we check
+    # that we can actually load the serialised data as a basic correctness
+    # check.
+    read(path)
