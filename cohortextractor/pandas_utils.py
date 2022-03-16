@@ -13,7 +13,8 @@ def dataframe_to_file(df, filename):
     if filename.endswith(".csv") or filename.endswith(".csv.gz"):
         df.to_csv(filename, index=False)
     elif filename.endswith(".feather"):
-        df.to_feather(filename)
+        # zstd is a better option that the default lz4 compression
+        df.to_feather(filename, compression="zstd")
     elif filename.endswith(".dta") or filename.endswith(".dta.gz"):
         # Make a shallow copy of the dataframe so we can replace certain
         # columns without duplicating the entire thing in memory
@@ -31,7 +32,11 @@ def dataframe_to_file(df, filename):
             for (column, dtype) in df.dtypes.items()
             if dtype.name == "datetime64[ns]"
         }
-        df.to_stata(filename, write_index=False, convert_dates=convert_dates)
+        # to_stata will infer gzip compression if the filename ends in .gz
+        # version 118 is the current recommended version for the version of stata opensafely uses.
+        df.to_stata(
+            filename, version=118, write_index=False, convert_dates=convert_dates
+        )
     else:
         raise RuntimeError(f"Unsupported file format: {filename}")
 
