@@ -2738,7 +2738,7 @@ def test_patients_with_test_result_in_sgss():
                         VariantDetectionMethod="Private Lab Sequencing",
                         Symptomatic="Y",
                     ),
-                    SGSS_AllTests_Positive(Specimen_Date="2020-05-20"),
+                    SGSS_AllTests_Positive(Specimen_Date="2020-05-20", SGTF="1"),
                 ],
                 SGSS_AllTests_Negatives=[
                     SGSS_AllTests_Negative(
@@ -2769,7 +2769,7 @@ def test_patients_with_test_result_in_sgss():
                         VariantDetectionMethod="Reflex Assay",
                         Symptomatic="N",
                     ),
-                    SGSS_AllTests_Positive(Specimen_Date="2020-05-02"),
+                    SGSS_AllTests_Positive(Specimen_Date="2020-05-02", SGTF="9"),
                 ],
             ),
             Patient(
@@ -2790,6 +2790,7 @@ def test_patients_with_test_result_in_sgss():
                     SGSS_AllTests_Positive(
                         Specimen_Date="2020-04-20",
                         Symptomatic="U",
+                        SGTF="0",
                     ),
                 ],
             ),
@@ -2853,6 +2854,13 @@ def test_patients_with_test_result_in_sgss():
             pathogen="SARS-CoV-2",
             test_result="positive",
             find_first_match_in_period=True,
+            returning="s_gene_target_failure",
+        ),
+        sgtf_result_last=patients.with_test_result_in_sgss(
+            pathogen="SARS-CoV-2",
+            test_result="positive",
+            find_last_match_in_period=True,
+            restrict_to_earliest_specimen_date=False,
             returning="s_gene_target_failure",
         ),
         variant=patients.with_test_result_in_sgss(
@@ -2933,6 +2941,7 @@ def test_patients_with_test_result_in_sgss():
         first_negative_after_a_positive=["2020-07-10", "", "", "", "", ""],
         last_positive_test_date=["2020-05-20", "2020-05-02", "", "2020-04-20", "", ""],
         sgtf_result=["9", "1", "", "", "", ""],
+        sgtf_result_last=["1", "9", "", "0", "", ""],
         variant=["B.1.351", "VOC-20DEC-01", "", "", "", ""],
         variant_detection_method=[
             "Private Lab Sequencing",

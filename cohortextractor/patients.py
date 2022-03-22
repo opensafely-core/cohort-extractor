@@ -1947,8 +1947,8 @@ def with_test_result_in_sgss(
     each individual test result (postive or negative) to appear in this
     regardless of whether they are considered as within the same infection
     episode. In an ideal world we could use just this dataset, but there are
-    some fields we need (e.g. SGTF) which are only supplied on the "earliest
-    specimen" dataset.
+    some fields we need (e.g. Case Category) which are only supplied on the
+    "earliest specimen" dataset.
 
     ### S-Gene Target Failure
 
