@@ -2165,6 +2165,16 @@ def minimum_of(*column_names, **extra_columns):
     return "aggregate_of", locals()
 
 
+def fixed_value(value):
+    """
+    Returns a column that has a single, fixed value for all patients
+
+    We use this internally and don't currently expose this in the documentation, but we
+    might find a reason to do so later.
+    """
+    return "fixed_value", locals()
+
+
 def household_as_of(reference_date, returning=None, return_expectations=None):
     # noinspection PyPackageRequirements
     """

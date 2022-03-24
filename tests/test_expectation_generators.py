@@ -858,6 +858,10 @@ def test_make_df_from_expectations_with_aggregate_of():
             "date_1",
             "date_2",
         ),
+        date_min_fixed=patients.minimum_of(
+            "date_1",
+            "1980-10-20",
+        ),
         int_1=patients.with_these_clinical_events(
             codelist(["X"], system="ctv3"),
             returning="number_of_matches_in_period",

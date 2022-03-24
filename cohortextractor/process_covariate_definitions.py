@@ -376,6 +376,7 @@ def process_covariate_definitions(covariate_definitions):
     if "patient_id" in covariate_definitions:
         raise ValueError("patient_id is a reserved column name")
     covariate_definitions = flatten_nested_covariates(covariate_definitions)
+    covariate_definitions = add_implied_fixed_value_columns(covariate_definitions)
     covariate_definitions = process_all_query_arguments(covariate_definitions)
     covariate_definitions = apply_compatibility_fixes_for_include_date(
         covariate_definitions
@@ -424,6 +425,67 @@ def flatten_nested_covariates(covariate_definitions):
     for name, (query_type, query_args) in flattened.items():
         query_args["hidden"] = name in hidden
     return flattened
+
+
+def add_implied_fixed_value_columns(covariate_definitions):
+    """
+    It's possible to use the minimum/maximum functions with fixed dates using the
+    `fixed_value` function like so:
+
+        max_date = patients.maximum_of(
+            "some_date_column",
+            "some_fixed_date",
+            some_fixed_date=patients.fixed_value("2022-01-01"),
+        )
+
+    However this is slightly awkward: it requires making up an arbitrary (but unique)
+    column name and then writing it twice. So instead we allow the same query to be
+    specified using:
+
+        max_date = patients.maximum_of("some_date_column", "2022-01-01")
+
+    We do this by spotting that "2022-01-01" can't be a column name (it contains dashes)
+    but does look like a date, so we can automatically construct the appropriate
+    `fixed_value` column and rewrite the query to use that.
+    """
+    outputs = {}
+    unique_names = make_unique_names("fixed_value", covariate_definitions)
+
+    for name, (query_type, query_args) in covariate_definitions.items():
+
+        if query_type == "aggregate_of":
+            new_column_names = []
+            for column_name in query_args["column_names"]:
+                # If the column name is a date ...
+                if is_iso_date(column_name):
+                    # create a new `fixed_value` column using that date
+                    fixed_value_column = (
+                        "fixed_value",
+                        {"value": column_name, "hidden": True},
+                    )
+                    # with an arbitrary unique name
+                    fixed_value_name = next(unique_names)
+                    # add it the column definitions
+                    outputs[fixed_value_name] = fixed_value_column
+                    # and use the newly defined column name as the input column
+                    new_column_names.append(fixed_value_name)
+                else:
+                    new_column_names.append(column_name)
+            # Create a copy of `query_args` which uses the new column names
+            query_args = dict(query_args, column_names=new_column_names)
+
+        outputs[name] = (query_type, query_args)
+
+    return outputs
+
+
+def make_unique_names(prefix, existing_names):
+    counter = 0
+    while True:
+        counter += 1
+        name = f"{prefix}_{counter}"
+        if name not in existing_names:
+            yield name
 
 
 def process_all_query_arguments(covariate_definitions):
@@ -824,9 +886,7 @@ class GetColumnType:
     def _infer_type_from_categories(self, category_definitions):
         # Convert date-like strings to dates
         categories = [
-            datetime.date.fromisoformat(v)
-            if isinstance(v, str) and re.match(r"\d\d\d\d-\d\d-\d\d", v)
-            else v
+            datetime.date.fromisoformat(v) if is_iso_date(v) else v
             for v in category_definitions.keys()
         ]
         first_type = type(categories[0])
@@ -861,6 +921,24 @@ class GetColumnType:
                 )
         return column_type
 
+    def type_of_fixed_value(self, value, **kwargs):
+        if is_iso_date(value):
+            return "date"
+        elif isinstance(value, bool):
+            return "bool"
+        elif isinstance(value, int):
+            return "int"
+        elif isinstance(value, float):
+            return "float"
+        elif isinstance(value, str):
+            return "str"
+        else:
+            raise ValueError(f"Unhandled value: {value}")
+
+
+def is_iso_date(value):
+    return isinstance(value, str) and re.match(r"\d\d\d\d-\d\d-\d\d", value)
+
 
 def set_format_for_date_categories(covariate_definitions):
     # It's convenient if we can assume that every column of type `date` has a
@@ -868,6 +946,9 @@ def set_format_for_date_categories(covariate_definitions):
     # always in full ISO format.
     for name, (query_type, query_args) in covariate_definitions.items():
         if query_type == "categorised_as" and query_args["column_type"] == "date":
+            query_args["date_format"] = "YYYY-MM-DD"
+        # "fixed value" dates are also in full ISO format
+        if query_type == "fixed_value" and query_args["column_type"] == "date":
             query_args["date_format"] = "YYYY-MM-DD"
     return covariate_definitions
 
