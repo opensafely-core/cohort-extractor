@@ -1607,16 +1607,17 @@ def is_iso_date(value):
     return bool(re.match(r"\d\d\d\d-\d\d-\d\d", value))
 
 
-def quote(value):
+def quote(value, reformat_dates=True):
     if isinstance(value, (int, float)):
         return str(value)
 
     value = str(value)
-    try:
-        datetime.datetime.strptime(value, "%Y-%m-%d")
-        return f"DATE('{value}')"
-    except ValueError:
-        pass
+    if reformat_dates:
+        try:
+            datetime.datetime.strptime(value, "%Y-%m-%d")
+            return f"DATE('{value}')"
+        except ValueError:
+            pass
 
     if not SAFE_CHARS_RE.match(value) and value != "":
         raise ValueError(f"Value contains disallowed characters: {value}")
