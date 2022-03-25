@@ -327,6 +327,15 @@ class StudyDefinition:
                 )
                 population = new_population
 
+        # Populate dataframe with any fixed values
+        for colname, definition_args in self.pandas_csv_args["args"].items():
+            if definition_args["funcname"] != "fixed_value":
+                continue
+            value = definition_args["value"]
+            if definition_args["column_type"] == "date":
+                value = pd.to_datetime(value)
+            df[colname] = pd.Series(value)
+
         # Now dates, so we can use them as inputs for incidence matching on dependent
         # columns
         for colname in self.pandas_csv_args["parse_dates"]:
@@ -335,6 +344,7 @@ class StudyDefinition:
                 "aggregate_of",
                 "with_value_from_file",
                 "which_exist_in_file",
+                "fixed_value",
             ]:
                 continue
             if "source" in definition_args:
@@ -368,6 +378,7 @@ class StudyDefinition:
                 "aggregate_of",
                 "with_value_from_file",
                 "which_exist_in_file",
+                "fixed_value",
             ]:
                 continue
             return_expectations = definition_args["return_expectations"] or {}

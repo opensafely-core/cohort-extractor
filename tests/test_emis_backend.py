@@ -2131,19 +2131,48 @@ def test_patients_aggregate_value_of():
             codelist([222], system="snomedct"), returning="numeric_value"
         ),
         # Dates
-        abc_date=patients.date_of("abc_value"),
-        xyz_date=patients.date_of("xyz_value"),
+        abc_date=patients.date_of("abc_value", date_format="YYYY-MM-DD"),
+        xyz_date=patients.date_of("xyz_value", date_format="YYYY-MM-DD"),
         # Aggregates
         max_value=patients.maximum_of("abc_value", "xyz_value"),
         min_value=patients.minimum_of("abc_value", "xyz_value"),
         max_date=patients.maximum_of("abc_date", "xyz_date"),
         min_date=patients.minimum_of("abc_date", "xyz_date"),
+        # Aggregates with fixed dates
+        max_date_fixed=patients.maximum_of("abc_date", "2014-05-16"),
+        min_date_fixed=patients.minimum_of("xyz_date", "2017-11-10"),
     )
     results = study.to_dicts()
     assert [x["max_value"] for x in results] == ["23.0", "18.0", "10.0", "8.0", "0.0"]
     assert [x["min_value"] for x in results] == ["7.0", "4.0", "10.0", "8.0", "0.0"]
-    assert [x["max_date"] for x in results] == ["2018", "2017", "2015", "2019", ""]
-    assert [x["min_date"] for x in results] == ["2012", "2014", "2015", "2019", ""]
+    assert [x["max_date"] for x in results] == [
+        "2018-01-01",
+        "2017-01-01",
+        "2015-01-01",
+        "2019-01-01",
+        "",
+    ]
+    assert [x["min_date"] for x in results] == [
+        "2012-01-01",
+        "2014-01-01",
+        "2015-01-01",
+        "2019-01-01",
+        "",
+    ]
+    assert [x["max_date_fixed"] for x in results] == [
+        "2014-05-16",
+        "2014-05-16",
+        "2015-01-01",
+        "2014-05-16",
+        "2014-05-16",
+    ]
+    assert [x["min_date_fixed"] for x in results] == [
+        "2017-11-10",
+        "2017-01-01",
+        "2017-11-10",
+        "2017-11-10",
+        "2017-11-10",
+    ]
     # Test with hidden columns
     study_with_hidden_columns = StudyDefinition(
         population=patients.all(),
