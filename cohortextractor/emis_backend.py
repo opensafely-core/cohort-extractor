@@ -363,7 +363,7 @@ class EMISBackend:
         function = {"MAX": "GREATEST", "MIN": "LEAST"}[aggregate_function]
 
         if column_type in ["int", "float"]:
-            extreme_value_lookup = {"MAX": -(2 ** 63), "MIN": 2 ** (63 - 1)}
+            extreme_value_lookup = {"MAX": -(2**63), "MIN": 2 ** (63 - 1)}
             extreme_value = [aggregate_function]
         elif column_type == "date":
             extreme_value_lookup = {"MAX": "'0001-01-01'", "MIN": "'9999-12-31'"}

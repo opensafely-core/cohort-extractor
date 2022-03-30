@@ -301,7 +301,7 @@ def _generate_measures(
     logger.debug("args", suffix=suffix, skip_existing=skip_existing)
     measures = load_study_definition(study_name, value="measures")
     measure_outputs = defaultdict(list)
-    filename_re = re.compile(fr"^input{re.escape(suffix)}.+\.({EXTENSION_REGEX})$")
+    filename_re = re.compile(rf"^input{re.escape(suffix)}.+\.({EXTENSION_REGEX})$")
     for file in os.listdir(output_dir):
         if not filename_re.match(file):
             continue
@@ -343,7 +343,7 @@ def _generate_measures(
 
 
 def _get_date_from_filename(filename):
-    match = re.search(fr"_(\d\d\d\d\-\d\d\-\d\d)\.({EXTENSION_REGEX})$", filename)
+    match = re.search(rf"_(\d\d\d\d\-\d\d\-\d\d)\.({EXTENSION_REGEX})$", filename)
     return datetime.date.fromisoformat(match.group(1)) if match else None
 
 

@@ -2393,7 +2393,7 @@ def test_truncate_patient_id():
     small_id_hex = hex(small_id)[2:]
     assert truncate_patient_id(small_id_hex) == small_id // 2
 
-    large_id_hex = hex(987654321 + 2 ** 100)[2:]
+    large_id_hex = hex(987654321 + 2**100)[2:]
     assert truncate_patient_id(large_id_hex) == 576460752303423488
 
 
