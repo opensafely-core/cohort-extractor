@@ -202,7 +202,7 @@ class CursorProxy:
 
     _rows = None
 
-    def __init__(self, cursor, batch_size=10 ** 6):
+    def __init__(self, cursor, batch_size=10**6):
         """Initialise proxy.
 
         cursor: the trino.dbapi.Cursor to be proxied

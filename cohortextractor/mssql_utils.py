@@ -104,7 +104,7 @@ def mssql_fetch_table(
     get_cursor,
     table,
     key_column,
-    batch_size=2 ** 14,
+    batch_size=2**14,
     retries=2,
     sleep=0.5,
 ):
