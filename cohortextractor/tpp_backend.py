@@ -22,6 +22,16 @@ from .therapeutics_utils import ALLOWED_RISK_GROUPS
 logger = structlog.get_logger()
 
 
+# The batch size was chosen through a bit of unscientific trial-and-error and some
+# guesswork. It may well need changing in future.
+BATCH_SIZE = 32000
+
+# Retry six times over ~90 minutes.
+RETRIES = 6
+SLEEP = 4
+BACKOFF_FACTOR = 4
+
+
 class TPPBackend:
     _db_connection = None
     _current_column_name = None
@@ -51,25 +61,14 @@ class TPPBackend:
             queries.append(f"CREATE INDEX ix_patient_id ON {output_table} (patient_id)")
             self.execute_queries(queries)
 
-        def get_cursor():
-            # If we've written results to a temporary database then we make a
-            # new connection each time we retry, which can fix issues with
-            # dropped connections. If we haven't then we're relying on
-            # session-scoped temporary tables which means we can't reconnect
-            # without losing everything
-            force_reconnect = bool(self.temporary_database)
-            return self.get_db_connection(force_reconnect=force_reconnect).cursor()
-
-        # `batch_size` here was chosen through a bit of unscientific
-        # trial-and-error and some guesswork. It may well need changing in
-        # future.
         results = mssql_fetch_table(
-            get_cursor=get_cursor,
+            get_cursor=self._get_cursor,
             table=output_table,
             key_column="patient_id",
-            batch_size=32000,
-            retries=2,
-            sleep=0.5,
+            batch_size=BATCH_SIZE,
+            retries=RETRIES,
+            sleep=SLEEP,
+            backoff_factor=BACKOFF_FACTOR,
         )
 
         # Wrap the results stream in a function which captures unique IDs and
@@ -110,6 +109,15 @@ class TPPBackend:
         duplicates = total_rows - len(unique_ids)
         if duplicates != 0:
             raise RuntimeError(f"Duplicate IDs found ({duplicates} rows)")
+
+    def _get_cursor(self):
+        # If we've written results to a temporary database then we make a
+        # new connection each time we retry, which can fix issues with
+        # dropped connections. If we haven't then we're relying on
+        # session-scoped temporary tables which means we can't reconnect
+        # without losing everything
+        force_reconnect = bool(self.temporary_database)
+        return self.get_db_connection(force_reconnect=force_reconnect).cursor()
 
     def _clean_risk_groups(self, row, keys, risk_group_variables):
         """
