@@ -43,6 +43,7 @@ class TPPBackend:
         self.temporary_database = temporary_database
         self.next_temp_table_id = 1
         self._therapeutics_table_name = None
+        self._ons_cis_table_name = None
         self.queries = self.get_queries(self.covariate_definitions)
 
     def to_file(self, filename):
@@ -3349,6 +3350,24 @@ class TPPBackend:
         queries.append(query)
         return queries
 
+    def create_ons_cis_table(self):
+        """
+        Create a temporarary ons_cis table to use for `with_an_ons_cis_record` queries
+        Remove complete duplicate rows so we don't count them when returning `number_of_matches`
+        """
+        if self._ons_cis_table_name is None:
+            self._ons_cis_table_name = self.get_temp_table_name("ons_cis")
+            queries = [
+                f"""
+            -- Creating ons_cis temp table
+            SELECT DISTINCT Patient_ID, {', '.join(ONS_CIS_COLUMN_MAPPINGS)}
+             INTO {self._ons_cis_table_name} FROM ONS_CIS
+            """
+            ]
+        else:
+            queries = []
+        return self._ons_cis_table_name, queries
+
     def patients_with_an_ons_cis_record(
         self,
         returning="binary_flag",
@@ -3361,7 +3380,7 @@ class TPPBackend:
         include_date_of_match=False,
     ):
 
-        table = "ONS_CIS"
+        table, table_queries = self.create_ons_cis_table()
 
         # Result ordering
         if find_first_match_in_period:
@@ -3463,7 +3482,7 @@ class TPPBackend:
                 WHERE {date_condition}
                 GROUP BY Patient_ID
             """
-        return sql
+        return table_queries + [sql]
 
 
 class ColumnExpression:

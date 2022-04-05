@@ -5907,6 +5907,15 @@ def test_ons_cis():
                         country=2,
                         self_isolating=0,
                     ),
+                    # duplicate record ignored in number_of_matches_in_period counts
+                    ONS_CIS(
+                        age_at_visit=41,
+                        visit_date="2021-10-01",
+                        covid_test_blood_pos_first_date="2021-06-01",
+                        result_tdi="1",
+                        country=2,
+                        self_isolating=0,
+                    ),
                 ],
             ),
         ]
