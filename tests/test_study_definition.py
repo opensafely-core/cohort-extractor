@@ -393,3 +393,44 @@ def test_nested_aggregate_date_format_validation(
             study()
     else:
         study()
+
+
+@pytest.mark.parametrize(
+    "returning,date_filter_column,error,error_msg",
+    [
+        # invalid return value with no matching type
+        ("foo", None, ValueError, "No matching type for 'foo'"),
+        # invalid ONS_CIS column
+        (
+            "primary_diagnosis",
+            None,
+            TypeError,
+            "returning=primary_diagnosis is not a valid ONS_CIS column",
+        ),
+        # invalid date_filter_column
+        (
+            "age_at_visit",
+            "foo",
+            TypeError,
+            "date_filter_column=foo is not a valid ONS_CIS column",
+        ),
+        # invalid type of date_filter_column
+        (
+            "age_at_visit",
+            "age_at_visit",
+            TypeError,
+            "date_filter_column=age_at_visit is type int, not a date",
+        ),
+    ],
+)
+def test_ons_cis_study_definition_errors(
+    returning, date_filter_column, error, error_msg
+):
+    with pytest.raises(error, match=error_msg):
+        StudyDefinition(
+            population=patients.all(),
+            # by default returns last match in period, using visit date
+            value=patients.with_an_ons_cis_record(
+                returning=returning, date_filter_column=date_filter_column
+            ),
+        )
