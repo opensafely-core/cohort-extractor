@@ -2797,23 +2797,26 @@ def with_an_ons_cis_record(
 
     Args:
         returning: string value; options are:
-            - "binary_flag"
-            - "number_of_matches_in_period"
-            -  the ONS CIS table column to return
+
+            * "binary_flag"
+            * "number_of_matches_in_period"
+            *  the ONS CIS table column to return
         return_category_labels: If the value of `returning` is a coded category, return the
             the corresponding longform string labels
-        date_filter_column: the ONS CIS column to use with date limit args. Options are:
-            - "covid_date"
-            - "covid_test_blood_neg_last_date"
-            - "covid_test_blood_pos_first_date"
-            - "covid_test_swab_neg_last_date"
-            - "covid_test_swab_pos_first_date"
-            - "received_ox_date"
-            - "result_mk_date"
-            - "samples_taken_date"
-            - "sympt_now_date"
-            - "travel_abroad_date"
-            - "visit_date"
+        date_filter_column: the ONS CIS column to use with date limit args; options are:
+
+            * "covid_date"
+            * "covid_test_blood_neg_last_date"
+            * "covid_test_blood_pos_first_date"
+            * "covid_test_swab_neg_last_date"
+            * "covid_test_swab_pos_first_date"
+            * "received_ox_date"
+            * "result_mk_date"
+            * "samples_taken_date"
+            * "sympt_now_date"
+            * "travel_abroad_date"
+            * "visit_date"
+
             If no `date_filter_column` is specified, data will be filtered by the `returning` column, if that
             column is a date column, otherwise by visit date.
         on_or_before: date of interest as a string with the format `YYYY-MM-DD`. Filters results to measurements
@@ -2826,8 +2829,9 @@ def with_an_ons_cis_record(
             The two dates must be in chronological order.
         find_first_match_in_period: as described elsewhere
         find_last_match_in_period: as described elsewhere
-        include_date_of_match: a boolean indicating if an extra column containing the date of the match should be returned.
-        date_format: a string detailing the format of the treatment dates to be returned.
+        include_date_of_match: a boolean indicating if an extra column containing the date (from `date_filter_column`)
+            of the match should be returned.
+        date_format: a string detailing the format of dates to be returned.
             It can be "YYYY-MM-DD", "YYYY-MM" or "YYYY" and wherever possible the least disclosive data should be
             returned. i.e returning only year is less disclosive than a date with month and year.
         return_expectations: as described elsewhere.
@@ -2836,7 +2840,7 @@ def with_an_ons_cis_record(
         Return cleaned employment status (as longform category labels) for patients with a positive covid blood test
         after 01 Jan 2022, returning also the date of the positive covid blood test:
 
-            test_result=patients.with_an_ons_cis_record(
+            employment_status = patients.with_an_ons_cis_record(
                 returning="work_status_clean",
                 return_category_labels=True,
                 date_filter_column="covid_test_blood_pos_first_date",
