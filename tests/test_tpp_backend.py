@@ -8,7 +8,7 @@ from unittest.mock import patch
 import pandas
 import pytest
 
-from cohortextractor import StudyDefinition, codelist, patients
+from cohortextractor import StudyDefinition, codelist, patients, tpp_backend
 from cohortextractor.date_expressions import InvalidExpressionError
 from cohortextractor.mssql_utils import mssql_connection_params_from_url
 from cohortextractor.patients import (
@@ -18,6 +18,7 @@ from cohortextractor.patients import (
 )
 from cohortextractor.tpp_backend import (
     AppointmentStatus,
+    TPPBackend,
     escape_like_query_fragment,
     quote,
 )
@@ -5834,3 +5835,26 @@ def test_nested_minimum_of_dates():
         date_treated=["2019-01-01", "2019-01-01", "2019-01-01"],
         start_date=["2018-12-15", "2019-01-01", "2019-01-01"],
     )
+
+
+def test_retries(monkeypatch, tmp_path):
+    attempts = 0
+
+    def get_cursor(self):
+        nonlocal attempts
+        attempts += 1
+        raise RuntimeError
+
+    monkeypatch.setattr(TPPBackend, "_get_cursor", get_cursor)
+    monkeypatch.setattr(tpp_backend, "RETRIES", 2)
+    monkeypatch.setattr(tpp_backend, "SLEEP", 0.1)
+    monkeypatch.setattr(tpp_backend, "BACKOFF_FACTOR", 2)
+
+    study = StudyDefinition(population=patients.all())
+
+    try:
+        study.to_file(tmp_path / "test.csv")
+    except RuntimeError:
+        pass
+
+    assert attempts == 2

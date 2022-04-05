@@ -3,10 +3,14 @@ import time
 import warnings
 from urllib.parse import unquote, urlparse
 
+import structlog
+
 # Some drivers warn about the use of features marked "optional" in the DB-ABI
 # spec, using a standardised set of warnings. See:
 # https://www.python.org/dev/peps/pep-0249/#optional-db-api-extensions
 warnings.filterwarnings("ignore", re.escape("DB-API extension cursor.__iter__() used"))
+
+logger = structlog.get_logger()
 
 
 def mssql_connection_params_from_url(url):
@@ -107,6 +111,7 @@ def mssql_fetch_table(
     batch_size=2**14,
     retries=2,
     sleep=0.5,
+    backoff_factor=1,
 ):
     """
     Returns the contents of a table as an iterator of tuples, with the first
@@ -126,6 +131,7 @@ def mssql_fetch_table(
         batch_size=batch_size,
         retries=retries,
         sleep=sleep,
+        backoff_factor=backoff_factor,
     )
 
     result_batch = batch_fetcher.fetch()
@@ -140,13 +146,23 @@ def mssql_fetch_table(
 
 
 class BatchFetcher:
-    def __init__(self, get_cursor, table, key_column, batch_size, retries, sleep):
+    def __init__(
+        self,
+        get_cursor,
+        table,
+        key_column,
+        batch_size,
+        retries,
+        sleep,
+        backoff_factor,
+    ):
         self.get_cursor = get_cursor
         self.table = table
         self.key_column = key_column
         self.batch_size = batch_size
         self.retries = retries
         self.sleep = sleep
+        self.backoff_factor = backoff_factor
         self.cursor = None
 
     def fetch(self, min_key=None):
@@ -160,6 +176,7 @@ class BatchFetcher:
             f"{where} ORDER BY {self.key_column}"
         )
         retries = self.retries
+        sleep = self.sleep
         while True:
             try:
                 if self.cursor is None:
@@ -169,9 +186,11 @@ class BatchFetcher:
             # We can't be more specific than this because we don't know what class
             # of cursor object we'll be passed
             except Exception:
-                if retries <= 0:
+                logger.exception(f"Hit exception, sleeping for {sleep} seconds")
+                retries -= 1
+                if retries == 0:
                     raise
                 else:
-                    retries -= 1
-                    time.sleep(self.sleep)
+                    time.sleep(sleep)
+                    sleep *= self.backoff_factor
                     self.cursor = None
