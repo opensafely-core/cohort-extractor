@@ -3373,7 +3373,6 @@ class TPPBackend:
         # Partition query is used for all return values except `number_of_matches_in_period`
         use_partition_query = True
         if returning == "binary_flag":
-            returning = "binary_flag"
             column_definition = "1"
         elif returning == "number_of_matches_in_period":
             column_definition = "COUNT(*)"
@@ -3428,18 +3427,24 @@ class TPPBackend:
         )
 
         if use_partition_query:
-            # TODO: additional ordering to ensure consistent returns
+            # additionally ordering by visit_id should be enough to ensure consistent return
+            # order in the event that there are duplicate values for the date_filter_column
+            # The raw dataset does have duplicate visit_ids, but these are typically complete
+            # duplicate rows (which we've already filtered out) or duplicates between patients
+            # which are presumably an error
             sql = f"""
                 SELECT
                 t.Patient_ID AS patient_id,
-                {column_definition} as {returning},
+                t.return_value as {returning},
                 t.{date_filter_column} AS date
                 FROM (
                 SELECT
-                    {table}.*,
+                    Patient_ID,
+                    {column_definition} as return_value,
+                    {date_filter_column},
                     ROW_NUMBER() OVER (
                     PARTITION BY {table}.Patient_ID
-                    ORDER BY {date_filter_column} {ordering}
+                    ORDER BY {date_filter_column} {ordering}, visit_id
                     ) AS rownum
                 FROM {table}
                 {date_joins}
