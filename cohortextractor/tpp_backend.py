@@ -15,6 +15,7 @@ from .mssql_utils import (
     mssql_dbapi_connection_from_url,
     mssql_fetch_table,
 )
+from .ons_cis_utils import ONS_CIS_CATEGORY_COLUMNS, ONS_CIS_COLUMN_MAPPINGS
 from .pandas_utils import dataframe_from_rows, dataframe_to_file
 from .process_covariate_definitions import ISARIC_COLUMN_MAPPINGS
 from .therapeutics_utils import ALLOWED_RISK_GROUPS
@@ -3347,6 +3348,117 @@ class TPPBackend:
 
         queries.append(query)
         return queries
+
+    def patients_with_an_ons_cis_record(
+        self,
+        returning="binary_flag",
+        return_category_labels=True,
+        date_filter_column=None,
+        between=None,
+        # Matching rule
+        find_first_match_in_period=None,
+        find_last_match_in_period=None,
+        include_date_of_match=False,
+    ):
+
+        table = "ONS_CIS"
+
+        # Result ordering
+        if find_first_match_in_period:
+            ordering = "ASC"
+        else:
+            ordering = "DESC"
+
+        # There can be multiple rows per patient in the ONS_CIS dataset
+        # Partition query is used for all return values except `number_of_matches_in_period`
+        use_partition_query = True
+        if returning == "binary_flag":
+            returning = "binary_flag"
+            column_definition = "1"
+        elif returning == "number_of_matches_in_period":
+            column_definition = "COUNT(*)"
+            use_partition_query = False
+        else:
+            if returning not in ONS_CIS_COLUMN_MAPPINGS:
+                raise TypeError(f"returning={returning} is not a valid ONS_CIS column")
+            elif returning in ONS_CIS_CATEGORY_COLUMNS:
+                # Category columns are coded values with associated labels
+                # By default, we convert the coded values to their labels and return the longform strings
+                if return_category_labels:
+                    mapping = ONS_CIS_CATEGORY_COLUMNS[returning]
+                    case_definitions = "\n".join(
+                        [
+                            f"WHEN {returning} = {key} THEN '{value}'"
+                            for key, value in mapping.items()
+                        ]
+                    )
+                    column_definition = f"""
+                        CASE
+                            {case_definitions}
+                        END
+                    """
+                else:
+                    # When returning the codes rather than the string labels, we need to
+                    # cast to varchar, otherwise any int-type codes will return missing
+                    # values as 0, which is usually a valid category
+                    column_definition = f"CAST({returning} AS VARCHAR)"
+            else:
+                column_definition = returning
+
+        if date_filter_column:
+            # If we have a date_filter column, make sure it's valid
+            filter_type = ONS_CIS_COLUMN_MAPPINGS.get(date_filter_column)
+            if filter_type is None:
+                raise TypeError(
+                    f"date_filter_column={date_filter_column} is not a valid ONS_CIS column"
+                )
+            elif filter_type != "date":
+                raise TypeError(
+                    f"date_filter_column={date_filter_column} is type {filter_type}, not a date"
+                )
+        elif ONS_CIS_COLUMN_MAPPINGS[returning] == "date":
+            # filter by the returning column if that column is a date itself
+            date_filter_column = returning
+        else:
+            # otherwise, default to using visit_date
+            date_filter_column = "visit_date"
+
+        date_condition, date_joins = self.get_date_condition(
+            table, date_filter_column, between
+        )
+
+        if use_partition_query:
+            # TODO: additional ordering to ensure consistent returns
+            sql = f"""
+                SELECT
+                t.Patient_ID AS patient_id,
+                {column_definition} as {returning},
+                t.{date_filter_column} AS date
+                FROM (
+                SELECT
+                    {table}.*,
+                    ROW_NUMBER() OVER (
+                    PARTITION BY {table}.Patient_ID
+                    ORDER BY {date_filter_column} {ordering}
+                    ) AS rownum
+                FROM {table}
+                {date_joins}
+                WHERE {date_condition}
+                ) t
+                WHERE t.rownum = 1
+            """
+        else:
+            # number_of_matches_in_period only
+            sql = f"""
+                SELECT
+                Patient_ID AS patient_id,
+                {column_definition} AS {returning}
+                FROM {table}
+                {date_joins}
+                WHERE {date_condition}
+                GROUP BY Patient_ID
+            """
+        return sql
 
 
 class ColumnExpression:

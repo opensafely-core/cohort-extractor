@@ -2774,3 +2774,82 @@ def with_an_isaric_record(
         return_expectations: as described elsewhere.
     """
     return "with_an_isaric_record", locals()
+
+
+def with_an_ons_cis_record(
+    returning,
+    return_category_labels=True,
+    # Date filtering: column to filter
+    date_filter_column=None,
+    # Date filtering: date limits
+    on_or_before=None,
+    on_or_after=None,
+    between=None,
+    # Matching rule
+    find_first_match_in_period=None,
+    find_last_match_in_period=None,
+    include_date_of_match=False,
+    date_format=None,
+    return_expectations=None,
+):
+    """
+    Return whether patient has an ONS CIS record
+
+    Args:
+        returning: string value; options are:
+            - "binary_flag"
+            - "number_of_matches_in_period"
+            -  the ONS CIS table column to return
+        return_category_labels: If the value of `returning` is a coded category, return the
+            the corresponding longform string labels
+        date_filter_column: the ONS CIS column to use with date limit args. Options are:
+            - "covid_date"
+            - "covid_test_blood_neg_last_date"
+            - "covid_test_blood_pos_first_date"
+            - "covid_test_swab_neg_last_date"
+            - "covid_test_swab_pos_first_date"
+            - "received_ox_date"
+            - "result_mk_date"
+            - "samples_taken_date"
+            - "sympt_now_date"
+            - "travel_abroad_date"
+            - "visit_date"
+            If no `date_filter_column` is specified, data will be filtered by the `returning` column, if that
+            column is a date column, otherwise by visit date.
+        on_or_before: date of interest as a string with the format `YYYY-MM-DD`. Filters results to measurements
+            on or before the given date (as defined by `date_filter_column`).
+        on_or_after: date of interest as a string with the format `YYYY-MM-DD`. Filters results to measurements
+            on or after the given date (as defined by `date_filter_column`).
+        between: two dates of interest as a list with each date as a string with the format `YYYY-MM-DD`.
+            Filters results to measurements between the two dates (as defined by `date_filter_column`)
+            provided (inclusive).
+            The two dates must be in chronological order.
+        find_first_match_in_period: as described elsewhere
+        find_last_match_in_period: as described elsewhere
+        include_date_of_match: a boolean indicating if an extra column containing the date of the match should be returned.
+        date_format: a string detailing the format of the treatment dates to be returned.
+            It can be "YYYY-MM-DD", "YYYY-MM" or "YYYY" and wherever possible the least disclosive data should be
+            returned. i.e returning only year is less disclosive than a date with month and year.
+        return_expectations: as described elsewhere.
+
+    Example:
+        Return cleaned employment status (as longform category labels) for patients with a positive covid blood test
+        after 01 Jan 2022, returning also the date of the positive covid blood test:
+
+            test_result=patients.with_an_ons_cis_record(
+                returning="work_status_clean",
+                return_category_labels=True,
+                date_filter_column="covid_test_blood_pos_first_date",
+                on_or_after="2022-01-01",
+                find_first_match_in_period=True,
+                include_date_of_match=True,
+                date_format="YYYY-MM-DD",
+                return_expectations={
+                    "rate": "universal",
+                    "category": {
+                        "ratios": {"Not working": 0.2, "Working": 0.6, "Student": 0.2},
+                    },
+                },
+            )
+    """
+    return "with_an_ons_cis_record", locals()

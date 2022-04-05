@@ -28,6 +28,7 @@ from tests.tpp_backend_setup import (
     CPNS,
     EC,
     ICNARC,
+    ONS_CIS,
     OPA,
     APCS_Der,
     Appointment,
@@ -5858,3 +5859,143 @@ def test_retries(monkeypatch, tmp_path):
         pass
 
     assert attempts == 2
+
+
+def test_ons_cis():
+    session = make_session()
+    session.add_all(
+        [
+            Patient(
+                ONS_CIS=[
+                    ONS_CIS(
+                        age_at_visit="20",
+                        visit_date="2021-10-01",
+                        covid_test_blood_pos_first_date="2021-08-01",
+                        result_tdi="0",
+                        country=0,
+                        self_isolating=0,
+                    ),
+                ],
+            ),
+            Patient(
+                ONS_CIS=[
+                    ONS_CIS(
+                        age_at_visit=30,
+                        visit_date="2021-10-01",
+                        covid_test_blood_pos_first_date="2021-07-01",
+                        result_tdi="1",
+                        country=1,
+                        self_isolating=1,
+                    ),
+                ],
+            ),
+            Patient(
+                ONS_CIS=[
+                    ONS_CIS(
+                        age_at_visit=40,
+                        visit_date="2020-10-01",
+                        covid_test_blood_pos_first_date="2021-06-01",
+                        result_tdi="10",
+                        country=2,
+                        self_isolating=0,
+                    ),
+                    ONS_CIS(
+                        age_at_visit=41,
+                        visit_date="2021-10-01",
+                        covid_test_blood_pos_first_date="2021-06-01",
+                        result_tdi="1",
+                        country=2,
+                        self_isolating=0,
+                    ),
+                ],
+            ),
+        ]
+    )
+    session.commit()
+    study = StudyDefinition(
+        population=patients.all(),
+        # by default returns last match in period, using visit date
+        age_at_visit=patients.with_an_ons_cis_record(
+            returning="age_at_visit",
+            include_date_of_match=True,
+            date_format="YYYY-MM-DD",
+        ),
+        # specifiy first match in period
+        age_at_first_visit=patients.with_an_ons_cis_record(
+            returning="age_at_visit", find_first_match_in_period=True
+        ),
+        # filter by a different date column; filters out patient 3
+        age_filtered_by_covid_test_pos=patients.with_an_ons_cis_record(
+            returning="age_at_visit",
+            date_filter_column="covid_test_blood_pos_first_date",
+            on_or_after="2021-06-15",
+            include_date_of_match=True,
+            date_format="YYYY-MM-DD",
+        ),
+        # filter by the returning value, if that value is a date itself and no date filter specified
+        covid_test_pos_date=patients.with_an_ons_cis_record(
+            returning="covid_test_blood_pos_first_date",
+            on_or_after="2021-06-15",
+            date_format="YYYY-MM-DD",
+        ),
+        # binary flag return value
+        has_visit_with_pos_test_before_2021_08=patients.with_an_ons_cis_record(
+            returning="binary_flag",
+            date_filter_column="covid_test_blood_pos_first_date",
+            on_or_before="2021-07-31",
+        ),
+        # number_of_matches_in_period return value
+        num_visits_with_pos_test_before_2021_08=patients.with_an_ons_cis_record(
+            returning="number_of_matches_in_period",
+            date_filter_column="covid_test_blood_pos_first_date",
+            on_or_before="2021-07-31",
+        ),
+        # boolean value
+        self_isolating_at_last_visit=patients.with_an_ons_cis_record(
+            returning="self_isolating"
+        ),
+        # Coded categories are converted to long-form string labels
+        # result_tdi is a coded category value; varchar type in the db
+        # raw values are stringified ints, return the long form category lable
+        result_tdi=patients.with_an_ons_cis_record(
+            returning="result_tdi",
+            find_first_match_in_period=True,
+            include_date_of_match=True,
+            date_format="YYYY-MM-DD",
+        ),
+        # country is a coded category value, int type in the db
+        # raw values are ints, return the long form category lable
+        country=patients.with_an_ons_cis_record(
+            returning="country",
+            find_first_match_in_period=True,
+            include_date_of_match=True,
+            date_format="YYYY-MM-DD",
+        ),
+        # return country as codes, with a date filter that filters out patient 3;
+        # Missing values returned as empty string
+        country_as_codes=patients.with_an_ons_cis_record(
+            returning="country",
+            return_category_labels=False,
+            find_first_match_in_period=True,
+            date_filter_column="covid_test_blood_pos_first_date",
+            on_or_after="2021-06-15",
+        ),
+    )
+
+    assert_results(
+        study.to_dicts(convert_to_strings=False),
+        age_at_visit=[20, 30, 41],
+        age_at_visit_date=["2021-10-01", "2021-10-01", "2021-10-01"],
+        age_at_first_visit=[20, 30, 40],
+        age_filtered_by_covid_test_pos=[20, 30, 0],
+        age_filtered_by_covid_test_pos_date=["2021-08-01", "2021-07-01", ""],
+        covid_test_pos_date=["2021-08-01", "2021-07-01", ""],
+        has_visit_with_pos_test_before_2021_08=[0, 1, 1],
+        num_visits_with_pos_test_before_2021_08=[0, 1, 2],
+        self_isolating_at_last_visit=[0, 1, 0],
+        result_tdi=["Negative", "Positive", "Insufficient sample"],
+        result_tdi_date=["2021-10-01", "2021-10-01", "2020-10-01"],
+        country=["England", "Wales", "NI"],
+        country_date=["2021-10-01", "2021-10-01", "2020-10-01"],
+        country_as_codes=["0", "1", ""],
+    )
