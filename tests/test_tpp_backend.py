@@ -5868,7 +5868,7 @@ def test_ons_cis():
             Patient(
                 ONS_CIS=[
                     ONS_CIS(
-                        age_at_visit="20",
+                        age_at_visit=20,
                         visit_date="2021-10-01",
                         covid_test_blood_pos_first_date="2021-08-01",
                         result_tdi="0",
@@ -5965,7 +5965,7 @@ def test_ons_cis():
         ),
         # Coded categories are converted to long-form string labels
         # result_tdi is a coded category value; varchar type in the db
-        # raw values are stringified ints, return the long form category lable
+        # raw values are stringified ints, return the long form category label
         result_tdi=patients.with_an_ons_cis_record(
             returning="result_tdi",
             find_first_match_in_period=True,
@@ -5973,7 +5973,7 @@ def test_ons_cis():
             date_format="YYYY-MM-DD",
         ),
         # country is a coded category value, int type in the db
-        # raw values are ints, return the long form category lable
+        # raw values are ints, return the long form category label
         country=patients.with_an_ons_cis_record(
             returning="country",
             find_first_match_in_period=True,
