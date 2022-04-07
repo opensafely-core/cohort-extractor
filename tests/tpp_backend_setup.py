@@ -15,7 +15,10 @@ from sqlalchemy import (
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship, sessionmaker
 
-from cohortextractor.process_covariate_definitions import ISARIC_COLUMN_MAPPINGS
+from cohortextractor.process_covariate_definitions import (
+    ISARIC_COLUMN_MAPPINGS,
+    ONS_CIS_COLUMN_MAPPINGS,
+)
 from cohortextractor.tpp_backend import AppointmentStatus
 from tests.helpers import mssql_sqlalchemy_engine_from_url, wait_for_mssql_to_be_ready
 
@@ -295,6 +298,11 @@ class Patient(Base):
     )
     ISARIC = relationship(
         "ISARICData",
+        back_populates="Patient",
+        cascade="all, delete, delete-orphan",
+    )
+    ONS_CIS = relationship(
+        "ONS_CIS",
         back_populates="Patient",
         cascade="all, delete, delete-orphan",
     )
@@ -981,3 +989,26 @@ class ISARICData(Base):
 # dynamically
 for name, type_ in ISARIC_COLUMN_MAPPINGS.items():
     setattr(ISARICData, name, Column(String))
+
+
+class ONS_CIS(Base):
+    __tablename__ = "ONS_CIS"
+
+    # fake pk to satisfy the ORM
+    id = Column(Integer, primary_key=True)
+
+    Patient_ID = Column(Integer, ForeignKey("Patient.Patient_ID"))
+    Patient = relationship("Patient", back_populates="ONS_CIS")
+
+
+# There are lots of columns for ONS_CIS, so we create the ORM columns
+# dynamically
+sqlalchemy_type_conversion = {
+    "int": Integer,
+    "bool": Boolean,
+    "float": Float,
+    "str": String,
+    "date": Date,
+}
+for name, ons_cis_type in ONS_CIS_COLUMN_MAPPINGS.items():
+    setattr(ONS_CIS, name, Column(sqlalchemy_type_conversion[ons_cis_type]))
