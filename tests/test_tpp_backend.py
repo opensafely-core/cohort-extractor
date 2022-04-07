@@ -5926,12 +5926,15 @@ def test_ons_cis():
         # by default returns last match in period, using visit date
         age_at_visit=patients.with_an_ons_cis_record(
             returning="age_at_visit",
+            date_filter_column="visit_date",
             include_date_of_match=True,
             date_format="YYYY-MM-DD",
         ),
         # specifiy first match in period
         age_at_first_visit=patients.with_an_ons_cis_record(
-            returning="age_at_visit", find_first_match_in_period=True
+            returning="age_at_visit",
+            date_filter_column="visit_date",
+            find_first_match_in_period=True,
         ),
         # filter by a different date column; filters out patient 3
         age_filtered_by_covid_test_pos=patients.with_an_ons_cis_record(
@@ -5941,9 +5944,10 @@ def test_ons_cis():
             include_date_of_match=True,
             date_format="YYYY-MM-DD",
         ),
-        # filter by the returning value, if that value is a date itself and no date filter specified
+        # filter by the returning value
         covid_test_pos_date=patients.with_an_ons_cis_record(
             returning="covid_test_blood_pos_first_date",
+            date_filter_column="covid_test_blood_pos_first_date",
             on_or_after="2021-06-15",
             date_format="YYYY-MM-DD",
         ),
@@ -5954,20 +5958,27 @@ def test_ons_cis():
             on_or_before="2021-07-31",
         ),
         # number_of_matches_in_period return value
+        # date_filter_column required
         num_visits_with_pos_test_before_2021_08=patients.with_an_ons_cis_record(
             returning="number_of_matches_in_period",
             date_filter_column="covid_test_blood_pos_first_date",
             on_or_before="2021-07-31",
         ),
+        # date_filter_column not required for number of matches with no date-matching
+        num_visits=patients.with_an_ons_cis_record(
+            returning="number_of_matches_in_period",
+        ),
         # boolean value
         self_isolating_at_last_visit=patients.with_an_ons_cis_record(
-            returning="self_isolating"
+            returning="self_isolating",
+            date_filter_column="visit_date",
         ),
         # Coded categories are converted to long-form string labels
         # result_tdi is a coded category value; varchar type in the db
         # raw values are stringified ints, return the long form category label
         result_tdi=patients.with_an_ons_cis_record(
             returning="result_tdi",
+            date_filter_column="visit_date",
             find_first_match_in_period=True,
             include_date_of_match=True,
             date_format="YYYY-MM-DD",
@@ -5976,6 +5987,7 @@ def test_ons_cis():
         # raw values are ints, return the long form category label
         country=patients.with_an_ons_cis_record(
             returning="country",
+            date_filter_column="visit_date",
             find_first_match_in_period=True,
             include_date_of_match=True,
             date_format="YYYY-MM-DD",
@@ -6001,6 +6013,7 @@ def test_ons_cis():
         covid_test_pos_date=["2021-08-01", "2021-07-01", ""],
         has_visit_with_pos_test_before_2021_08=[0, 1, 1],
         num_visits_with_pos_test_before_2021_08=[0, 1, 2],
+        num_visits=[1, 1, 2],
         self_isolating_at_last_visit=[0, 1, 0],
         result_tdi=["Negative", "Positive", "Insufficient sample"],
         result_tdi_date=["2021-10-01", "2021-10-01", "2020-10-01"],

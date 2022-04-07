@@ -3422,7 +3422,6 @@ class TPPBackend:
                     column_definition = f"CAST({returning} AS VARCHAR)"
             else:
                 column_definition = returning
-
         if date_filter_column:
             # If we have a date_filter column, make sure it's valid
             filter_type = ONS_CIS_COLUMN_MAPPINGS.get(date_filter_column)
@@ -3434,12 +3433,20 @@ class TPPBackend:
                 raise TypeError(
                     f"date_filter_column={date_filter_column} is type {filter_type}, not a date"
                 )
-        elif ONS_CIS_COLUMN_MAPPINGS[returning] == "date":
-            # filter by the returning column if that column is a date itself
-            date_filter_column = returning
-        else:
-            # otherwise, default to using visit_date
+        elif (
+            between in [None, (None, None)]
+            and returning == "number_of_matches_in_period"
+        ):
+            # We don't need to filter by date if we're just counting matches and there's no
+            # date matching required; just set a default date_filter_column (which will be ignored)
             date_filter_column = "visit_date"
+        else:
+            # We need a date_filter_column for all returning values except counts
+            # (i.e. number_of_matches_in_period) because we need to identify first or last value
+            # if there are multiple rows per patient
+            # For number_of_matches_in_period, we need still a date_filter_column if a
+            # date-matching arg is specified
+            raise ValueError("date_filter_column is required")
 
         date_condition, date_joins = self.get_date_condition(
             table, date_filter_column, between

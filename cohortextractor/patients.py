@@ -2817,8 +2817,9 @@ def with_an_ons_cis_record(
             * "travel_abroad_date"
             * "visit_date"
 
-            If no `date_filter_column` is specified, data will be filtered by the `returning` column, if that
-            column is a date column, otherwise by visit date.
+            `date_filter_column` is not required when returning "number_of_matches_in_period", with no
+            date limit arguments.  It is required for all other `returning` options
+
         on_or_before: date of interest as a string with the format `YYYY-MM-DD`. Filters results to measurements
             on or before the given date (as defined by `date_filter_column`).
         on_or_after: date of interest as a string with the format `YYYY-MM-DD`. Filters results to measurements
