@@ -6057,14 +6057,13 @@ def test_ukrr():
     study = StudyDefinition(
         population=patients.all(),
         # by default returns last match in period, using visit date
-        renal_registry_2019_prev=patients.with_record_in_UKRR(
+        renal_registry_2019_prev=patients.with_record_in_ukrr(
             from_dataset='2019_prevalence',
-            returning="binary_flag",
-            date_filter_column="visit_date"
+            returning="binary_flag"
         ),
     )
 
     assert_results(
         study.to_dicts(convert_to_strings=False),
-        renal_registry_2019_prev=[1, 0]
+        renal_registry_2019_prev=["1", "0"]
     )

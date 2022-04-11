@@ -2861,18 +2861,14 @@ def with_an_ons_cis_record(
 
 
 
-def with_record_in_UKRR(
-    # picks dataset held by UKRR
+def with_record_in_ukrr(
+    # picks dataset held by UK Renal Registry (UKRR)
     from_dataset,
     returning,
     # Date filtering: date limits
     on_or_before=None,
     on_or_after=None,
     between=None,
-    # Matching rule
-    find_first_match_in_period=None,
-    find_last_match_in_period=None,
-    include_date_of_match=False,
     date_format=None,
     return_expectations=None,
 ):
@@ -2889,7 +2885,6 @@ def with_record_in_UKRR(
                 reported to the UKRR to be under renal care in December 2020.
         returning: string value; options are:
             * "binary_flag"
-            * "number_of_matches_in_period"
             * "renal_centre" - string indicating the code of the main renal centre a
                 patient is registered with
             * "rrt_start_date" - the latest start date for renal replacement therapy
@@ -2906,10 +2901,6 @@ def with_record_in_UKRR(
             Filters results to measurements between the two dates (as defined by `date_filter_column`)
             provided (inclusive).
             The two dates must be in chronological order.
-        find_first_match_in_period: as described elsewhere
-        find_last_match_in_period: as described elsewhere
-        include_date_of_match: a boolean indicating if an extra column containing the date (from `date_filter_column`)
-            of the match should be returned.
         date_format: a string detailing the format of dates to be returned.
             It can be "YYYY-MM-DD", "YYYY-MM" or "YYYY" and wherever possible the least disclosive data should be
             returned. i.e returning only year is less disclosive than a date with month and year.
@@ -2918,13 +2909,12 @@ def with_record_in_UKRR(
     Example:
         Return patients who are in the prevalence dataset of the UKRR in 2019.
 
-            ukrr_2019 = patients.with_record_in_UKRR(
+            ukrr_2019 = patients.with_record_in_ukrr(
                 from_dataset="2019_prevalence',
                 returning="binary_flag",
-                find_first_match_in_period=True,
                 return_expectations={
                     "incidence": 0.25
                 },
             )
     """
-    return "with_record_in_UKRR", locals()
+    return "with_record_in_ukrr", locals()

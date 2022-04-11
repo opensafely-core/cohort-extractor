@@ -306,7 +306,11 @@ class Patient(Base):
         back_populates="Patient",
         cascade="all, delete, delete-orphan",
     )
-
+    UKRR = relationship(
+        "UKRR",
+        back_populates="Patient",
+        cascade="all, delete, delete-orphan",
+    )
 
 class RegistrationHistory(Base):
     __tablename__ = "RegistrationHistory"
@@ -1021,7 +1025,7 @@ class UKRR(Base):
     id = Column(Integer, primary_key=True)
 
     Patient_ID = Column(Integer, ForeignKey("Patient.Patient_ID"))
-    Patient = relationship("Patient", back_populates="UK_RR")
+    Patient = relationship("Patient", back_populates="UKRR")
 
     RenalCentre = Column(String)
     RRTStartDate = Column(Date)
