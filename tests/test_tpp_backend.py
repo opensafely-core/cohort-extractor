@@ -4585,8 +4585,14 @@ def test_outpatient_appointment_date_returning_binary_flag_with_these_treatment_
         opa=patients.outpatient_appointment_date(
             returning="binary_flag", with_these_treatment_function_codes=["812", "813"]
         ),
+        # we can match a single code, provided as a string
+        opa1=patients.outpatient_appointment_date(
+            returning="binary_flag", with_these_treatment_function_codes="812"
+        ),
     )
-    assert_results(study.to_dicts(), opa=["0", "1", "0", "0"])
+    assert_results(
+        study.to_dicts(), opa=["0", "1", "0", "0"], opa1=["0", "1", "0", "0"]
+    )
 
 
 def test_outpatient_appointment_date_returning_binary_flag_with_these_procedure_codes_exact():

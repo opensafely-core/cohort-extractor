@@ -3524,6 +3524,8 @@ def codelist_to_list(codelist):
     if getattr(codelist, "has_categories", False):
         return [code for (code, category) in codelist]
     else:
+        if isinstance(codelist, str):
+            return [codelist]
         return list(codelist)
 
 
