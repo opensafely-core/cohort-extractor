@@ -30,6 +30,7 @@ from tests.tpp_backend_setup import (
     ICNARC,
     ONS_CIS,
     OPA,
+    UKRR,
     APCS_Der,
     Appointment,
     ClusterRandomisedTrial,
@@ -59,7 +60,6 @@ from tests.tpp_backend_setup import (
     SGSS_Negative,
     SGSS_Positive,
     Therapeutics,
-    UKRR,
     Vaccination,
     VaccinationReference,
     clear_database,
@@ -6032,22 +6032,24 @@ def test_ukrr():
             Patient(
                 UKRR=[
                     UKRR(
-                        RenalCentre="3",
-                        RRTStartDate="2021-10-01",
-                        TreatmentModalityStart="RT",
-                        LatestCreatinine=340,
-                        LatestEGFR=4.5
+                        dataset="2019prev",
+                        renal_centre="3",
+                        rrt_start="2021-10-01",
+                        mod_start="RT",
+                        creat=340,
+                        eGFR_ckdepi=4.5,
                     ),
                 ],
             ),
             Patient(
                 UKRR=[
                     UKRR(
-                        RenalCentre="4",
-                        RRTStartDate="2020-10-01",
-                        TreatmentModalityStart="PD",
-                        LatestCreatinine=540,
-                        LatestEGFR=8.7
+                        dataset="2021prev",
+                        renal_centre="4",
+                        rrt_start="2020-10-01",
+                        mod_start="PD",
+                        creat=540,
+                        eGFR_ckdepi=8.7,
                     ),
                 ],
             ),
@@ -6058,12 +6060,10 @@ def test_ukrr():
         population=patients.all(),
         # by default returns last match in period, using visit date
         renal_registry_2019_prev=patients.with_record_in_ukrr(
-            from_dataset='2019_prevalence',
-            returning="binary_flag"
+            from_dataset="2019_prevalence", returning="binary_flag"
         ),
     )
 
     assert_results(
-        study.to_dicts(convert_to_strings=False),
-        renal_registry_2019_prev=["1", "0"]
+        study.to_dicts(convert_to_strings=False), renal_registry_2019_prev=[1, 0]
     )

@@ -3491,8 +3491,8 @@ class TPPBackend:
             """
         return table_queries + [sql]
 
-
-def patients_with_record_in_ukrr(
+    def patients_with_record_in_ukrr(
+        self,
         # picks dataset held by UKRR
         from_dataset,
         returning,
@@ -3503,8 +3503,18 @@ def patients_with_record_in_ukrr(
         include_date_of_match=False,
         date_format=None,
         return_expectations=None,
-):
-    pass
+    ):
+        dataset_mapping = {"2019_prevalence": "2019prev", "2021_prevalence": "2021prev"}
+
+        if returning == "binary_flag":
+            column_definition = "1"
+        else:
+            column_definition = returning
+
+        return f"""
+            SELECT Patient_ID, {column_definition} AS {returning} FROM UKRR
+            WHERE dataset = '{dataset_mapping[from_dataset]}'
+        """
 
 
 class ColumnExpression:
