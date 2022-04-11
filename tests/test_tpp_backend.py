@@ -59,6 +59,7 @@ from tests.tpp_backend_setup import (
     SGSS_Negative,
     SGSS_Positive,
     Therapeutics,
+    UKRR,
     Vaccination,
     VaccinationReference,
     clear_database,
@@ -6020,4 +6021,50 @@ def test_ons_cis():
         country=["England", "Wales", "NI"],
         country_date=["2021-10-01", "2021-10-01", "2020-10-01"],
         country_as_codes=["0", "1", ""],
+    )
+
+
+def test_ukrr():
+    "Test UK Renal Registry"
+    session = make_session()
+    session.add_all(
+        [
+            Patient(
+                UKRR=[
+                    UKRR(
+                        RenalCentre="3",
+                        RRTStartDate="2021-10-01",
+                        TreatmentModalityStart="RT",
+                        LatestCreatinine=340,
+                        LatestEGFR=4.5
+                    ),
+                ],
+            ),
+            Patient(
+                UKRR=[
+                    UKRR(
+                        RenalCentre="4",
+                        RRTStartDate="2020-10-01",
+                        TreatmentModalityStart="PD",
+                        LatestCreatinine=540,
+                        LatestEGFR=8.7
+                    ),
+                ],
+            ),
+        ]
+    )
+    session.commit()
+    study = StudyDefinition(
+        population=patients.all(),
+        # by default returns last match in period, using visit date
+        renal_registry_2019_prev=patients.with_record_in_UKRR(
+            from_dataset='2019_prevalence',
+            returning="binary_flag",
+            date_filter_column="visit_date"
+        ),
+    )
+
+    assert_results(
+        study.to_dicts(convert_to_strings=False),
+        renal_registry_2019_prev=[1, 0]
     )

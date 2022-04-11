@@ -1012,3 +1012,21 @@ sqlalchemy_type_conversion = {
 }
 for name, ons_cis_type in ONS_CIS_COLUMN_MAPPINGS.items():
     setattr(ONS_CIS, name, Column(sqlalchemy_type_conversion[ons_cis_type]))
+
+
+class UKRR(Base):
+    __tablename__ = "UKRR"
+
+    # fake pk to satisfy the ORM
+    id = Column(Integer, primary_key=True)
+
+    Patient_ID = Column(Integer, ForeignKey("Patient.Patient_ID"))
+    Patient = relationship("Patient", back_populates="UK_RR")
+
+    RenalCentre = Column(String)
+    RRTStartDate = Column(Date)
+    TreatmentModalityStart = Column(String)
+    TreatmentModalityPrevalence = Column(String)
+    LatestCreatinine = Column(Integer)
+    LatestEGFR = Column(Float)
+
