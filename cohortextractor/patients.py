@@ -2860,11 +2860,10 @@ def with_an_ons_cis_record(
     return "with_an_ons_cis_record", locals()
 
 
-
 def with_record_in_ukrr(
     # picks dataset held by UK Renal Registry (UKRR)
-    from_dataset,
-    returning,
+    from_dataset=None,
+    returning=None,
     # Date filtering: date limits
     on_or_before=None,
     on_or_after=None,
