@@ -3492,6 +3492,24 @@ class TPPBackend:
         return table_queries + [sql]
 
 
+def patients_with_record_in_UKRR(
+        # picks dataset held by UKRR
+        from_dataset,
+        returning,
+        # Date filtering: date limits
+        on_or_before=None,
+        on_or_after=None,
+        between=None,
+        # Matching rule
+        find_first_match_in_period=None,
+        find_last_match_in_period=None,
+        include_date_of_match=False,
+        date_format=None,
+        return_expectations=None,
+):
+    pass
+
+
 class ColumnExpression:
     def __init__(
         self,
