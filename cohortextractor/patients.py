@@ -2858,3 +2858,73 @@ def with_an_ons_cis_record(
             )
     """
     return "with_an_ons_cis_record", locals()
+
+
+
+def with_record_in_UKRR(
+    # picks dataset held by UKRR
+    from_dataset,
+    returning,
+    # Date filtering: date limits
+    on_or_before=None,
+    on_or_after=None,
+    between=None,
+    # Matching rule
+    find_first_match_in_period=None,
+    find_last_match_in_period=None,
+    include_date_of_match=False,
+    date_format=None,
+    return_expectations=None,
+):
+    """
+    Return whether patient has a record in the UK Renal Registry
+
+    Args:
+        from_dataset: string value; options are:
+            * '2019_prevalence' - a prevalence cohort of patients alive and on RRT in December 2019
+            * '2020_prevalence' - a prevalence cohort of patients alive and on RRT in December 2020
+            * '2021_prevalence' - a prevalence cohort of patients alive and on RRT in December 2021
+            * '2020_incidence' - an incidence cohort of patients who started RRT in 2020
+            * '2020_ckd' - a snapshot prevalence cohort of patient with Stage 4 or 5 CKD who were
+                reported to the UKRR to be under renal care in December 2020.
+        returning: string value; options are:
+            * "binary_flag"
+            * "number_of_matches_in_period"
+            * "renal_centre" - string indicating the code of the main renal centre a
+                patient is registered with
+            * "rrt_start_date" - the latest start date for renal replacement therapy
+            * "treatment_modality_start" - the treatment modality at `rrt_start_date` such as
+                ICHD, HHD, HD, PD, Tx
+            * "treatment_modality_prevalence" - the treatment modality from the prevalence data
+            * "latest_creatinine" - most recent creatinine held by UKRR
+            * "latest_egfr" - most recent eGFR held by UKRR
+        on_or_before: date of interest as a string with the format `YYYY-MM-DD`. Filters results to measurements
+            on or before the given date (as defined by `date_filter_column`).
+        on_or_after: date of interest as a string with the format `YYYY-MM-DD`. Filters results to measurements
+            on or after the given date (as defined by `date_filter_column`).
+        between: two dates of interest as a list with each date as a string with the format `YYYY-MM-DD`.
+            Filters results to measurements between the two dates (as defined by `date_filter_column`)
+            provided (inclusive).
+            The two dates must be in chronological order.
+        find_first_match_in_period: as described elsewhere
+        find_last_match_in_period: as described elsewhere
+        include_date_of_match: a boolean indicating if an extra column containing the date (from `date_filter_column`)
+            of the match should be returned.
+        date_format: a string detailing the format of dates to be returned.
+            It can be "YYYY-MM-DD", "YYYY-MM" or "YYYY" and wherever possible the least disclosive data should be
+            returned. i.e returning only year is less disclosive than a date with month and year.
+        return_expectations: as described elsewhere.
+
+    Example:
+        Return patients who are in the prevalence dataset of the UKRR in 2019.
+
+            ukrr_2019 = patients.with_record_in_UKRR(
+                from_dataset="2019_prevalence',
+                returning="binary_flag",
+                find_first_match_in_period=True,
+                return_expectations={
+                    "incidence": 0.25
+                },
+            )
+    """
+    return "with_record_in_UKRR", locals()
