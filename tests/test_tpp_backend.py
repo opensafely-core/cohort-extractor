@@ -123,7 +123,10 @@ def setup_function(function):
     session.query(HealthCareWorker).delete()
     session.query(Therapeutics).delete()
     session.query(ISARICData).delete()
+    session.query(ONS_CIS).delete()
+    session.query(UKRR).delete()
     session.query(Patient).delete()
+
     session.commit()
 
 
