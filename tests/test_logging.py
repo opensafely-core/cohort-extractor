@@ -38,11 +38,19 @@ def fixture_logger():
 
 
 def get_stats_logs(log_output):
-    return [
-        {k: v for k, v in log_item.items() if k not in ["event", "log_level"]}
+    # get the cohortextractor-stats logs
+    stats_log_events = [
+        log_item
         for log_item in log_output
+        # sometimes the logged event is a pandas DataFrame or Index, which
+        # has ambiguous boolean value, so check if it's a string before checking its value
         if isinstance(log_item["event"], str)
         and log_item["event"] == "cohortextractor-stats"
+    ]
+    # return just the log parameters
+    return [
+        {k: v for k, v in log_item.items() if k not in ["event", "log_level"]}
+        for log_item in stats_log_events
     ]
 
 
