@@ -1,7 +1,8 @@
-import datetime
 import logging.config
 import os
 from contextlib import contextmanager
+from datetime import timedelta
+from time import process_time
 
 import structlog
 
@@ -70,10 +71,14 @@ def log_stats(logger, **kwargs):
 
 @contextmanager
 def log_execution_time(logger, name):
-    start = datetime.datetime.utcnow()
+    start = process_time()
     try:
         yield
     finally:
+        elapsed_time = process_time() - start
         log_stats(
-            logger, target=name, execution_time=str(datetime.datetime.utcnow() - start)
+            logger,
+            target=name,
+            execution_time_secs=elapsed_time,
+            execution_time=str(timedelta(seconds=elapsed_time)),
         )
