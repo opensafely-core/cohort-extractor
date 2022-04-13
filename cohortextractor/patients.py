@@ -2893,11 +2893,11 @@ def with_record_in_ukrr(
             * "latest_creatinine" - most recent creatinine held by UKRR
             * "latest_egfr" - most recent eGFR held by UKRR
         on_or_before: date of interest as a string with the format `YYYY-MM-DD`. Filters results to measurements
-            on or before the given date (as defined by `date_filter_column`).
+            on or before the given date.
         on_or_after: date of interest as a string with the format `YYYY-MM-DD`. Filters results to measurements
-            on or after the given date (as defined by `date_filter_column`).
+            on or after the given date.
         between: two dates of interest as a list with each date as a string with the format `YYYY-MM-DD`.
-            Filters results to measurements between the two dates (as defined by `date_filter_column`)
+            Filters results to measurements between the two dates.
             provided (inclusive).
             The two dates must be in chronological order.
         date_format: a string detailing the format of dates to be returned.

@@ -3497,32 +3497,32 @@ class TPPBackend:
         from_dataset,
         returning,
         # Date filtering: date limits
-        on_or_before=None,
-        on_or_after=None,
         between=None,
-        include_date_of_match=False,
         date_format=None,
         return_expectations=None,
     ):
-        dataset_mapping = {"2019_prevalence": "2019prev", "2020_prevalence": "2020prev", "2021_prevalence": "2021prev",
-                           "2020_incidence": "2020inc", "2020_ckd": "2020ckd"}
+        dataset_mapping = {
+            "2019_prevalence": "2019prev",
+            "2020_prevalence": "2020prev",
+            "2021_prevalence": "2021prev",
+            "2020_incidence": "2020inc",
+            "2020_ckd": "2020ckd",
+        }
 
         date_condition, date_joins = self.get_date_condition(
             "UKRR", "rrt_start", between
         )
 
-        if returning == "binary_flag":
-            column_definition = "1"
-        elif returning == "treatment_modality_start":
-            column_definition = "mod_start"
-        elif returning == "treatment_modality_prevalence":
-            column_definition = "mod_prev"
-        elif returning == "latest_creatinine":
-            column_definition = "creat"
-        elif returning == "latest_egfr":
-            column_definition = "eGFR_ckdepi"
-        else:
-            column_definition = returning
+        column_mapping = {
+            "binary_flag": 1,
+            "renal_centre": "renal_centre",
+            "treatment_modality_start": "mod_start",
+            "treatment_modality_prevalence": "mod_prev",
+            "latest_creatinine": "creat",
+            "latest_egfr": "eGFR_ckdepi",
+            "rrt_start_date": "rrt_start",
+        }
+        column_definition = column_mapping.get(returning)
 
         return f"""
             SELECT Patient_ID, {column_definition} AS {returning} FROM UKRR
