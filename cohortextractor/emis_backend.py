@@ -9,6 +9,7 @@ from .codelistlib import codelist
 from .csv_utils import is_csv_filename, write_rows_to_csv
 from .date_expressions import TrinoDateFormatter
 from .expressions import format_expression
+from .log_utils import log_execution_time, log_stats
 from .pandas_utils import dataframe_from_rows, dataframe_to_file
 from .trino_utils import trino_connection_from_url
 
@@ -99,10 +100,14 @@ class EMISBackend:
         # Special handling for CSV as we can stream this directly to disk
         # without building a dataframe in memory
         if is_csv_filename(filename):
-            write_rows_to_csv(results, filename)
+            with log_execution_time(logger, f"write_rows_to_csv {filename}"):
+                write_rows_to_csv(results, filename)
         else:
-            df = dataframe_from_rows(self.covariate_definitions, results)
-            dataframe_to_file(df, filename)
+            with log_execution_time(
+                logger, f"Create df and write dataframe_to_file {filename}"
+            ):
+                df = dataframe_from_rows(self.covariate_definitions, results)
+                dataframe_to_file(df, filename)
 
         duplicates = total_rows - len(unique_ids)
         if duplicates != 0:
@@ -247,6 +252,13 @@ class EMISBackend:
         for sql_list in table_queries.values():
             all_queries.extend(sql_list)
         all_queries.append(joined_output_query)
+
+        log_stats(
+            logger,
+            output_column_count=len(output_columns),
+            table_count=len(table_queries),
+            table_joins_count=len(joins),
+        )
         return all_queries
 
     def get_column_expression(self, column_type, source, returning, date_format=None):
@@ -405,23 +417,33 @@ class EMISBackend:
         for sql in queries:
             table_name = re.search(r"CREATE TABLE IF NOT EXISTS (\w+)", sql).groups()[0]
             logger.info(f"Running query for {table_name}")
-            cursor.execute(sql)
+            with log_execution_time(logger, f"Create table {table_name}"):
+                cursor.execute(sql)
             if run_analyze:
-                cursor.execute(f"ANALYZE {table_name}")
+                with log_execution_time(logger, f"Analyze table {table_name}"):
+                    cursor.execute(f"ANALYZE {table_name}")
 
         output_table = self.get_output_table_name(os.environ.get("TEMP_DATABASE_NAME"))
         if output_table:
-            logger.info(f"Running final query and writing output to '{output_table}'")
-            sql = f"CREATE TABLE IF NOT EXISTS {output_table} AS {final_query}"
-            cursor.execute(sql)
-            logger.info(f"Downloading data from '{output_table}'")
-            cursor.execute(f"SELECT * FROM {output_table}")
+            with log_execution_time(
+                logger, f"Create and download output table '{output_table}'"
+            ):
+                logger.info(
+                    f"Running final query and writing output to '{output_table}'"
+                )
+                sql = f"CREATE TABLE IF NOT EXISTS {output_table} AS {final_query}"
+                cursor.execute(sql)
+                logger.info(f"Downloading data from '{output_table}'")
+                cursor.execute(f"SELECT * FROM {output_table}")
         else:
             logger.info(
                 "No TEMP_DATABASE_NAME defined in environment, downloading results "
                 "directly without writing to output table"
             )
-            cursor.execute(final_query)
+            with log_execution_time(
+                logger, "Download results without writing to output table"
+            ):
+                cursor.execute(final_query)
         return cursor
 
     def get_output_table_name(self, temporary_database):
