@@ -1,5 +1,7 @@
+import datetime
 import logging.config
 import os
+from contextlib import contextmanager
 
 import structlog
 
@@ -60,3 +62,18 @@ def init_logging():
             },
         }
     )
+
+
+def log_stats(logger, **kwargs):
+    logger.info("cohortextractor-stats", **kwargs)
+
+
+@contextmanager
+def log_execution_time(logger, name):
+    start = datetime.datetime.utcnow()
+    try:
+        yield
+    finally:
+        log_stats(
+            logger, target=name, execution_time=str(datetime.datetime.utcnow() - start)
+        )
