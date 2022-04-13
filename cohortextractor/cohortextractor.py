@@ -346,8 +346,11 @@ def _generate_measures(
                     logger.info(patient_df.memory_usage())
 
                 measure_df = measure.calculate(patient_df, _report)
-                logger.info(f"Data size for measure {measure.id}:")
-                logger.info(measure_df.memory_usage())
+                log_stats(
+                    logger,
+                    measure_id=measure.id,
+                    memory=measure_df.memory_usage(deep=True).sum(),
+                )
                 measure_df.to_csv(output_file, index=False)
                 logger.info(f"Created measure output at {output_file}")
     if not measure_outputs:

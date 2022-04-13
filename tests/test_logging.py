@@ -290,11 +290,13 @@ def test_stats_logging_generate_measures(
     generate_measures(output_dir=tmp_path)
 
     stats_logs = get_stats_logs(logger.entries)
-    assert len(stats_logs) == 2
+    assert len(stats_logs) == 4
     assert stats_logs[0] == {"measures_count": 2}
-    assert "execution_time" in stats_logs[1]
+    for memory_log in stats_logs[1:-1]:
+        assert list(memory_log.keys()) == ["measure_id", "memory"]
+    assert "execution_time" in stats_logs[-1]
     assert (
-        stats_logs[1]["target"]
+        stats_logs[-1]["target"]
         == f"generate_measures for {tmp_path}/input_2020-01-01.csv"
     )
 
