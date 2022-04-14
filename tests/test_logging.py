@@ -55,7 +55,7 @@ def get_stats_logs(log_output):
 
 
 def get_timing_logs(log_output):
-    return [log_entry for log_entry in log_output.entries if "target" in log_entry]
+    return [log_entry for log_entry in log_output.entries if "description" in log_entry]
 
 
 def test_study_definition_initial_stats_logging(logger):
@@ -115,15 +115,21 @@ def test_stats_logging_tpp_backend(logger):
     ]
 
     # timing stats
-    expected_timing_targets = [
-        "Uploading codelist for event",
-        "INSERT INTO #tmp1_event_codelist (code, category) ...",
-        "Query for event",
-        "Query for population",
-        "Join all columns for final output",
+    # logs in tpp_backend during query execution
+    expected_timing_descriptions_and_sql = [
+        ("Uploading codelist for event", "CREATE TABLE #tmp1_event_codelist"),
+        (None, "INSERT INTO #tmp1_event_codelist"),
+        ("Query for event", "SELECT * INTO #event"),
+        ("Query for population", "SELECT * INTO #population"),
+        (
+            "Join all columns for final output",
+            "JOIN #event ON #event.patient_id = #population.patient_id",
+        ),
     ]
 
-    assert_stats_logs(logger, expected_initial_study_def_logs, expected_timing_targets)
+    assert_stats_logs(
+        logger, expected_initial_study_def_logs, expected_timing_descriptions_and_sql
+    )
 
 
 @patch("cohortextractor.cohortextractor.preflight_generation_check")
@@ -174,23 +180,25 @@ def test_stats_logging_generate_cohort(
         {"index_date_count": 0},
     ]
 
-    expected_timing_targets = [
+    expected_timing_descriptions_and_sql = [
         # logs in tpp_backend during query execution
-        "Query for sex",
-        "Query for population",
+        ("Query for sex", "SELECT * INTO #sex"),
+        ("Query for population", "SELECT * INTO #population"),
         # logs specifically from study.to_file
-        "Writing results into #final_output",
-        "CREATE INDEX ix_patient_id ON #final_output (patie...",
+        ("Writing results into #final_output", "SELECT * INTO #final_output"),
+        (None, "CREATE INDEX ix_patient_id ON #final_output"),
         # results are fetched in batches for writing
-        "SELECT TOP 32000 * FROM #final_output  ORDER BY pa...",
-        f"{write_to_file_log} {tmp_path}/input.{output_format}",
-        "Deleting '#final_output'",
+        (None, "SELECT TOP 32000 * FROM #final_output"),
+        (f"{write_to_file_log} {tmp_path}/input.{output_format}", ""),
+        ("Deleting '#final_output'", "DROP TABLE #final_output"),
         # logging the overall timing for the cohort generation
-        "generate_cohort for study_definition",
-        "generate_cohort for study_definition (all index dates)",
+        ("generate_cohort for study_definition", ""),
+        ("generate_cohort for study_definition (all index dates)", ""),
     ]
 
-    assert_stats_logs(logger, expected_initial_study_def_logs, expected_timing_targets)
+    assert_stats_logs(
+        logger, expected_initial_study_def_logs, expected_timing_descriptions_and_sql
+    )
 
 
 @patch("cohortextractor.cohortextractor.preflight_generation_check")
@@ -240,25 +248,27 @@ def test_stats_logging_generate_cohort_with_index_dates(
         index_date_timing_logs.extend(
             [
                 # logs in tpp_backend during query execution
-                "Query for sex",
-                "Query for population",
+                ("Query for sex", "SELECT * INTO #sex"),
+                ("Query for population", "SELECT * INTO #population"),
                 # logs specifically from study.to_file
-                "Writing results into #final_output",
-                "CREATE INDEX ix_patient_id ON #final_output (patie...",
+                ("Writing results into #final_output", "SELECT * INTO #final_output"),
+                (None, "CREATE INDEX ix_patient_id ON #final_output"),
                 # results are fetched in batches for writing
-                "SELECT TOP 32000 * FROM #final_output  ORDER BY pa...",
-                f"write_rows_to_csv {tmp_path}/input_test_{index_date}.csv",
-                "Deleting '#final_output'",
+                (None, "SELECT TOP 32000 * FROM #final_output"),
+                (f"write_rows_to_csv {tmp_path}/input_test_{index_date}.csv", ""),
+                ("Deleting '#final_output'", "DROP TABLE #final_output"),
                 # logging the overall timing for the cohort generation
-                f"generate_cohort for study_definition_test at {index_date}",
+                (f"generate_cohort for study_definition_test at {index_date}", ""),
             ]
         )
 
-    expected_timing_targets = [
+    expected_timing_descriptions_and_sql = [
         *index_date_timing_logs,
-        "generate_cohort for study_definition_test (all index dates)",
+        ("generate_cohort for study_definition_test (all index dates)", ""),
     ]
-    assert_stats_logs(logger, expected_initial_study_def_logs, expected_timing_targets)
+    assert_stats_logs(
+        logger, expected_initial_study_def_logs, expected_timing_descriptions_and_sql
+    )
 
 
 @patch("cohortextractor.cohortextractor.preflight_generation_check")
@@ -308,23 +318,25 @@ def test_stats_logging_generate_measures(
         assert list(memory_log.keys()) == ["measure_id", "memory"]
     assert "execution_time" in stats_logs[-1]
     assert (
-        stats_logs[-1]["target"]
+        stats_logs[-1]["description"]
         == f"generate_measures for {tmp_path}/input_2020-01-01.csv"
     )
 
 
 def assert_stats_logs(
-    log_output, expected_initial_study_def_logs, expected_timing_targets
+    log_output, expected_initial_study_def_logs, expected_timing_descriptions
 ):
     all_stats_logs = get_stats_logs(log_output.entries)
     for log_params in expected_initial_study_def_logs:
         assert log_params in all_stats_logs
 
     timing_logs = get_timing_logs(log_output)
-    assert len(timing_logs) == len(expected_timing_targets), timing_logs
+    assert len(timing_logs) == len(expected_timing_descriptions), timing_logs
 
     for i, timing_log in enumerate(timing_logs):
-        assert timing_log["target"] == expected_timing_targets[i]
+        description, logged_sql = expected_timing_descriptions[i]
+        assert timing_log["description"] == description
+        assert logged_sql in timing_log.get("sql", "")
         assert re.match(r"\d:\d{2}:\d{2}.\d{6}", timing_log["execution_time"]).group(
             0
         ), timing_log["execution_time"]

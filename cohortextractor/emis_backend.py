@@ -100,11 +100,13 @@ class EMISBackend:
         # Special handling for CSV as we can stream this directly to disk
         # without building a dataframe in memory
         if is_csv_filename(filename):
-            with log_execution_time(logger, f"write_rows_to_csv {filename}"):
+            with log_execution_time(
+                logger, description=f"write_rows_to_csv {filename}"
+            ):
                 write_rows_to_csv(results, filename)
         else:
             with log_execution_time(
-                logger, f"Create df and write dataframe_to_file {filename}"
+                logger, description=f"Create df and write dataframe_to_file {filename}"
             ):
                 df = dataframe_from_rows(self.covariate_definitions, results)
                 dataframe_to_file(df, filename)

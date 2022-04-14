@@ -70,18 +70,24 @@ def log_stats(logger, **kwargs):
 
 
 @contextmanager
-def log_execution_time(logger, name):
+def log_execution_time(logger, **log_kwargs):
+    sql = log_kwargs.pop("sql", None)
+    if sql:
+        sql_lines = sql.split("\n")
+        if len(sql_lines):
+            sql = "\n".join(sql_lines) + "..."
+        log_kwargs["sql"] = sql
+
     start = process_time()
     try:
         yield
     finally:
         elapsed_time = process_time() - start
-        log_stats(
-            logger,
-            target=name,
+        log_kwargs.update(
             execution_time_secs=elapsed_time,
             execution_time=str(timedelta(seconds=elapsed_time)),
         )
+        log_stats(logger, **log_kwargs)
 
 
 class BaseLoggingWrapper:
@@ -122,11 +128,7 @@ class LoggingCursor(BaseLoggingWrapper):
         return self.cursor.__next__()
 
     def execute(self, query, log_desc=None):
-        if log_desc is None:
-            # Log either the provided log_desc or the first 50 characters
-            # of the query
-            log_desc = f"{query[:50] if len(query) > 50 else query}..."
-        with log_execution_time(self.logger, log_desc):
+        with log_execution_time(self.logger, sql=query, description=log_desc):
             self.cursor.execute(query)
 
 

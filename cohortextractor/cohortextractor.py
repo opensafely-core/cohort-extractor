@@ -151,7 +151,7 @@ def generate_cohort(
         raise DummyDataValidationError(msg)
     for study_name, suffix in study_definitions:
         with log_execution_time(
-            logger, f"generate_cohort for {study_name} (all index dates)"
+            logger, description=f"generate_cohort for {study_name} (all index dates)"
         ):
             _generate_cohort(
                 output_dir,
@@ -201,7 +201,7 @@ def _generate_cohort(
         log_event = f"generate_cohort for {study_name}"
         if index_date is not None:
             log_event += f" at {index_date}"
-        with log_execution_time(logger, log_event):
+        with log_execution_time(logger, description=log_event):
             if index_date is not None:
                 logger.info(f"Setting index_date to {index_date}")
                 study.set_index_date(index_date)
@@ -329,7 +329,9 @@ def _generate_measures(
             continue
         filepath = os.path.join(output_dir, file)
         logger.info(f"Calculating measures for {filepath}")
-        with log_execution_time(logger, f"generate_measures for {filepath}"):
+        with log_execution_time(
+            logger, description=f"generate_measures for {filepath}"
+        ):
             patient_df = None
             for measure in measures:
                 logger.info(f"Calculating {measure.id}")
