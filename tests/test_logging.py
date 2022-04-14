@@ -1,4 +1,5 @@
 import re
+from datetime import datetime
 from unittest.mock import patch
 
 import pytest
@@ -54,8 +55,8 @@ def get_stats_logs(log_output):
     ]
 
 
-def get_timing_logs(log_output):
-    return [log_entry for log_entry in log_output.entries if "description" in log_entry]
+def get_logs_by_key(log_output, key):
+    return [log_entry for log_entry in log_output if key in log_entry]
 
 
 def test_study_definition_initial_stats_logging(logger):
@@ -301,8 +302,9 @@ def test_stats_logging_generate_measures(
     mock_load.return_value = measures
 
     # set up an expected input file
-    with open(tmp_path / "input_2020-01-01.csv", "w") as output_file:
-        writer = csv.writer(output_file)
+    input_filepath = tmp_path / "input_2020-01-01.csv"
+    with open(input_filepath, "w") as file_to_write:
+        writer = csv.writer(file_to_write)
         writer.writerow(["patient_id", "has_code"])
         writer.writerow([1, 1])
         writer.writerow([2, 1])
@@ -312,15 +314,51 @@ def test_stats_logging_generate_measures(
     generate_measures(output_dir=tmp_path)
 
     stats_logs = get_stats_logs(logger.entries)
-    assert len(stats_logs) == 4
-    assert stats_logs[0] == {"measures_count": 2}
-    for memory_log in stats_logs[1:-1]:
-        assert list(memory_log.keys()) == ["measure_id", "memory"]
-    assert "execution_time" in stats_logs[-1]
-    assert (
-        stats_logs[-1]["description"]
-        == f"generate_measures for {tmp_path}/input_2020-01-01.csv"
-    )
+    assert len(stats_logs) == 9
+
+    timing_logs = get_logs_by_key(stats_logs, "execution_time")
+    memory_logs = get_logs_by_key(stats_logs, "memory")
+    other_logs = [log for log in stats_logs if log not in [*timing_logs, *memory_logs]]
+
+    measure_date = datetime(2020, 1, 1).date()
+    expected_timing_logs = [
+        (
+            "Load patient dataframe for measures",
+            {"date": measure_date, "input_file": str(input_filepath)},
+        ),
+        ("Calculate measure", {"measure_id": "has_code", "date": measure_date}),
+        (
+            "Calculate measure",
+            {"measure_id": "has_code_one_group", "date": measure_date},
+        ),
+        (
+            "generate_measures",
+            {
+                "input_file": str(input_filepath),
+                "study": "study_definition",
+                "date": measure_date,
+            },
+        ),
+        ("generate_measures (all input files)", {"study": "study_definition"}),
+    ]
+    for i, timing_log in enumerate(timing_logs):
+        description, log_params = expected_timing_logs[i]
+        assert timing_log["description"] == description
+        for key, value in log_params.items():
+            assert timing_log[key] == value
+
+    expected_memory_logs = [
+        ("patient_df", measure_date, "has_code"),
+        ("measure_df", measure_date, "has_code"),
+        ("measure_df", measure_date, "has_code_one_group"),
+    ]
+    for i, memory_log in enumerate(memory_logs):
+        df, measure_date, measure_id = expected_memory_logs[i]
+        assert memory_log["dataframe"] == df
+        assert memory_log["date"] == measure_date
+        assert memory_log["measure_id"] == measure_id
+
+    assert other_logs == [{"measures_count": 2}]
 
 
 def assert_stats_logs(
@@ -330,7 +368,7 @@ def assert_stats_logs(
     for log_params in expected_initial_study_def_logs:
         assert log_params in all_stats_logs
 
-    timing_logs = get_timing_logs(log_output)
+    timing_logs = get_logs_by_key(log_output.entries, "execution_time")
     assert len(timing_logs) == len(expected_timing_descriptions), timing_logs
 
     for i, timing_log in enumerate(timing_logs):

@@ -297,13 +297,17 @@ def generate_measures(
             if study_name == selected_study_name:
                 study_definitions = [(study_name, suffix)]
                 break
+
     for study_name, suffix in study_definitions:
-        _generate_measures(
-            output_dir,
-            study_name,
-            suffix,
-            skip_existing=skip_existing,
-        )
+        with log_execution_time(
+            logger, description="generate_measures (all input files)", study=study_name
+        ):
+            _generate_measures(
+                output_dir,
+                study_name,
+                suffix,
+                skip_existing=skip_existing,
+            )
 
 
 def _generate_measures(
@@ -330,7 +334,11 @@ def _generate_measures(
         filepath = os.path.join(output_dir, file)
         logger.info(f"Calculating measures for {filepath}")
         with log_execution_time(
-            logger, description=f"generate_measures for {filepath}"
+            logger,
+            description="generate_measures",
+            input_file=filepath,
+            date=date,
+            study=study_name,
         ):
             patient_df = None
             for measure in measures:
@@ -344,13 +352,32 @@ def _generate_measures(
                 # already exist we can avoid loading the patient data entirely
                 if patient_df is None:
                     logger.info(f"Loading patient data from {filepath}")
-                    patient_df = _load_dataframe_for_measures(filepath, measures)
-                    logger.info(patient_df.memory_usage())
-
-                measure_df = measure.calculate(patient_df, _report)
+                    with log_execution_time(
+                        logger,
+                        description="Load patient dataframe for measures",
+                        input_file=filepath,
+                        date=date,
+                    ):
+                        patient_df = _load_dataframe_for_measures(filepath, measures)
+                        log_stats(
+                            logger,
+                            dataframe="patient_df",
+                            measure_id=measure.id,
+                            date=date,
+                            memory=patient_df.memory_usage(),
+                        )
+                with log_execution_time(
+                    logger,
+                    description="Calculate measure",
+                    measure_id=measure.id,
+                    date=date,
+                ):
+                    measure_df = measure.calculate(patient_df, _report)
                 log_stats(
                     logger,
+                    dataframe="measure_df",
                     measure_id=measure.id,
+                    date=date,
                     memory=measure_df.memory_usage(deep=True).sum(),
                 )
                 measure_df.to_csv(output_file, index=False)
