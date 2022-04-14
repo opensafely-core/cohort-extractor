@@ -10,7 +10,7 @@ import structlog
 from .csv_utils import is_csv_filename, write_rows_to_csv
 from .date_expressions import MSSQLDateFormatter
 from .expressions import format_expression
-from .log_utils import log_execution_time, log_stats
+from .log_utils import LoggingDatabaseConnection, log_execution_time, log_stats
 from .mssql_utils import (
     mssql_connection_params_from_url,
     mssql_dbapi_connection_from_url,
@@ -269,7 +269,9 @@ class TPPBackend:
                 return self._db_connection
             else:
                 self._db_connection.close()
-        self._db_connection = mssql_dbapi_connection_from_url(self.database_url)
+        self._db_connection = LoggingDatabaseConnection(
+            logger, mssql_dbapi_connection_from_url(self.database_url)
+        )
         return self._db_connection
 
     def close(self):
@@ -548,12 +550,8 @@ class TPPBackend:
                 event_name = comment_match.group(1)
                 logger.info(f"Running: {event_name}")
             else:
-                # Log either the initial comment line or the first 50
-                # characters of the query
-                event_name = f"{query[:50] if len(query) > 50 else query}..."
-            with log_execution_time(logger, event_name):
-                cursor.execute(query)
-
+                event_name = None
+            cursor.execute(query, log_desc=event_name)
         return cursor
 
     def get_queries_for_column(

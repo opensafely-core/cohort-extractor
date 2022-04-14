@@ -82,3 +82,62 @@ def log_execution_time(logger, name):
             execution_time_secs=elapsed_time,
             execution_time=str(timedelta(seconds=elapsed_time)),
         )
+
+
+class BaseLoggingWrapper:
+    """
+    Wraps a class instance and provides a logger instance as an attribute.
+
+    Subclasses can implement their own methods to override methods on the
+    wrapped instance and make use of the logger.
+
+    Any attribute or method called on the wrapper calls its own implementation if
+    one exists, otherwise calls it on the class instance
+    """
+
+    def __init__(self, logger, wrapped_instance):
+        self.logger = logger
+        self.wrapped_instance = wrapped_instance
+
+    def __getattr__(self, attr):
+        if attr in dir(self):
+            return attr
+        return getattr(self.wrapped_instance, attr)
+
+
+class LoggingCursor(BaseLoggingWrapper):
+    """
+    Provides a database cursor instance that willl log the execution time of any
+    `execute` call
+    """
+
+    def __init__(self, logger, cursor):
+        super().__init__(logger, cursor)
+        self.cursor = cursor
+
+    def __iter__(self):
+        return self.cursor.__iter__()
+
+    def __next__(self):
+        return self.cursor.__next__()
+
+    def execute(self, query, log_desc=None):
+        if log_desc is None:
+            # Log either the provided log_desc or the first 50 characters
+            # of the query
+            log_desc = f"{query[:50] if len(query) > 50 else query}..."
+        with log_execution_time(self.logger, log_desc):
+            self.cursor.execute(query)
+
+
+class LoggingDatabaseConnection(BaseLoggingWrapper):
+    """
+    Provides a database connection instance with a LoggingCursor
+    """
+
+    def __init__(self, logger, database_connection):
+        super().__init__(logger, database_connection)
+        self.db_connection = database_connection
+
+    def cursor(self):
+        return LoggingCursor(self.logger, self.db_connection.cursor())

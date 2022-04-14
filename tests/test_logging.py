@@ -181,6 +181,8 @@ def test_stats_logging_generate_cohort(
         # logs specifically from study.to_file
         "Writing results into #final_output",
         "CREATE INDEX ix_patient_id ON #final_output (patie...",
+        # results are fetched in batches for writing
+        "SELECT TOP 32000 * FROM #final_output  ORDER BY pa...",
         f"{write_to_file_log} {tmp_path}/input.{output_format}",
         "Deleting '#final_output'",
         # logging the overall timing for the cohort generation
@@ -243,6 +245,8 @@ def test_stats_logging_generate_cohort_with_index_dates(
                 # logs specifically from study.to_file
                 "Writing results into #final_output",
                 "CREATE INDEX ix_patient_id ON #final_output (patie...",
+                # results are fetched in batches for writing
+                "SELECT TOP 32000 * FROM #final_output  ORDER BY pa...",
                 f"write_rows_to_csv {tmp_path}/input_test_{index_date}.csv",
                 "Deleting '#final_output'",
                 # logging the overall timing for the cohort generation
