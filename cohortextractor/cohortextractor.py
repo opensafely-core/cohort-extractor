@@ -364,7 +364,7 @@ def _generate_measures(
                             dataframe="patient_df",
                             measure_id=measure.id,
                             date=date,
-                            memory=patient_df.memory_usage(),
+                            memory=patient_df.memory_usage(deep=True).sum(),
                         )
                 with log_execution_time(
                     logger,
