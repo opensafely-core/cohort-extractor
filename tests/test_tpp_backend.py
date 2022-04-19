@@ -6172,7 +6172,7 @@ def test_ukrr():
         egfr=patients.with_record_in_ukrr(
             from_dataset="2019_prevalence", returning="latest_egfr"
         ),
-        ## Gets patients 1 - 3 who are in 2019prev dataset with a data of RRT
+        # Gets patients 1 - 3 who are in 2019prev dataset with a data of RRT
         rrt_start_date=patients.with_record_in_ukrr(
             from_dataset="2019_prevalence",
             returning="rrt_start_date",
@@ -6188,7 +6188,7 @@ def test_ukrr():
             returning="rrt_start_date",
             date_format="YYYY",
         ),
-        ## Gets patients 1 & 3 who are in 2019prev dataset
+        # Gets patients 1 & 3 who are in 2019prev dataset
         # with a date of RRT in 2019 when filtered
         rrt_startdate_2019=patients.with_record_in_ukrr(
             from_dataset="2019_prevalence",
@@ -6196,7 +6196,7 @@ def test_ukrr():
             on_or_after="2019-01-01",
             date_format="YYYY-MM-DD",
         ),
-        ## Gets patients 2 who is in 2019prev dataset
+        # Gets patients 2 who is in 2019prev dataset
         # with a date of RRT in before 2019 when filtered
         rrt_before_2019=patients.with_record_in_ukrr(
             from_dataset="2019_prevalence",
@@ -6204,7 +6204,7 @@ def test_ukrr():
             on_or_before="2018-12-31",
             date_format="YYYY-MM-DD",
         ),
-        ## Gets patients 1 who is in 2019prev dataset
+        # Gets patients 1 who is in 2019prev dataset
         # with a date of RRT in first 6 months 2019 when filtered
         rrt_between=patients.with_record_in_ukrr(
             from_dataset="2019_prevalence",
