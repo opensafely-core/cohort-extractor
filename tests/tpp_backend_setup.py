@@ -615,6 +615,9 @@ class SGSS_AllTests_Positive(Base):
     Pillar = Column(String)
     LFT_Flag = Column(String)
 
+    # See comment on SGTF column on `SGSS_Positive` above for details
+    SGTF = Column(String)
+
     # Other columns in the table which we don't use:
     #   Age_in_Years
     #   Patient_Sex

@@ -2113,17 +2113,6 @@ class TPPBackend:
     ):
         assert pathogen == "SARS-CoV-2"
 
-        if (
-            returning == "s_gene_target_failure"
-            and not restrict_to_earliest_specimen_date
-        ):
-            raise ValueError(
-                "Due to limitations in the SGSS data we receive you can't "
-                "combine the options:\n"
-                "  returning = 's_gene_target_failure'\n"
-                "  restrict_to_earliest_specimen_date = False"
-            )
-
         if returning == "case_category" and (
             not restrict_to_earliest_specimen_date or test_result != "positive"
         ):
@@ -2244,7 +2233,8 @@ class TPPBackend:
               Specimen_Date AS date,
               Variant AS variant,
               VariantDetectionMethod AS variant_detection_method,
-              Symptomatic AS symptomatic
+              Symptomatic AS symptomatic,
+              SGTF AS sgtf
             FROM SGSS_AllTests_Positive
             """
             negative_query = """
@@ -2253,7 +2243,8 @@ class TPPBackend:
               Specimen_Date AS date,
               '' AS variant,
               '' AS variant_detection_method,
-              Symptomatic AS symptomatic
+              Symptomatic AS symptomatic,
+              '' AS sgtf
             FROM SGSS_AllTests_Negative
             """
 
