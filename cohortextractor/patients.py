@@ -2897,8 +2897,7 @@ def with_record_in_ukrr(
         on_or_after: date of interest as a string with the format `YYYY-MM-DD`. Filters results to measurements
             on or after the given date.
         between: two dates of interest as a list with each date as a string with the format `YYYY-MM-DD`.
-            Filters results to measurements between the two dates.
-            provided (inclusive).
+            Filters results to measurements between the two dates provided (inclusive).
             The two dates must be in chronological order.
         date_format: a string detailing the format of dates to be returned.
             It can be "YYYY-MM-DD", "YYYY-MM" or "YYYY" and wherever possible the least disclosive data should be

@@ -3508,6 +3508,10 @@ class TPPBackend:
             "2020_incidence": "2020inc",
             "2020_ckd": "2020ckd",
         }
+        if from_dataset not in dataset_mapping.keys():
+            raise ValueError(
+                f"Unsupported Dataset passed to argument `from_dataset`: {from_dataset}"
+            )
 
         date_condition, date_joins = self.get_date_condition(
             "UKRR", "rrt_start", between
@@ -3523,6 +3527,8 @@ class TPPBackend:
             "rrt_start_date": "rrt_start",
         }
         column_definition = column_mapping.get(returning)
+        if column_definition is None:
+            raise ValueError(f"Unsupported `returning` value: {returning}")
 
         return f"""
             SELECT Patient_ID, {column_definition} AS {returning} FROM UKRR
