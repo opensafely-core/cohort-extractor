@@ -30,6 +30,7 @@ from tests.tpp_backend_setup import (
     ICNARC,
     ONS_CIS,
     OPA,
+    UKRR,
     APCS_Der,
     Appointment,
     ClusterRandomisedTrial,
@@ -122,7 +123,10 @@ def setup_function(function):
     session.query(HealthCareWorker).delete()
     session.query(Therapeutics).delete()
     session.query(ISARICData).delete()
+    session.query(ONS_CIS).delete()
+    session.query(UKRR).delete()
     session.query(Patient).delete()
+
     session.commit()
 
 
@@ -6035,4 +6039,229 @@ def test_ons_cis():
         country=["England", "Wales", "NI"],
         country_date=["2021-10-01", "2021-10-01", "2020-10-01"],
         country_as_codes=["0", "1", ""],
+    )
+
+
+def test_ukrr():
+    "Test UK Renal Registry"
+    session = make_session()
+    session.add_all(
+        [
+            Patient(
+                UKRR=[
+                    UKRR(
+                        dataset="2019prev",
+                        renal_centre="AD100",
+                        rrt_start="2019-01-01",  # in 2019prev and rrt started 2019
+                        mod_start="RT",
+                        mod_prev=None,
+                        creat=340,
+                        eGFR_ckdepi=4.5,
+                    ),
+                ],
+            ),
+            Patient(
+                UKRR=[
+                    UKRR(
+                        dataset="2019prev",
+                        renal_centre="AD200",
+                        rrt_start="2018-01-01",  # in 2019prev and rrt started 2018
+                        mod_start="RT",
+                        mod_prev=None,
+                        creat=200,
+                        eGFR_ckdepi=1.588,
+                    ),
+                ],
+            ),
+            Patient(
+                UKRR=[
+                    UKRR(
+                        dataset="2019prev",
+                        renal_centre="AD100",
+                        rrt_start="2019-10-01",  # in 2019prev and rrt started 2019
+                        mod_start="PD",
+                        mod_prev="IHCD",
+                        creat=1340,
+                        eGFR_ckdepi=2.5,
+                    ),
+                ],
+            ),
+            Patient(
+                UKRR=[
+                    UKRR(
+                        dataset="2020prev",
+                        renal_centre="AD100",
+                        rrt_start="2017-10-01",
+                        mod_start="PD",
+                        mod_prev="IHCD",
+                        creat=780,
+                        eGFR_ckdepi=11.5,
+                    ),
+                ],
+            ),
+            Patient(
+                UKRR=[
+                    UKRR(
+                        dataset="2021prev",
+                        renal_centre="AD100",
+                        rrt_start="2021-01-01",
+                        mod_start="PD",
+                        mod_prev=None,
+                        creat=780,
+                        eGFR_ckdepi=11.5,
+                    ),
+                ],
+            ),
+            Patient(
+                UKRR=[
+                    UKRR(
+                        dataset="2020inc",
+                        renal_centre="AD100",
+                        rrt_start="2020-10-01",
+                        mod_start="PD",
+                        mod_prev=None,
+                        creat=540,
+                        eGFR_ckdepi=8.7,
+                    ),
+                ],
+            ),
+            Patient(
+                UKRR=[
+                    UKRR(
+                        dataset="2020ckd",
+                        renal_centre="AD100",
+                        rrt_start="2018-10-01",
+                        mod_start="Tx",
+                        mod_prev=None,
+                        creat=140,
+                        eGFR_ckdepi=9.72,
+                    ),
+                ],
+            ),
+            Patient(
+                UKRR=[
+                    UKRR(
+                        dataset="2021prev",
+                        renal_centre="AD100",
+                        rrt_start=None,  # Some people who went straight to transplant didn't start RRT
+                        mod_start="Tx",
+                        mod_prev=None,
+                        creat=140,
+                        eGFR_ckdepi=9.72,
+                    ),
+                ],
+            ),
+            Patient(),  # Patient not in UKRR
+        ]
+    )
+    session.commit()
+    study = StudyDefinition(
+        population=patients.all(),
+        renal_registry_2019_prev=patients.with_record_in_ukrr(
+            from_dataset="2019_prevalence", returning="binary_flag"
+        ),
+        renal_registry_2020_prev=patients.with_record_in_ukrr(
+            from_dataset="2020_prevalence", returning="binary_flag"
+        ),
+        renal_registry_2021_prev=patients.with_record_in_ukrr(
+            from_dataset="2021_prevalence", returning="binary_flag"
+        ),
+        renal_registry_2020_incidence=patients.with_record_in_ukrr(
+            from_dataset="2020_incidence", returning="binary_flag"
+        ),
+        renal_registry_ckd=patients.with_record_in_ukrr(
+            from_dataset="2020_ckd", returning="binary_flag"
+        ),
+        renal_2019_centre=patients.with_record_in_ukrr(
+            from_dataset="2019_prevalence", returning="renal_centre"
+        ),
+        renal_2019_tx=patients.with_record_in_ukrr(
+            from_dataset="2019_prevalence", returning="treatment_modality_start"
+        ),
+        renal_2019_modal_prev=patients.with_record_in_ukrr(
+            from_dataset="2019_prevalence", returning="treatment_modality_prevalence"
+        ),
+        creatinine=patients.with_record_in_ukrr(
+            from_dataset="2019_prevalence", returning="latest_creatinine"
+        ),
+        egfr=patients.with_record_in_ukrr(
+            from_dataset="2019_prevalence", returning="latest_egfr"
+        ),
+        # Gets patients 1 - 3 who are in 2019prev dataset with a data of RRT
+        rrt_start_date=patients.with_record_in_ukrr(
+            from_dataset="2019_prevalence",
+            returning="rrt_start_date",
+            date_format="YYYY-MM-DD",
+        ),
+        rrt_start_month=patients.with_record_in_ukrr(
+            from_dataset="2019_prevalence",
+            returning="rrt_start_date",
+            date_format="YYYY-MM",
+        ),
+        rrt_start_yr=patients.with_record_in_ukrr(
+            from_dataset="2019_prevalence",
+            returning="rrt_start_date",
+            date_format="YYYY",
+        ),
+        # Gets patients 1 & 3 who are in 2019prev dataset
+        # with a date of RRT in 2019 when filtered
+        rrt_startdate_2019=patients.with_record_in_ukrr(
+            from_dataset="2019_prevalence",
+            returning="rrt_start_date",
+            on_or_after="2019-01-01",
+            date_format="YYYY-MM-DD",
+        ),
+        # Gets patients 2 who is in 2019prev dataset
+        # with a date of RRT in before 2019 when filtered
+        rrt_before_2019=patients.with_record_in_ukrr(
+            from_dataset="2019_prevalence",
+            returning="rrt_start_date",
+            on_or_before="2018-12-31",
+            date_format="YYYY-MM-DD",
+        ),
+        # Gets patients 1 who is in 2019prev dataset
+        # with a date of RRT in first 6 months 2019 when filtered
+        rrt_between=patients.with_record_in_ukrr(
+            from_dataset="2019_prevalence",
+            returning="rrt_start_date",
+            between=("2018-12-31", "2019-06-01"),
+            date_format="YYYY-MM-DD",
+        ),
+        egfr_rrt_between=patients.with_record_in_ukrr(
+            from_dataset="2019_prevalence",
+            returning="latest_egfr",
+            between=("2018-12-31", "2019-06-01"),
+            date_format="YYYY-MM-DD",
+        ),
+    )
+
+    assert_results(
+        study.to_dicts(convert_to_strings=False),
+        renal_registry_2019_prev=[1, 1, 1, 0, 0, 0, 0, 0, 0],
+        renal_registry_2020_prev=[0, 0, 0, 1, 0, 0, 0, 0, 0],
+        renal_registry_2021_prev=[0, 0, 0, 0, 1, 0, 0, 1, 0],
+        renal_registry_2020_incidence=[0, 0, 0, 0, 0, 1, 0, 0, 0],
+        renal_registry_ckd=[0, 0, 0, 0, 0, 0, 1, 0, 0],
+        renal_2019_centre=["AD100", "AD200", "AD100", "", "", "", "", "", ""],
+        renal_2019_tx=["RT", "RT", "PD", "", "", "", "", "", ""],
+        renal_2019_modal_prev=["", "", "IHCD", "", "", "", "", "", ""],
+        creatinine=[340, 200, 1340, 0, 0, 0, 0, 0, 0],
+        egfr=[4.5, 1.588, 2.5, 0, 0, 0, 0, 0, 0],
+        rrt_start_date=[
+            "2019-01-01",
+            "2018-01-01",
+            "2019-10-01",
+            "",
+            "",
+            "",
+            "",
+            "",
+            "",
+        ],
+        rrt_start_month=["2019-01", "2018-01", "2019-10", "", "", "", "", "", ""],
+        rrt_start_yr=["2019", "2018", "2019", "", "", "", "", "", ""],
+        rrt_startdate_2019=["2019-01-01", "", "2019-10-01", "", "", "", "", "", ""],
+        rrt_before_2019=["", "2018-01-01", "", "", "", "", "", "", ""],
+        rrt_between=["2019-01-01", "", "", "", "", "", "", "", ""],
+        egfr_rrt_between=[4.5, 0, 0, 0, 0, 0, 0, 0, 0],
     )

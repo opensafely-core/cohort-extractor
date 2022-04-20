@@ -821,6 +821,9 @@ class GetColumnType:
             return ONS_CIS_COLUMN_MAPPINGS[returning]
         return self._type_from_return_value(returning)
 
+    def type_of_with_record_in_ukrr(self, returning, **kwargs):
+        return self._type_from_return_value(returning)
+
     def _type_from_return_value(self, returning):
         if returning == "nhse_region_name":
             raise ValueError(
@@ -854,6 +857,8 @@ class GetColumnType:
             "household_size": "int",
             "index_of_multiple_deprivation": "int",
             "is_prison": "bool",
+            "latest_creatinine": "int",
+            "latest_egfr": "float",
             "lower_bound": "float",
             "msoa": "str",
             "msoa_code": "str",
@@ -867,7 +872,9 @@ class GetColumnType:
             "primary_diagnosis": "str",
             "pseudo_id": "int",
             "region": "str",
+            "renal_centre": "str",
             "risk_group": "str",
+            "rrt_start_date": "date",
             "rural_urban_classification": "int",
             "s_gene_target_failure": "str",
             "source_of_admission": "str",
@@ -876,6 +883,8 @@ class GetColumnType:
             "therapeutic": "str",
             "total_bed_days_in_period": "int",
             "total_critical_care_days_in_period": "int",
+            "treatment_modality_start": "str",
+            "treatment_modality_prevalence": "str",
             "underlying_cause_of_death": "str",
             "upper_bound": "float",
             "variant": "str",

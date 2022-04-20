@@ -3482,6 +3482,51 @@ class TPPBackend:
             """
         return table_queries + [sql]
 
+    def patients_with_record_in_ukrr(
+        self,
+        # picks dataset held by UKRR
+        from_dataset,
+        returning,
+        # Date filtering: date limits
+        between=None,
+        date_format=None,
+        return_expectations=None,
+    ):
+        dataset_mapping = {
+            "2019_prevalence": "2019prev",
+            "2020_prevalence": "2020prev",
+            "2021_prevalence": "2021prev",
+            "2020_incidence": "2020inc",
+            "2020_ckd": "2020ckd",
+        }
+        if from_dataset not in dataset_mapping.keys():
+            raise ValueError(
+                f"Unsupported Dataset passed to argument `from_dataset`: {from_dataset}"
+            )
+
+        date_condition, date_joins = self.get_date_condition(
+            "UKRR", "rrt_start", between
+        )
+
+        column_mapping = {
+            "binary_flag": 1,
+            "renal_centre": "renal_centre",
+            "treatment_modality_start": "mod_start",
+            "treatment_modality_prevalence": "mod_prev",
+            "latest_creatinine": "creat",
+            "latest_egfr": "eGFR_ckdepi",
+            "rrt_start_date": "rrt_start",
+        }
+        column_definition = column_mapping.get(returning)
+        if column_definition is None:
+            raise ValueError(f"Unsupported `returning` value: {returning}")
+
+        return f"""
+            SELECT Patient_ID, {column_definition} AS {returning} FROM UKRR
+            WHERE dataset = '{dataset_mapping[from_dataset]}'
+            AND {date_condition}
+        """
+
 
 class ColumnExpression:
     def __init__(
