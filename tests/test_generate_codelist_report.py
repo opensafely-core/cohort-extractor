@@ -53,41 +53,6 @@ def test_generate_codelist_report(tmpdir):
         writer.writerow(["code"])
         writer.writerows([[code] for code in codelist_codes])
 
-    # Theis patient is in the target population, because they're still registered at the
-    # practice.
-    current_patient = Patient()
-    current_patient.RegistrationHistory = [
-        RegistrationHistory(
-            StartDate="2001-01-01", EndDate="9999-01-01", Organisation=Organisation()
-        )
-    ]
-
-    # This patient is in the target population, because they died during the timeframe
-    # we're interested in.
-    dead_patient = Patient(DateOfDeath="2020-01-15")
-    dead_patient.RegistrationHistory = [
-        RegistrationHistory(
-            StartDate="2001-01-01", EndDate="2020-01-15", Organisation=Organisation()
-        )
-    ]
-
-    # This patient is not in the target population, because they were not registered by
-    # the end of the timeframe we're interested in.
-    former_patient = Patient()
-    former_patient.RegistrationHistory = [
-        RegistrationHistory(
-            StartDate="2001-01-01", EndDate="2020-01-15", Organisation=Organisation()
-        )
-    ]
-
-    # This patient is not in the target population, because they died before the
-    # timeframe we're interested in.
-    long_dead_patient = Patient(DateOfDeath="2011-12-31")
-    long_dead_patient.RegistrationHistory = [
-        RegistrationHistory(
-            StartDate="2001-01-01", EndDate="2011-12-31", Organisation=Organisation()
-        )
-    ]
 
     # The first two codes are in the codelist but the third is not
     codes = codelist_codes + ["33333333"]
@@ -95,43 +60,12 @@ def test_generate_codelist_report(tmpdir):
     # The first and last dates are not in the time period but the others are.
     dates = ["2019-12-31", "2020-01-01", "2020-01-15", "2020-01-31", "2020-02-01"]
 
-    # Pick some random code/date pairs for each patient, and record these for patients
-    # in the population.
-    current_patient_events = [
-        (random.choice(codes), random.choice(dates)) for _ in range(20)
-    ]
-    current_patient.CodedEventsSnomed = [
-        CodedEventSnomed(ConceptID=code, ConsultationDate=date)
-        for code, date in current_patient_events
-    ]
-
-    dead_patient_events = [
-        (random.choice(codes), random.choice(dates)) for _ in range(20)
-    ]
-    dead_patient.CodedEventsSnomed = [
-        CodedEventSnomed(ConceptID=code, ConsultationDate=date)
-        for code, date in dead_patient_events
-    ]
-
-    former_patient.CodedEventsSnomed = [
-        CodedEventSnomed(
-            ConceptID=random.choice(codes), ConsultationDate=random.choice(dates)
-        )
-        for _ in range(20)
-    ]
-
-    long_dead_patient.CodedEventsSnomed = [
-        CodedEventSnomed(
-            ConceptID=random.choice(codes), ConsultationDate=random.choice(dates)
-        )
-        for _ in range(20)
-    ]
+    patients = create_patients()
+    current_patient_events, dead_patient_events = create_patient_events(patients, codes, dates)
 
     session = make_session()
-    session.add(current_patient)
-    session.add(former_patient)
-    session.add(dead_patient)
-    session.add(long_dead_patient)
+    for patient in patients:
+        session.add(patient)
     session.commit()
 
     # Work out how many events we expect per code and per week.
@@ -175,3 +109,82 @@ def test_generate_codelist_report(tmpdir):
         tmpdir / "counts_per_week.csv", dtype={"date": "object"}
     ).set_index("date")
     assert dict(counts_per_week["num"]) == expected_counts_per_week
+
+
+def create_patients():
+    # Theis patient is in the target population, because they're still registered at the
+    # practice.
+    current_patient = Patient()
+    current_patient.RegistrationHistory = [
+        RegistrationHistory(
+            StartDate="2001-01-01", EndDate="9999-01-01", Organisation=Organisation()
+        )
+    ]
+
+    # This patient is in the target population, because they died during the timeframe
+    # we're interested in.
+    dead_patient = Patient(DateOfDeath="2020-01-15")
+    dead_patient.RegistrationHistory = [
+        RegistrationHistory(
+            StartDate="2001-01-01", EndDate="2020-01-15", Organisation=Organisation()
+        )
+    ]
+
+    # This patient is not in the target population, because they were not registered by
+    # the end of the timeframe we're interested in.
+    former_patient = Patient()
+    former_patient.RegistrationHistory = [
+        RegistrationHistory(
+            StartDate="2001-01-01", EndDate="2020-01-15", Organisation=Organisation()
+        )
+    ]
+
+    # This patient is not in the target population, because they died before the
+    # timeframe we're interested in.
+    long_dead_patient = Patient(DateOfDeath="2011-12-31")
+    long_dead_patient.RegistrationHistory = [
+        RegistrationHistory(
+            StartDate="2001-01-01", EndDate="2011-12-31", Organisation=Organisation()
+        )
+    ]
+
+    return current_patient,dead_patient,former_patient,long_dead_patient
+
+
+def create_patient_events(patients, codes, dates):
+    # Pick some random code/date pairs for each patient, and record these for patients
+    # in the population.
+
+    current_patient, dead_patient, former_patient, long_dead_patient = patients
+
+    current_patient_events = [
+        (random.choice(codes), random.choice(dates)) for _ in range(20)
+    ]
+    current_patient.CodedEventsSnomed = [
+        CodedEventSnomed(ConceptID=code, ConsultationDate=date)
+        for code, date in current_patient_events
+    ]
+
+    dead_patient_events = [
+        (random.choice(codes), random.choice(dates)) for _ in range(20)
+    ]
+    dead_patient.CodedEventsSnomed = [
+        CodedEventSnomed(ConceptID=code, ConsultationDate=date)
+        for code, date in dead_patient_events
+    ]
+
+    former_patient.CodedEventsSnomed = [
+        CodedEventSnomed(
+            ConceptID=random.choice(codes), ConsultationDate=random.choice(dates)
+        )
+        for _ in range(20)
+    ]
+
+    long_dead_patient.CodedEventsSnomed = [
+        CodedEventSnomed(
+            ConceptID=random.choice(codes), ConsultationDate=random.choice(dates)
+        )
+        for _ in range(20)
+    ]
+
+    return current_patient_events,dead_patient_events
