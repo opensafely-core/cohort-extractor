@@ -53,7 +53,6 @@ def test_generate_codelist_report(tmpdir):
         writer.writerow(["code"])
         writer.writerows([[code] for code in codelist_codes])
 
-
     # The first two codes are in the codelist but the third is not
     codes = codelist_codes + ["33333333"]
 
@@ -61,7 +60,9 @@ def test_generate_codelist_report(tmpdir):
     dates = ["2019-12-31", "2020-01-01", "2020-01-15", "2020-01-31", "2020-02-01"]
 
     patients = create_patients()
-    current_patient_events, dead_patient_events = create_patient_events(patients, codes, dates)
+    current_patient_events, dead_patient_events = create_patient_events(
+        patients, codes, dates
+    )
 
     session = make_session()
     for patient in patients:
@@ -96,7 +97,9 @@ def test_generate_codelist_report(tmpdir):
         expected_counts_per_week[date_to_last_of_week[date]] += 1
 
     # Generate the codelist report.
-    generate_codelist_report(tmpdir, tmpdir / "codelist.csv", start_date, end_date)
+    generate_codelist_report(
+        str(tmpdir), os.path.join(tmpdir, "codelist.csv"), start_date, end_date
+    )
 
     # Check counts_per_week is as expected.
     counts_per_code = pd.read_csv(
@@ -148,7 +151,7 @@ def create_patients():
         )
     ]
 
-    return current_patient,dead_patient,former_patient,long_dead_patient
+    return current_patient, dead_patient, former_patient, long_dead_patient
 
 
 def create_patient_events(patients, codes, dates):
@@ -187,4 +190,4 @@ def create_patient_events(patients, codes, dates):
         for _ in range(20)
     ]
 
-    return current_patient_events,dead_patient_events
+    return current_patient_events, dead_patient_events

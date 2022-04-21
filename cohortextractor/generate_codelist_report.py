@@ -44,8 +44,8 @@ def generate_codelist_report(output_dir, codelist_path, start_date, end_date):
 
     os.makedirs(output_dir, exist_ok=True)
 
-    counts_per_code.to_csv(output_dir / "counts_per_code.csv")
-    counts_per_week.to_csv(output_dir / "counts_per_week.csv")
+    counts_per_code.to_csv(os.path.join(output_dir, "counts_per_code.csv"))
+    counts_per_week.to_csv(os.path.join(output_dir, "counts_per_week.csv"))
 
 
 def codelist_queries(codelist):
