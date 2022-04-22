@@ -31,6 +31,7 @@ from pandas.api.types import (
 
 import cohortextractor
 from cohortextractor.exceptions import DummyDataValidationError
+from cohortextractor.generate_codelist_report import generate_codelist_report
 
 logger = structlog.get_logger()
 
@@ -540,6 +541,11 @@ def main():
         "generate_measures", help="Generate measures from cohort data"
     )
     generate_measures_parser.set_defaults(which="generate_measures")
+    generate_codelist_report_parser = subparsers.add_parser(
+        "generate_codelist_report",
+        help="Generate OpenSAFELY Interactive codelist report",
+    )
+    generate_codelist_report_parser.set_defaults(which="generate_codelist_report")
     cohort_report_parser = subparsers.add_parser(
         "cohort_report", help="Generate cohort report"
     )
@@ -651,6 +657,29 @@ def main():
         action="store_true",
     )
 
+    # Codelist report parser options
+    generate_codelist_report_parser.add_argument(
+        "--output-dir",
+        help="Location to store output files",
+        type=str,
+        default="output",
+    )
+    generate_codelist_report_parser.add_argument(
+        "--codelist-path",
+        help="Location of codelist",
+        type=str,
+    )
+    generate_codelist_report_parser.add_argument(
+        "--start-date",
+        help="Start date",
+        type=datetime.date.fromisoformat,
+    )
+    generate_codelist_report_parser.add_argument(
+        "--end-date",
+        help="End date",
+        type=datetime.date.fromisoformat,
+    )
+
     options = parser.parse_args()
 
     if options.version:
@@ -689,6 +718,13 @@ def main():
             options.output_dir,
             selected_study_name=options.study_definition,
             skip_existing=options.skip_existing,
+        )
+    elif options.which == "generate_codelist_report":
+        generate_codelist_report(
+            options.output_dir,
+            options.codelist_path,
+            options.start_date,
+            options.end_date,
         )
     elif options.which == "cohort_report":
         make_cohort_report(options.input_dir, options.output_dir)
