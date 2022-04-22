@@ -10,6 +10,7 @@ import structlog
 from .csv_utils import is_csv_filename, write_rows_to_csv
 from .date_expressions import MSSQLDateFormatter
 from .expressions import format_expression
+from .log_utils import LoggingDatabaseConnection, log_execution_time, log_stats
 from .mssql_utils import (
     mssql_connection_params_from_url,
     mssql_dbapi_connection_from_url,
@@ -99,10 +100,16 @@ class TPPBackend:
         # Special handling for CSV as we can stream this directly to disk
         # without building a dataframe in memory
         if is_csv_filename(filename):
-            write_rows_to_csv(results, filename)
+            with log_execution_time(
+                logger, description=f"write_rows_to_csv {filename}"
+            ):
+                write_rows_to_csv(results, filename)
         else:
-            df = dataframe_from_rows(self.covariate_definitions, results)
-            dataframe_to_file(df, filename)
+            with log_execution_time(
+                logger, description=f"Create df and write dataframe_to_file {filename}"
+            ):
+                df = dataframe_from_rows(self.covariate_definitions, results)
+                dataframe_to_file(df, filename)
 
         self.execute_queries(
             [f"-- Deleting '{output_table}'\nDROP TABLE {output_table}"]
@@ -264,7 +271,9 @@ class TPPBackend:
                 return self._db_connection
             else:
                 self._db_connection.close()
-        self._db_connection = mssql_dbapi_connection_from_url(self.database_url)
+        self._db_connection = LoggingDatabaseConnection(
+            logger, mssql_dbapi_connection_from_url(self.database_url)
+        )
         return self._db_connection
 
     def close(self):
@@ -368,6 +377,14 @@ class TPPBackend:
         for sql_list in table_queries.values():
             all_queries.extend(sql_list)
         all_queries.append(joined_output_query)
+
+        log_stats(
+            logger,
+            output_column_count=len(output_columns),
+            table_count=len(table_queries),
+            table_joins_count=len(joins),
+        )
+
         return all_queries
 
     def get_column_expression(self, column_type, source, returning, date_format=None):
@@ -532,8 +549,11 @@ class TPPBackend:
         for query in queries:
             comment_match = re.match(r"^\s*\-\-\s*(.+)\n", query)
             if comment_match:
-                logger.info(f"Running: {comment_match.group(1)}")
-            cursor.execute(query)
+                event_name = comment_match.group(1)
+                logger.info(f"Running: {event_name}")
+            else:
+                event_name = None
+            cursor.execute(query, log_desc=event_name)
         return cursor
 
     def get_queries_for_column(

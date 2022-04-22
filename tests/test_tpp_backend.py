@@ -227,7 +227,7 @@ def test_correct_driver_used():
     # We support multiple drivers but we want to make sure our tests are
     # running against the same driver we use in production
     study = StudyDefinition(population=patients.all())
-    module = study.backend.get_db_connection().__class__.__module__
+    module = study.backend.get_db_connection().db_connection.__class__.__module__
     assert module.startswith("pymssql")
 
 

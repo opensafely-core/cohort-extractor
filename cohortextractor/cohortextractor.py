@@ -33,6 +33,8 @@ import cohortextractor
 from cohortextractor.exceptions import DummyDataValidationError
 from cohortextractor.generate_codelist_report import generate_codelist_report
 
+from .log_utils import log_execution_time, log_stats
+
 logger = structlog.get_logger()
 
 notebook_tag = "opencorona-research"
@@ -149,16 +151,19 @@ def generate_cohort(
         msg = "You can only provide dummy data for a single study definition"
         raise DummyDataValidationError(msg)
     for study_name, suffix in study_definitions:
-        _generate_cohort(
-            output_dir,
-            study_name,
-            suffix,
-            expectations_population,
-            dummy_data_file,
-            index_date_range=index_date_range,
-            skip_existing=skip_existing,
-            output_format=output_format,
-        )
+        with log_execution_time(
+            logger, description=f"generate_cohort for {study_name} (all index dates)"
+        ):
+            _generate_cohort(
+                output_dir,
+                study_name,
+                suffix,
+                expectations_population,
+                dummy_data_file,
+                index_date_range=index_date_range,
+                skip_existing=skip_existing,
+                output_format=output_format,
+            )
 
 
 def _generate_cohort(
@@ -187,25 +192,37 @@ def _generate_cohort(
     study = load_study_definition(study_name)
 
     os.makedirs(output_dir, exist_ok=True)
-    for index_date in _generate_date_range(index_date_range):
+
+    index_dates = _generate_date_range(index_date_range)
+    log_stats(logger, index_date_count=len(index_dates) if index_date_range else 0)
+    if index_date_range:
+        log_stats(logger, min_index_date=index_dates[-1], max_index_date=index_dates[0])
+
+    for index_date in index_dates:
+        log_event = f"generate_cohort for {study_name}"
         if index_date is not None:
-            logger.info(f"Setting index_date to {index_date}")
-            study.set_index_date(index_date)
-            date_suffix = f"_{index_date}"
-        else:
-            date_suffix = ""
-        # If this is changed then the regex in `_generate_measures()`
-        # must be updated
-        output_file = f"{output_dir}/input{suffix}{date_suffix}.{output_format}"
-        if skip_existing and os.path.exists(output_file):
-            logger.info(f"Not regenerating pre-existing file at {output_file}")
-        else:
-            study.to_file(
-                output_file,
-                expectations_population=expectations_population,
-                dummy_data_file=dummy_data_file,
-            )
-            logger.info(f"Successfully created cohort and covariates at {output_file}")
+            log_event += f" at {index_date}"
+        with log_execution_time(logger, description=log_event):
+            if index_date is not None:
+                logger.info(f"Setting index_date to {index_date}")
+                study.set_index_date(index_date)
+                date_suffix = f"_{index_date}"
+            else:
+                date_suffix = ""
+            # If this is changed then the regex in `_generate_measures()`
+            # must be updated
+            output_file = f"{output_dir}/input{suffix}{date_suffix}.{output_format}"
+            if skip_existing and os.path.exists(output_file):
+                logger.info(f"Not regenerating pre-existing file at {output_file}")
+            else:
+                study.to_file(
+                    output_file,
+                    expectations_population=expectations_population,
+                    dummy_data_file=dummy_data_file,
+                )
+                logger.info(
+                    f"Successfully created cohort and covariates at {output_file}"
+                )
 
 
 def _generate_date_range(date_range_str):
@@ -281,13 +298,17 @@ def generate_measures(
             if study_name == selected_study_name:
                 study_definitions = [(study_name, suffix)]
                 break
+
     for study_name, suffix in study_definitions:
-        _generate_measures(
-            output_dir,
-            study_name,
-            suffix,
-            skip_existing=skip_existing,
-        )
+        with log_execution_time(
+            logger, description="generate_measures (all input files)", study=study_name
+        ):
+            _generate_measures(
+                output_dir,
+                study_name,
+                suffix,
+                skip_existing=skip_existing,
+            )
 
 
 def _generate_measures(
@@ -303,6 +324,8 @@ def _generate_measures(
     measures = load_study_definition(study_name, value="measures")
     measure_outputs = defaultdict(list)
     filename_re = re.compile(rf"^input{re.escape(suffix)}.+\.({EXTENSION_REGEX})$")
+
+    log_stats(logger, measures_count=len(measures))
     for file in os.listdir(output_dir):
         if not filename_re.match(file):
             continue
@@ -311,26 +334,55 @@ def _generate_measures(
             continue
         filepath = os.path.join(output_dir, file)
         logger.info(f"Calculating measures for {filepath}")
-        patient_df = None
-        for measure in measures:
-            logger.info(f"Calculating {measure.id}")
-            output_file = f"{output_dir}/measure_{measure.id}_{date}.csv"
-            measure_outputs[measure.id].append(output_file)
-            if skip_existing and os.path.exists(output_file):
-                logger.info(f"Not generating pre-existing file {output_file}")
-                continue
-            # We do this lazily so that if all corresponding output files
-            # already exist we can avoid loading the patient data entirely
-            if patient_df is None:
-                logger.info(f"Loading patient data from {filepath}")
-                patient_df = _load_dataframe_for_measures(filepath, measures)
-                logger.info(patient_df.memory_usage())
-
-            measure_df = measure.calculate(patient_df, _report)
-            logger.info(f"Data size for measure {measure.id}:")
-            logger.info(measure_df.memory_usage())
-            measure_df.to_csv(output_file, index=False)
-            logger.info(f"Created measure output at {output_file}")
+        with log_execution_time(
+            logger,
+            description="generate_measures",
+            input_file=filepath,
+            date=date,
+            study=study_name,
+        ):
+            patient_df = None
+            for measure in measures:
+                logger.info(f"Calculating {measure.id}")
+                output_file = f"{output_dir}/measure_{measure.id}_{date}.csv"
+                measure_outputs[measure.id].append(output_file)
+                if skip_existing and os.path.exists(output_file):
+                    logger.info(f"Not generating pre-existing file {output_file}")
+                    continue
+                # We do this lazily so that if all corresponding output files
+                # already exist we can avoid loading the patient data entirely
+                if patient_df is None:
+                    logger.info(f"Loading patient data from {filepath}")
+                    with log_execution_time(
+                        logger,
+                        description="Load patient dataframe for measures",
+                        input_file=filepath,
+                        date=date,
+                    ):
+                        patient_df = _load_dataframe_for_measures(filepath, measures)
+                        log_stats(
+                            logger,
+                            dataframe="patient_df",
+                            measure_id=measure.id,
+                            date=date,
+                            memory=patient_df.memory_usage(deep=True).sum(),
+                        )
+                with log_execution_time(
+                    logger,
+                    description="Calculate measure",
+                    measure_id=measure.id,
+                    date=date,
+                ):
+                    measure_df = measure.calculate(patient_df, _report)
+                log_stats(
+                    logger,
+                    dataframe="measure_df",
+                    measure_id=measure.id,
+                    date=date,
+                    memory=measure_df.memory_usage(deep=True).sum(),
+                )
+                measure_df.to_csv(output_file, index=False)
+                logger.info(f"Created measure output at {output_file}")
     if not measure_outputs:
         logger.warn(
             "No matching output files found. You may need to first run:\n"

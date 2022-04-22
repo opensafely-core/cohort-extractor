@@ -1,5 +1,8 @@
 import logging.config
 import os
+from contextlib import contextmanager
+from datetime import timedelta
+from time import process_time
 
 import structlog
 
@@ -60,3 +63,83 @@ def init_logging():
             },
         }
     )
+
+
+def log_stats(logger, **kwargs):
+    logger.info("cohortextractor-stats", **kwargs)
+
+
+@contextmanager
+def log_execution_time(logger, **log_kwargs):
+    sql = log_kwargs.pop("sql", None)
+    if sql:
+        sql_lines = sql.split("\n")
+        if len(sql_lines):
+            sql = "\n".join(sql_lines) + "..."
+        log_kwargs["sql"] = sql
+
+    start = process_time()
+    try:
+        yield
+    finally:
+        elapsed_time = process_time() - start
+        log_kwargs.update(
+            execution_time_secs=elapsed_time,
+            execution_time=str(timedelta(seconds=elapsed_time)),
+        )
+        log_stats(logger, **log_kwargs)
+
+
+class BaseLoggingWrapper:
+    """
+    Wraps a class instance and provides a logger instance as an attribute.
+
+    Subclasses can implement their own methods to override methods on the
+    wrapped instance and make use of the logger.
+
+    Any attribute or method called on the wrapper calls its own implementation if
+    one exists, otherwise calls it on the class instance
+    """
+
+    def __init__(self, logger, wrapped_instance):
+        self.logger = logger
+        self.wrapped_instance = wrapped_instance
+
+    def __getattr__(self, attr):
+        if attr in dir(self):
+            return attr
+        return getattr(self.wrapped_instance, attr)
+
+
+class LoggingCursor(BaseLoggingWrapper):
+    """
+    Provides a database cursor instance that willl log the execution time of any
+    `execute` call
+    """
+
+    def __init__(self, logger, cursor):
+        super().__init__(logger, cursor)
+        self.cursor = cursor
+
+    def __iter__(self):
+        return self.cursor.__iter__()
+
+    def __next__(self):
+        return self.cursor.__next__()
+
+    def execute(self, query, log_desc=None):
+        with log_execution_time(self.logger, sql=query, description=log_desc):
+            self.cursor.execute(query)
+
+
+class LoggingDatabaseConnection(BaseLoggingWrapper):
+    """
+    Provides a database connection instance with a LoggingCursor
+    """
+
+    def __init__(self, logger, database_connection):
+        super().__init__(logger, database_connection)
+        self.db_connection = database_connection
+
+    def cursor(self):
+        return LoggingCursor(self.logger, self.db_connection.cursor())

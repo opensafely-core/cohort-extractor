@@ -17,6 +17,7 @@ from .date_expressions import (
 )
 from .exceptions import DummyDataValidationError
 from .expectation_generators import generate
+from .log_utils import log_stats
 from .pandas_utils import dataframe_from_rows, dataframe_to_file, dataframe_to_rows
 from .process_covariate_definitions import process_covariate_definitions
 from .validate_dummy_data import validate_dummy_data
@@ -46,6 +47,25 @@ class StudyDefinition:
             self.validate_study_definition()
             self.backend = None
 
+        self.log_initial_stats(self._original_covariates)
+
+    def log_initial_stats(self, covariate_definitions):
+        """
+        Log some initial stats about the study definition
+        """
+        log_stats(logger, variable_count=len(covariate_definitions))
+        codelist_counts = {
+            variable_name: len(def_item["codelist"])
+            for variable_name, definition in covariate_definitions.items()
+            for def_item in definition
+            if isinstance(def_item, dict) and "codelist" in def_item
+        }
+        log_stats(logger, variables_using_codelist_count=len(codelist_counts))
+        for variable, codelist_count in codelist_counts.items():
+            log_stats(
+                logger, variable_using_codelist=variable, codelist_size=codelist_count
+            )
+
     def set_index_date(self, index_date):
         """
         Re-evaluate all date expressions in the covariate definitions and the
@@ -64,6 +84,7 @@ class StudyDefinition:
             )
         )
         if self.backend:
+            log_stats(logger, resetting_backend_index_date=index_date)
             self.recreate_backend()
 
     def to_file(
