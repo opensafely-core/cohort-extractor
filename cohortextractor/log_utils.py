@@ -74,8 +74,15 @@ def log_execution_time(logger, **log_kwargs):
     sql = log_kwargs.pop("sql", None)
     if sql:
         sql_lines = sql.split("\n")
-        if len(sql_lines):
-            sql = "\n".join(sql_lines) + "..."
+        first_non_comment_line = next(
+            line.strip() for line in sql_lines if not line.strip().startswith("--")
+        )
+        if first_non_comment_line.startswith("INSERT"):
+            # INSERTS can be lengthy, and are batched in 1000s; logging all the lines here
+            # is not helpful and creates huge logs, so just log the first line for illustration
+            sql = first_non_comment_line + "..."
+        elif len(sql_lines) > 1000:
+            sql = "\n".join(sql_lines[:1000]) + "..."
         log_kwargs["sql"] = sql
 
     start = process_time()

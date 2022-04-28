@@ -119,7 +119,7 @@ def test_stats_logging_tpp_backend(logger):
     # logs in tpp_backend during query execution
     expected_timing_descriptions_and_sql = [
         ("Uploading codelist for event", "CREATE TABLE #tmp1_event_codelist"),
-        (None, "INSERT INTO #tmp1_event_codelist"),
+        (None, "INSERT INTO #tmp1_event_codelist (code, category) VALUES..."),
         ("Query for event", "SELECT * INTO #event"),
         ("Query for population", "SELECT * INTO #population"),
         (
