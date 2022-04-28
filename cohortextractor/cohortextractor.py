@@ -198,6 +198,10 @@ def _generate_cohort(
     if index_date_range:
         log_stats(logger, min_index_date=index_dates[-1], max_index_date=index_dates[0])
 
+    # record if we've logged the SQL for this generate_cohort run
+    # For subsequent runs, we log the timing and the first line of the SQL only, since
+    # the only difference should be the index date
+    sql_logged = False
     for index_date in index_dates:
         log_event = f"generate_cohort for {study_name}"
         if index_date is not None:
@@ -206,6 +210,8 @@ def _generate_cohort(
             if index_date is not None:
                 logger.info(f"Setting index_date to {index_date}")
                 study.set_index_date(index_date)
+                if sql_logged:
+                    study.set_sql_logging(truncate=True)
                 date_suffix = f"_{index_date}"
             else:
                 date_suffix = ""
@@ -223,6 +229,7 @@ def _generate_cohort(
                 logger.info(
                     f"Successfully created cohort and covariates at {output_file}"
                 )
+                sql_logged = True
 
 
 def _generate_date_range(date_range_str):

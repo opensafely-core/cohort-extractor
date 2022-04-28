@@ -72,6 +72,7 @@ def log_stats(logger, **kwargs):
 @contextmanager
 def log_execution_time(logger, **log_kwargs):
     sql = log_kwargs.pop("sql", None)
+    truncate_all_sql = log_kwargs.pop("truncate", False)
     if sql:
         sql_lines = sql.split("\n")
         first_non_comment_line = next(
@@ -81,8 +82,9 @@ def log_execution_time(logger, **log_kwargs):
             # INSERTS can be lengthy, and are batched in 999s; logging all the lines here
             # is not helpful and creates huge logs, so just log the first line for illustration
             sql = "\n".join([first_non_comment_line, "[truncated]"])
-        elif len(sql_lines) > 999:
+        elif len(sql_lines) > 999 or (truncate_all_sql and len(sql_lines) > 1):
             # Limit the SQL logged to a max 1000 lines
+            # Or, if we get the `truncate` flag, truncate any SQL (e.g. for reruns with multiple index dates)
             sql = "\n".join([*sql_lines[:999], "[truncated]"])
         log_kwargs["sql"] = sql
 
@@ -125,9 +127,10 @@ class LoggingCursor(BaseLoggingWrapper):
     `execute` call
     """
 
-    def __init__(self, logger, cursor):
+    def __init__(self, logger, cursor, truncate=False):
         super().__init__(logger, cursor)
         self.cursor = cursor
+        self.truncate = truncate
 
     def __iter__(self):
         return self.cursor.__iter__()
@@ -136,7 +139,9 @@ class LoggingCursor(BaseLoggingWrapper):
         return self.cursor.__next__()
 
     def execute(self, query, log_desc=None):
-        with log_execution_time(self.logger, sql=query, description=log_desc):
+        with log_execution_time(
+            self.logger, sql=query, description=log_desc, truncate=self.truncate
+        ):
             self.cursor.execute(query)
 
 
@@ -145,9 +150,12 @@ class LoggingDatabaseConnection(BaseLoggingWrapper):
     Provides a database connection instance with a LoggingCursor
     """
 
-    def __init__(self, logger, database_connection):
+    def __init__(self, logger, database_connection, truncate=False):
         super().__init__(logger, database_connection)
         self.db_connection = database_connection
+        self.truncate = truncate
 
     def cursor(self):
-        return LoggingCursor(self.logger, self.db_connection.cursor())
+        return LoggingCursor(
+            self.logger, self.db_connection.cursor(), truncate=self.truncate
+        )

@@ -46,7 +46,6 @@ class StudyDefinition:
             # can't rely on the backend to validate the study definition for us
             self.validate_study_definition()
             self.backend = None
-
         self.log_initial_stats(self._original_covariates)
 
     def log_initial_stats(self, covariate_definitions):
@@ -86,6 +85,10 @@ class StudyDefinition:
         if self.backend:
             log_stats(logger, resetting_backend_index_date=index_date)
             self.recreate_backend()
+
+    def set_sql_logging(self, truncate=False):
+        if self.backend:
+            self.backend.truncate_sql_logs = truncate
 
     def to_file(
         self, filename, expectations_population=False, dummy_data_file=None, **kwargs

@@ -46,6 +46,7 @@ class TPPBackend:
         self._therapeutics_table_name = None
         self._ons_cis_table_name = None
         self.queries = self.get_queries(self.covariate_definitions)
+        self.truncate_sql_logs = False
 
     def to_file(self, filename):
         queries = list(self.queries)
@@ -272,7 +273,9 @@ class TPPBackend:
             else:
                 self._db_connection.close()
         self._db_connection = LoggingDatabaseConnection(
-            logger, mssql_dbapi_connection_from_url(self.database_url)
+            logger,
+            mssql_dbapi_connection_from_url(self.database_url),
+            truncate=self.truncate_sql_logs,
         )
         return self._db_connection
 
