@@ -80,10 +80,10 @@ def log_execution_time(logger, **log_kwargs):
         if first_non_comment_line.startswith("INSERT"):
             # INSERTS can be lengthy, and are batched in 999s; logging all the lines here
             # is not helpful and creates huge logs, so just log the first line for illustration
-            sql = first_non_comment_line + "..."
-        elif len(sql_lines) > 1000:
+            sql = "\n".join([first_non_comment_line, "[truncated]"])
+        elif len(sql_lines) > 999:
             # Limit the SQL logged to a max 1000 lines
-            sql = "\n".join(sql_lines[:1000]) + "..."
+            sql = "\n".join([*sql_lines[:999], "[truncated]"])
         log_kwargs["sql"] = sql
 
     start = process_time()
