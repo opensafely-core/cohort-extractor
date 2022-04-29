@@ -50,6 +50,7 @@ class EMISBackend:
         self.temp_table_prefix = self.get_temp_table_prefix()
         self.patient_no_duplicates_table = self.add_table_prefix("patient")
         self.queries = self.get_queries(self.covariate_definitions)
+        self.truncate_sql_logs = False
         logger.info(
             "Initialising EMISBackend", temp_table_prefix=self.temp_table_prefix
         )
@@ -1591,7 +1592,9 @@ class EMISBackend:
         if self._db_connection:
             return self._db_connection
         self._db_connection = LoggingDatabaseConnection(
-            logger, trino_connection_from_url(self.database_url)
+            logger,
+            trino_connection_from_url(self.database_url),
+            truncate=self.truncate_sql_logs,
         )
         return self._db_connection
 

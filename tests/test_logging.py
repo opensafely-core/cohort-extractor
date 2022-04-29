@@ -245,30 +245,75 @@ def test_stats_logging_generate_cohort_with_index_dates(
     ]
 
     index_date_timing_logs = []
-    for index_date in expected_index_dates:
-        index_date_timing_logs.extend(
-            [
+    for i, index_date in enumerate(expected_index_dates):
+        if i == 0:
+            index_date_timing_logs = [
                 # logs in tpp_backend during query execution
-                ("Query for sex", "SELECT * INTO #sex"),
-                ("Query for population", "SELECT * INTO #population"),
+                ("Query for sex", "SELECT * INTO #sex", False),
+                ("Query for population", "SELECT * INTO #population", False),
                 # logs specifically from study.to_file
-                ("Writing results into #final_output", "SELECT * INTO #final_output"),
-                (None, "CREATE INDEX ix_patient_id ON #final_output"),
+                (
+                    "Writing results into #final_output",
+                    "SELECT * INTO #final_output",
+                    False,
+                ),
+                (None, "CREATE INDEX ix_patient_id ON #final_output", False),
                 # results are fetched in batches for writing
-                (None, "SELECT TOP 32000 * FROM #final_output"),
-                (f"write_rows_to_csv {tmp_path}/input_test_{index_date}.csv", ""),
-                ("Deleting '#final_output'", "DROP TABLE #final_output"),
+                (None, "SELECT TOP 32000 * FROM #final_output", False),
+                (
+                    f"write_rows_to_csv {tmp_path}/input_test_{index_date}.csv",
+                    "",
+                    False,
+                ),
+                ("Deleting '#final_output'", "DROP TABLE #final_output", False),
                 # logging the overall timing for the cohort generation
-                (f"generate_cohort for study_definition_test at {index_date}", ""),
+                (
+                    f"generate_cohort for study_definition_test at {index_date}",
+                    "",
+                    False,
+                ),
             ]
-        )
+        else:
+            index_date_timing_logs.extend(
+                [
+                    # logs in tpp_backend during query execution (truncated SQL for any with >1 line of query)
+                    ("Query for sex", "SELECT * INTO #sex", True),
+                    ("Query for population", "SELECT * INTO #population", True),
+                    # logs specifically from study.to_file
+                    (
+                        "Writing results into #final_output",
+                        "SELECT * INTO #final_output",
+                        True,
+                    ),
+                    # This is a single line of SQL output, so no truncation required
+                    (None, "CREATE INDEX ix_patient_id ON #final_output", False),
+                    # results are fetched in batches for writing
+                    # This is a single line of SQL output, so no truncation required
+                    (None, "SELECT TOP 32000 * FROM #final_output", False),
+                    (
+                        f"write_rows_to_csv {tmp_path}/input_test_{index_date}.csv",
+                        "",
+                        False,
+                    ),
+                    ("Deleting '#final_output'", "DROP TABLE #final_output", True),
+                    # logging the overall timing for the cohort generation
+                    (
+                        f"generate_cohort for study_definition_test at {index_date}",
+                        "",
+                        False,
+                    ),
+                ]
+            )
 
     expected_timing_descriptions_and_sql = [
         *index_date_timing_logs,
-        ("generate_cohort for study_definition_test (all index dates)", ""),
+        ("generate_cohort for study_definition_test (all index dates)", "", False),
     ]
     assert_stats_logs(
-        logger, expected_initial_study_def_logs, expected_timing_descriptions_and_sql
+        logger,
+        expected_initial_study_def_logs,
+        expected_timing_descriptions_and_sql,
+        test_for_truncated_sql=True,
     )
 
 
@@ -362,7 +407,10 @@ def test_stats_logging_generate_measures(
 
 
 def assert_stats_logs(
-    log_output, expected_initial_study_def_logs, expected_timing_descriptions
+    log_output,
+    expected_initial_study_def_logs,
+    expected_timing_descriptions,
+    test_for_truncated_sql=False,
 ):
     all_stats_logs = get_stats_logs(log_output.entries)
     for log_params in expected_initial_study_def_logs:
@@ -372,9 +420,22 @@ def assert_stats_logs(
     assert len(timing_logs) == len(expected_timing_descriptions), timing_logs
 
     for i, timing_log in enumerate(timing_logs):
-        description, logged_sql = expected_timing_descriptions[i]
+        actual_logged_sql = timing_log.get("sql", "")
+
+        if test_for_truncated_sql:
+            (
+                description,
+                expected_logged_sql,
+                is_truncated,
+            ) = expected_timing_descriptions[i]
+            assert expected_logged_sql in actual_logged_sql
+            assert actual_logged_sql.endswith("\n[truncated]") == is_truncated
+        else:
+            description, expected_logged_sql = expected_timing_descriptions[i]
+            assert expected_logged_sql in actual_logged_sql
+
         assert timing_log["description"] == description
-        assert logged_sql in timing_log.get("sql", "")
+
         assert re.match(r"\d:\d{2}:\d{2}.\d{6}", timing_log["execution_time"]).group(
             0
         ), timing_log["execution_time"]
