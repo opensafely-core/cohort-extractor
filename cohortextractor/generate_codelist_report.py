@@ -22,20 +22,26 @@ def generate_codelist_report(output_dir, codelist_path, start_date, end_date):
     belonging to the following Monday.
     """
 
+    os.makedirs(output_dir, exist_ok=True)
+    connection = mssql_dbapi_connection_from_url(os.environ["DATABASE_URL"])
+    cursor = connection.cursor()
+
     start_date = quote(start_date)
     end_date = quote(end_date)
 
+    generate_counts(cursor, output_dir, codelist_path, start_date, end_date)
+    generate_list_sizes(cursor, output_dir, end_date)
+
+
+def generate_counts(cursor, output_dir, codelist_path, start_date, end_date):
     codelist = codelist_from_csv(codelist_path, "snomedct")
 
     queries = codelist_queries(codelist) + [
         events_query(start_date, end_date),
-        practice_query(end_date),
+        most_recent_practice_query(end_date),
         population_query(start_date, end_date),
         results_query(),
     ]
-
-    connection = mssql_dbapi_connection_from_url(os.environ["DATABASE_URL"])
-    cursor = connection.cursor()
 
     for query in queries:
         logger.debug(query)
@@ -54,10 +60,31 @@ def generate_codelist_report(output_dir, codelist_path, start_date, end_date):
     new_index = pd.MultiIndex.from_product(counts_per_week.index.levels)
     counts_per_week = counts_per_week.reindex(new_index).fillna(0).astype(int)
 
-    os.makedirs(output_dir, exist_ok=True)
-
     counts_per_code.to_csv(os.path.join(output_dir, "counts_per_code.csv"))
     counts_per_week.to_csv(os.path.join(output_dir, "counts_per_week.csv"))
+
+
+def generate_list_sizes(cursor, output_dir, end_date):
+    """Find the number of patients registered at each practice on the end_date.
+
+    This is to be used as the denominator for deciles charts.  It will lead to some odd
+    rates for practices where the population has changed a lot, but is acceptable while
+    we do not identify individual practices.
+
+    See https://github.com/opensafely-core/interactive.opensafely.org/issues/76 for
+    further discussion.
+    """
+
+    query = f"""
+    SELECT Organisation_ID, COUNT(*)
+    FROM RegistrationHistory
+    WHERE StartDate <= {end_date} AND EndDate > {end_date}
+    GROUP BY Organisation_ID
+    """
+    logger.debug(query)
+    cursor.execute(query)
+    list_sizes = pd.DataFrame(list(cursor), columns=["practice", "list_size"])
+    list_sizes.to_csv(os.path.join(output_dir, "list_sizes.csv"), index=False)
 
 
 def codelist_queries(codelist):
@@ -96,7 +123,7 @@ def events_query(start_date, end_date):
     """
 
 
-def practice_query(end_date):
+def most_recent_practice_query(end_date):
     # Note that this does not quite match patients.registered_practice_as_of(end_date),
     # since a deceased patient might have been deregistered by the end date.
     #
@@ -104,7 +131,7 @@ def practice_query(end_date):
     # WHERE clause would contain an extra `AND EndDate > {end_date}`.
     return f"""
     SELECT * INTO #practice FROM (
-        SELECT Patient_ID, t.Organisation_ID
+        SELECT Patient_ID, Organisation_ID
         FROM (
             SELECT RegistrationHistory.Patient_ID, Organisation_ID,
             ROW_NUMBER() OVER (
@@ -114,9 +141,7 @@ def practice_query(end_date):
             FROM RegistrationHistory
             WHERE StartDate <= {end_date}
         ) t
-        LEFT JOIN Organisation
-        ON Organisation.Organisation_ID = t.Organisation_ID
-        WHERE t.rownum = 1
+        WHERE rownum = 1
     ) t
     """
 

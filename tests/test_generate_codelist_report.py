@@ -102,6 +102,11 @@ def test_generate_codelist_report(tmpdir):
     current_patient = Patient()
     current_patient.RegistrationHistory = [
         RegistrationHistory(
+            StartDate="2000-01-01",
+            EndDate="2001-01-01",
+            Organisation=Organisation(Organisation_ID=0),
+        ),
+        RegistrationHistory(
             StartDate="2001-01-01",
             EndDate="9999-01-01",
             Organisation=Organisation(Organisation_ID=1),
@@ -180,3 +185,8 @@ def test_generate_codelist_report(tmpdir):
         tmpdir / "counts_per_week.csv", dtype={"date": "object"}
     ).set_index(["date", "practice"])
     assert dict(counts_per_week["num"]) == expected_counts_per_week
+
+    # Check list_sizes is as expected.  Only practice 1 has any patients registered on
+    # the end date, and it only has 1.
+    list_sizes = pd.read_csv(tmpdir / "list_sizes.csv").set_index("practice")
+    assert dict(list_sizes["list_size"]) == {1: 1}
