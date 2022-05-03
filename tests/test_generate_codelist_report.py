@@ -97,6 +97,35 @@ def test_generate_codelist_report(tmpdir):
         ("2022-01-31", 2): 1,
     }
 
+    set_up_patients(event_data)
+
+    # Generate the codelist report.
+    generate_codelist_report(
+        str(tmpdir), os.path.join(tmpdir, "codelist.csv"), start_date, end_date
+    )
+
+    # Check counts_per_code is as expected.
+    counts_per_code = pd.read_csv(
+        tmpdir / "counts_per_code.csv", dtype={"code": "object"}
+    ).set_index("code")
+    assert dict(counts_per_code["num"]) == expected_counts_per_code
+
+    # Check counts_per_week_per_practice is as expected.
+    counts_per_week_per_practice = pd.read_csv(
+        tmpdir / "counts_per_week_per_practice.csv", dtype={"date": "object"}
+    ).set_index(["date", "practice"])
+    assert (
+        dict(counts_per_week_per_practice["num"])
+        == expected_counts_per_week_per_practice
+    )
+
+    # Check list_sizes is as expected.  Only practice 1 has any patients registered on
+    # the end date, and it only has 1.
+    list_sizes = pd.read_csv(tmpdir / "list_sizes.csv").set_index("practice")
+    assert dict(list_sizes["list_size"]) == {1: 1}
+
+
+def set_up_patients(event_data):
     # This patient is in the target population, because they're still registered at the
     # practice.
     current_patient = Patient()
@@ -110,7 +139,7 @@ def test_generate_codelist_report(tmpdir):
             StartDate="2001-01-01",
             EndDate="9999-01-01",
             Organisation=Organisation(Organisation_ID=1),
-        )
+        ),
     ]
     current_patient.CodedEventsSnomed = [
         CodedEventSnomed(ConsultationDate=date, ConceptID=code)
@@ -168,28 +197,3 @@ def test_generate_codelist_report(tmpdir):
     session.add(former_patient)
     session.add(long_dead_patient)
     session.commit()
-
-    # Generate the codelist report.
-    generate_codelist_report(
-        str(tmpdir), os.path.join(tmpdir, "codelist.csv"), start_date, end_date
-    )
-
-    # Check counts_per_code is as expected.
-    counts_per_code = pd.read_csv(
-        tmpdir / "counts_per_code.csv", dtype={"code": "object"}
-    ).set_index("code")
-    assert dict(counts_per_code["num"]) == expected_counts_per_code
-
-    # Check counts_per_week_per_practice is as expected.
-    counts_per_week_per_practice = pd.read_csv(
-        tmpdir / "counts_per_week_per_practice.csv", dtype={"date": "object"}
-    ).set_index(["date", "practice"])
-    assert (
-        dict(counts_per_week_per_practice["num"])
-        == expected_counts_per_week_per_practice
-    )
-
-    # Check list_sizes is as expected.  Only practice 1 has any patients registered on
-    # the end date, and it only has 1.
-    list_sizes = pd.read_csv(tmpdir / "list_sizes.csv").set_index("practice")
-    assert dict(list_sizes["list_size"]) == {1: 1}
