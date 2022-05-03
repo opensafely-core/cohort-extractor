@@ -42,6 +42,7 @@ def generate_codelist_report(output_dir, codelist_path, start_date, end_date):
         cursor.execute(query)
 
     counts = pd.DataFrame(list(cursor), columns=["code", "date", "practice", "num"])
+    counts["date"] = pd.to_datetime(counts["date"])
 
     counts_per_code = counts.groupby("code")["num"].sum()
 
@@ -82,12 +83,16 @@ def codelist_queries(codelist):
 def events_query(start_date, end_date):
     return f"""
     SELECT * INTO #events FROM (
-        SELECT Patient_ID, ConceptID, ConsultationDate
+        SELECT
+            Patient_ID,
+            ConceptID,
+            CAST(ConsultationDate AS date) AS ConsultationDate
         FROM CodedEvent_SNOMED
         INNER JOIN #codelist
             ON CodedEvent_SNOMED.ConceptID = #codelist.code
-        WHERE ConsultationDate BETWEEN {start_date} AND {end_date}
+        WHERE CAST(ConsultationDate AS date) BETWEEN {start_date} AND {end_date}
     ) t
+    GROUP BY Patient_ID, ConceptID, ConsultationDate
     """
 
 
