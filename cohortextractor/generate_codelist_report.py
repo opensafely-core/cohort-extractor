@@ -22,6 +22,9 @@ def generate_codelist_report(output_dir, codelist_path, start_date, end_date):
     belonging to the following Monday.
     """
 
+    start_date = quote(start_date)
+    end_date = quote(end_date)
+
     codelist = codelist_from_csv(codelist_path, "snomedct")
 
     queries = codelist_queries(codelist) + [
@@ -69,8 +72,6 @@ def codelist_queries(codelist):
 
 
 def events_query(start_date, end_date):
-    start_date = quote(start_date)
-    end_date = quote(end_date)
     return f"""
     SELECT * INTO #events FROM (
         SELECT Patient_ID, ConceptID, ConsultationDate
@@ -85,8 +86,6 @@ def events_query(start_date, end_date):
 def population_query(start_date, end_date):
     # We're interested in patients who are registered on end_date, or who have died
     # between start_date and end_date.
-    start_date = quote(start_date)
-    end_date = quote(end_date)
     return f"""
     SELECT * INTO #population FROM (
         SELECT DISTINCT Patient.Patient_ID
