@@ -84,7 +84,7 @@ def test_generate_codelist_report(tmpdir):
     ]
 
     expected_counts_per_code = {"11111111": 24, "22222222": 6}
-    expected_counts_per_week = {
+    expected_counts_per_week_per_practice = {
         ("2022-01-03", 1): 2,
         ("2022-01-10", 1): 6,
         ("2022-01-17", 1): 0,
@@ -180,11 +180,14 @@ def test_generate_codelist_report(tmpdir):
     ).set_index("code")
     assert dict(counts_per_code["num"]) == expected_counts_per_code
 
-    # Check counts_per_week is as expected.
-    counts_per_week = pd.read_csv(
-        tmpdir / "counts_per_week.csv", dtype={"date": "object"}
+    # Check counts_per_week_per_practice is as expected.
+    counts_per_week_per_practice = pd.read_csv(
+        tmpdir / "counts_per_week_per_practice.csv", dtype={"date": "object"}
     ).set_index(["date", "practice"])
-    assert dict(counts_per_week["num"]) == expected_counts_per_week
+    assert (
+        dict(counts_per_week_per_practice["num"])
+        == expected_counts_per_week_per_practice
+    )
 
     # Check list_sizes is as expected.  Only practice 1 has any patients registered on
     # the end date, and it only has 1.

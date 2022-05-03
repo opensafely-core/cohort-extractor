@@ -26,8 +26,8 @@ def generate_counts(cursor, output_dir, codelist_path, start_date, end_date):
     """Generate a pair of CSV files reporting usage of codes in given codelist.
 
         * counts_per_code counts how many times each code appears in the given timeframe
-        * counts_per_week counts how many times all the codes appear in each week in the
-            given timeframe
+        * counts_per_week_per_practice counts how many times all the codes appear in
+            each week in the given timeframe, for each practice
 
     Weeks begin on a Monday, and a code appearing on (say) a Wednesday is counted as
     belonging to the following Monday.
@@ -54,13 +54,19 @@ def generate_counts(cursor, output_dir, codelist_path, start_date, end_date):
     # Computing counts per practice per week  is slightly more involved than computing
     # counts per code, because we need to account for weeks when a matching code is not
     # recorded at a practice.
-    grouper = pd.Grouper(key="date", freq="W-MON")
-    counts_per_week = counts.groupby(["practice", grouper])["num"].sum()
-    new_index = pd.MultiIndex.from_product(counts_per_week.index.levels)
-    counts_per_week = counts_per_week.reindex(new_index).fillna(0).astype(int)
+    week_grouper = pd.Grouper(key="date", freq="W-MON")
+    counts_per_week_per_practice = counts.groupby(["practice", week_grouper])[
+        "num"
+    ].sum()
+    new_index = pd.MultiIndex.from_product(counts_per_week_per_practice.index.levels)
+    counts_per_week_per_practice = (
+        counts_per_week_per_practice.reindex(new_index).fillna(0).astype(int)
+    )
 
     counts_per_code.to_csv(os.path.join(output_dir, "counts_per_code.csv"))
-    counts_per_week.to_csv(os.path.join(output_dir, "counts_per_week.csv"))
+    counts_per_week_per_practice.to_csv(
+        os.path.join(output_dir, "counts_per_week_per_practice.csv")
+    )
 
 
 def generate_list_sizes(cursor, output_dir, end_date):
