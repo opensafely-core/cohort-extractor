@@ -67,14 +67,7 @@ def test_generate_codelist_report(tmpdir):
         ("2022-01-08", "11111111"),
         ("2022-01-09", "11111111"),
         ("2022-01-10", "22222222"),
-        # Included in w/e 2022-01-17
-        ("2022-01-11", "11111111"),
-        ("2022-01-12", "11111111"),
-        ("2022-01-13", "11111111"),
-        ("2022-01-14", "33333333"),  # Not included: not in codelist
-        ("2022-01-15", "11111111"),
-        ("2022-01-16", "11111111"),
-        ("2022-01-17", "11111111"),
+        # No events in w/e 2022-01-17
         # Included in w/e 2022-01-24
         ("2022-01-18", "22222222"),
         ("2022-01-19", "11111111"),
@@ -89,14 +82,18 @@ def test_generate_codelist_report(tmpdir):
         ("2022-01-26", "22222222"),
     ]
 
-    #
-    expected_counts_per_code = {"11111111": 36, "22222222": 6}
+    expected_counts_per_code = {"11111111": 24, "22222222": 6}
     expected_counts_per_week = {
-        "2022-01-03": 4,
-        "2022-01-10": 12,
-        "2022-01-17": 12,
-        "2022-01-24": 12,
-        "2022-01-31": 2,
+        ("2022-01-03", 1): 2,
+        ("2022-01-10", 1): 6,
+        ("2022-01-17", 1): 0,
+        ("2022-01-24", 1): 6,
+        ("2022-01-31", 1): 1,
+        ("2022-01-03", 2): 2,
+        ("2022-01-10", 2): 6,
+        ("2022-01-17", 2): 0,
+        ("2022-01-24", 2): 6,
+        ("2022-01-31", 2): 1,
     }
 
     # This patient is in the target population, because they're still registered at the
@@ -104,7 +101,9 @@ def test_generate_codelist_report(tmpdir):
     current_patient = Patient()
     current_patient.RegistrationHistory = [
         RegistrationHistory(
-            StartDate="2001-01-01", EndDate="9999-01-01", Organisation=Organisation()
+            StartDate="2001-01-01",
+            EndDate="9999-01-01",
+            Organisation=Organisation(Organisation_ID=1),
         )
     ]
     current_patient.CodedEventsSnomed = [
@@ -117,7 +116,9 @@ def test_generate_codelist_report(tmpdir):
     dead_patient = Patient(DateOfDeath="2022-01-15")
     dead_patient.RegistrationHistory = [
         RegistrationHistory(
-            StartDate="2001-01-01", EndDate="2022-01-15", Organisation=Organisation()
+            StartDate="2001-01-01",
+            EndDate="2022-01-15",
+            Organisation=Organisation(Organisation_ID=2),
         )
     ]
     dead_patient.CodedEventsSnomed = [
@@ -130,7 +131,9 @@ def test_generate_codelist_report(tmpdir):
     former_patient = Patient()
     former_patient.RegistrationHistory = [
         RegistrationHistory(
-            StartDate="2001-01-01", EndDate="2022-01-15", Organisation=Organisation()
+            StartDate="2001-01-01",
+            EndDate="2022-01-15",
+            Organisation=Organisation(Organisation_ID=3),
         )
     ]
     former_patient.CodedEventsSnomed = [
@@ -143,7 +146,9 @@ def test_generate_codelist_report(tmpdir):
     long_dead_patient = Patient(DateOfDeath="2011-12-31")
     long_dead_patient.RegistrationHistory = [
         RegistrationHistory(
-            StartDate="2001-01-01", EndDate="2011-12-31", Organisation=Organisation()
+            StartDate="2001-01-01",
+            EndDate="2011-12-31",
+            Organisation=Organisation(Organisation_ID=4),
         )
     ]
     long_dead_patient.CodedEventsSnomed = [
@@ -163,14 +168,14 @@ def test_generate_codelist_report(tmpdir):
         str(tmpdir), os.path.join(tmpdir, "codelist.csv"), start_date, end_date
     )
 
-    # Check counts_per_week is as expected.
+    # Check counts_per_code is as expected.
     counts_per_code = pd.read_csv(
         tmpdir / "counts_per_code.csv", dtype={"code": "object"}
     ).set_index("code")
     assert dict(counts_per_code["num"]) == expected_counts_per_code
 
-    # Check counts_per_code is as expected.
+    # Check counts_per_week is as expected.
     counts_per_week = pd.read_csv(
         tmpdir / "counts_per_week.csv", dtype={"date": "object"}
-    ).set_index("date")
+    ).set_index(["date", "practice"])
     assert dict(counts_per_week["num"]) == expected_counts_per_week

@@ -29,6 +29,7 @@ def generate_codelist_report(output_dir, codelist_path, start_date, end_date):
 
     queries = codelist_queries(codelist) + [
         events_query(start_date, end_date),
+        practice_query(end_date),
         population_query(start_date, end_date),
         results_query(),
     ]
@@ -40,10 +41,17 @@ def generate_codelist_report(output_dir, codelist_path, start_date, end_date):
         logger.debug(query)
         cursor.execute(query)
 
-    counts = pd.DataFrame(list(cursor), columns=["code", "date", "num"])
+    counts = pd.DataFrame(list(cursor), columns=["code", "date", "practice", "num"])
 
     counts_per_code = counts.groupby("code")["num"].sum()
-    counts_per_week = counts.groupby(pd.Grouper(key="date", freq="W-MON"))["num"].sum()
+
+    # Computing counts per practice per week  is slightly more involved than computing
+    # counts per code, because we need to account for weeks when a matching code is not
+    # recorded at a practice.
+    grouper = pd.Grouper(key="date", freq="W-MON")
+    counts_per_week = counts.groupby(["practice", grouper])["num"].sum()
+    new_index = pd.MultiIndex.from_product(counts_per_week.index.levels)
+    counts_per_week = counts_per_week.reindex(new_index).fillna(0).astype(int)
 
     os.makedirs(output_dir, exist_ok=True)
 
@@ -83,6 +91,31 @@ def events_query(start_date, end_date):
     """
 
 
+def practice_query(end_date):
+    # Note that this does not quite match patients.registered_practice_as_of(end_date),
+    # since a deceased patient might have been deregistered by the end date.
+    #
+    # In patients.registered_practice_as_of(end_date), the innermost SELECT query's
+    # WHERE clause would contain an extra `AND EndDate > {end_date}`.
+    return f"""
+    SELECT * INTO #practice FROM (
+        SELECT Patient_ID, t.Organisation_ID
+        FROM (
+            SELECT RegistrationHistory.Patient_ID, Organisation_ID,
+            ROW_NUMBER() OVER (
+                PARTITION BY RegistrationHistory.Patient_ID
+                ORDER BY StartDate DESC, EndDate DESC, Registration_ID
+            ) AS rownum
+            FROM RegistrationHistory
+            WHERE StartDate <= {end_date}
+        ) t
+        LEFT JOIN Organisation
+        ON Organisation.Organisation_ID = t.Organisation_ID
+        WHERE t.rownum = 1
+    ) t
+    """
+
+
 def population_query(start_date, end_date):
     # We're interested in patients who are registered on end_date, or who have died
     # between start_date and end_date.
@@ -102,9 +135,15 @@ def population_query(start_date, end_date):
 
 def results_query():
     return """
-    SELECT ConceptID AS code, ConsultationDate AS date, COUNT(*) AS num
+    SELECT
+        ConceptID AS code,
+        ConsultationDate AS date,
+        Organisation_ID AS practice,
+        COUNT(*) AS num
     FROM #events
     INNER JOIN #population
         ON #events.Patient_ID = #population.Patient_ID
-    GROUP BY ConceptID, ConsultationDate
+    INNER JOIN #practice
+        ON #population.Patient_ID = #practice.Patient_ID
+    GROUP BY Organisation_ID, ConceptID, ConsultationDate
     """
