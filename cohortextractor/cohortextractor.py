@@ -12,6 +12,7 @@ import os
 import pathlib
 import re
 import sys
+import traceback
 from argparse import ArgumentParser
 from collections import defaultdict
 from io import BytesIO
@@ -34,6 +35,7 @@ from cohortextractor.exceptions import DummyDataValidationError
 from cohortextractor.generate_codelist_report import generate_codelist_report
 
 from .log_utils import log_execution_time, log_stats
+from .mssql_utils import database_exceptions
 
 logger = structlog.get_logger()
 
@@ -772,6 +774,21 @@ def main():
         except DummyDataValidationError as e:
             print(f"Dummy data error: {e}")
             sys.exit(1)
+        except database_exceptions() as e:
+            traceback.print_exc()
+            # Exit with specific exit codes to help identify known issues
+            if "Unexpected EOF from the server" in str(e):
+                logger.error(f"Intermittent database error: {e}")
+                sys.exit(151)
+            if "Invalid object name 'CodedEvent_SNOMED'" in str(e):
+                logger.error(
+                    "CodedEvent_SNOMED table is currently not available.\n"
+                    "This is likely due to regular database maintenance."
+                )
+                sys.exit(152)
+            logger.error(f"Database error: {e}")
+            sys.exit(153)
+
     elif options.which == "generate_measures":
         generate_measures(
             options.output_dir,

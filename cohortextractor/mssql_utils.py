@@ -193,3 +193,23 @@ class BatchFetcher:
                     time.sleep(sleep)
                     sleep *= self.backoff_factor
                     self.cursor = None
+
+
+def database_exceptions():
+    """
+    Returns specific database errors we're interested in catching
+
+    We avoid importing this immediately for similar reasons described above,
+    so we can create a TPPBackend instance without needing a MSSQL
+    database driver installed
+    """
+    try:
+        import pymssql
+
+        return (
+            pymssql._pymssql.OperationalError,
+            pymssql._pymssql.ProgrammingError,
+            pymssql._pymssql.IntegrityError,
+        )
+    except ImportError:
+        return ()
