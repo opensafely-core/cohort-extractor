@@ -35,7 +35,6 @@ from cohortextractor.exceptions import DummyDataValidationError
 from cohortextractor.generate_codelist_report import generate_codelist_report
 
 from .log_utils import log_execution_time, log_stats
-from .mssql_utils import database_exceptions
 
 logger = structlog.get_logger()
 
@@ -774,20 +773,25 @@ def main():
         except DummyDataValidationError as e:
             print(f"Dummy data error: {e}")
             sys.exit(1)
-        except database_exceptions() as e:
+        except Exception as e:
             traceback.print_exc()
-            # Exit with specific exit codes to help identify known issues
-            if "Unexpected EOF from the server" in str(e):
-                logger.error(f"Intermittent database error: {e}")
-                sys.exit(151)
-            if "Invalid object name 'CodedEvent_SNOMED'" in str(e):
-                logger.error(
-                    "CodedEvent_SNOMED table is currently not available.\n"
-                    "This is likely due to regular database maintenance."
-                )
-                sys.exit(152)
-            logger.error(f"Database error: {e}")
-            sys.exit(153)
+            # Checking for "DatabaseError" in the MRO means we can identify database errors without
+            # referencing a specific driver.  Both pymssql and presto/trino-python-client raise
+            # exceptions derived from a DatabaseError parent class
+            if "DatabaseError" in str(e.__class__.mro()):
+                # Exit with specific exit codes to help identify known issues
+                if "Unexpected EOF from the server" in str(e):
+                    logger.error(f"Intermittent database error: {e}")
+                    sys.exit(3)
+                if "Invalid object name 'CodedEvent_SNOMED'" in str(e):
+                    logger.error(
+                        "CodedEvent_SNOMED table is currently not available.\n"
+                        "This is likely due to regular database maintenance."
+                    )
+                    sys.exit(4)
+                logger.error(f"Database error: {e}")
+                sys.exit(5)
+            sys.exit(1)
 
     elif options.which == "generate_measures":
         generate_measures(
