@@ -12,6 +12,7 @@ import os
 import pathlib
 import re
 import sys
+import traceback
 from argparse import ArgumentParser
 from collections import defaultdict
 from io import BytesIO
@@ -772,6 +773,29 @@ def main():
         except DummyDataValidationError as e:
             print(f"Dummy data error: {e}")
             sys.exit(1)
+        except Exception as e:
+            # Checking for "DatabaseError" in the MRO means we can identify database errors without
+            # referencing a specific driver.  Both pymssql and presto/trino-python-client raise
+            # exceptions derived from a DatabaseError parent class
+
+            # Ignore errors which don't look like database errors
+            if "DatabaseError" not in str(e.__class__.mro()):
+                raise
+
+            traceback.print_exc()
+            # Exit with specific exit codes to help identify known issues
+            if "Unexpected EOF from the server" in str(e):
+                logger.error(f"Intermittent database error: {e}")
+                sys.exit(3)
+            if "Invalid object name 'CodedEvent_SNOMED'" in str(e):
+                logger.error(
+                    "CodedEvent_SNOMED table is currently not available.\n"
+                    "This is likely due to regular database maintenance."
+                )
+                sys.exit(4)
+            logger.error(f"Database error: {e}")
+            sys.exit(5)
+
     elif options.which == "generate_measures":
         generate_measures(
             options.output_dir,

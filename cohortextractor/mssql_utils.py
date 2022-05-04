@@ -33,10 +33,12 @@ def mssql_dbapi_connection_from_url(url):
     # database driver installed (which complicates local installing).
     params = mssql_connection_params_from_url(url)
 
-    # For more background on why we use cTDS and why we support multiple
+    # For more background on why we historically used cTDS and why we support multiple
     # database drivers see:
     # https://github.com/opensafely/cohort-extractor/pull/286
     #
+    # And for background on the switch to pymssql for both testing and production
+    # https://github.com/opensafely-core/cohort-extractor/issues/704
     try:
         import pymssql
     except ImportError:
@@ -61,11 +63,8 @@ def mssql_dbapi_connection_from_url(url):
     raise ImportError(
         "Unable to import database driver, tried `pymssql`, `ctds` and `pyodbc`\n"
         "\n"
-        "We use `ctds` in production. If you are on Linux the correct version is "
-        "specified in the `requirements.prod.txt` file.\n"
-        "\n"
-        "Installation instructions for other platforms can be found at:\n"
-        "https://zillow.github.io/ctds/install.html"
+        "We use `pymssql` in production. The correct version is specified in "
+        "the `requirements.prod.txt` file."
     )
 
 
