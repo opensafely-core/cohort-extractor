@@ -71,29 +71,53 @@ def log_stats(logger, **kwargs):
 
 @contextmanager
 def log_execution_time(logger, **log_kwargs):
+    log_kwargs["state"] = "started"
     sql = log_kwargs.pop("sql", None)
     truncate_all_sql = log_kwargs.pop("truncate", False)
+
+    def _truncate(lines):
+        return "\n".join([*lines, "[truncated]"])
+
     if sql:
         sql_lines = sql.split("\n")
         first_non_comment_line = next(
-            line.strip() for line in sql_lines if not line.strip().startswith("--")
+            line.strip()
+            for line in sql_lines
+            if line and not line.strip().startswith("--")
         )
         if first_non_comment_line.startswith("INSERT"):
             # INSERTS can be lengthy, and are batched in 999s; logging all the lines here
             # is not helpful and creates huge logs, so just log the first line for illustration
-            sql = "\n".join([first_non_comment_line, "[truncated]"])
+            sql = _truncate([first_non_comment_line])
         elif len(sql_lines) > 999 or (truncate_all_sql and len(sql_lines) > 1):
             # Limit the SQL logged to a max 1000 lines
             # Or, if we get the `truncate` flag, truncate any SQL (e.g. for reruns with multiple index dates)
-            sql = "\n".join([*sql_lines[:999], "[truncated]"])
+            sql = _truncate(sql_lines[:999])
         log_kwargs["sql"] = sql
 
     start = process_time()
+    log_stats(logger, timing="start", time=start, **log_kwargs)
+
     try:
         yield
+    except Exception:
+        # exceptions will be raised where they occur; just log that it happened
+        log_kwargs["state"] = "error"
+        raise
+    else:
+        log_kwargs["state"] = "ok"
     finally:
-        elapsed_time = process_time() - start
+        stop = process_time()
+        if sql and not sql.endswith("[truncated]") and len(sql_lines) > 2:
+            # if applicable we logged the full SQL at the start of the timing block
+            # Log just the truncated first line here at the end to help match up logs
+            # Only truncate if the total lines is > 2; this will keep a comment line
+            # with a single line of SQL
+            log_kwargs["sql"] = _truncate([first_non_comment_line])
+        elapsed_time = stop - start
         log_kwargs.update(
+            timing="stop",
+            time=stop,
             execution_time_secs=elapsed_time,
             execution_time=str(timedelta(seconds=elapsed_time)),
         )

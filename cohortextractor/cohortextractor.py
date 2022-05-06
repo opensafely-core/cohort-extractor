@@ -153,7 +153,7 @@ def generate_cohort(
         raise DummyDataValidationError(msg)
     for study_name, suffix in study_definitions:
         with log_execution_time(
-            logger, description=f"generate_cohort for {study_name} (all index dates)"
+            logger, description="generate_cohort", study=study_name, index_date="all"
         ):
             _generate_cohort(
                 output_dir,
@@ -204,10 +204,10 @@ def _generate_cohort(
     # the only difference should be the index date
     sql_logged = False
     for index_date in index_dates:
-        log_event = f"generate_cohort for {study_name}"
+        log_kwargs = dict(description="generate_cohort", study=study_name)
         if index_date is not None:
-            log_event += f" at {index_date}"
-        with log_execution_time(logger, description=log_event):
+            log_kwargs.update(index_date=index_date)
+        with log_execution_time(logger, **log_kwargs):
             if index_date is not None:
                 logger.info(f"Setting index_date to {index_date}")
                 study.set_index_date(index_date)
@@ -309,7 +309,7 @@ def generate_measures(
 
     for study_name, suffix in study_definitions:
         with log_execution_time(
-            logger, description="generate_measures (all input files)", study=study_name
+            logger, description="generate_measures", study=study_name, input_file="all"
         ):
             _generate_measures(
                 output_dir,
