@@ -1,3 +1,4 @@
+import itertools
 import logging.config
 import os
 from contextlib import contextmanager
@@ -5,6 +6,8 @@ from datetime import timedelta
 from time import process_time
 
 import structlog
+
+timing_log_counter = itertools.count()
 
 pre_chain = [
     structlog.stdlib.add_log_level,
@@ -71,6 +74,7 @@ def log_stats(logger, **kwargs):
 
 @contextmanager
 def log_execution_time(logger, **log_kwargs):
+    log_kwargs["timing_id"] = next(timing_log_counter)
     log_kwargs["state"] = "started"
     sql = log_kwargs.pop("sql", None)
     truncate_all_sql = log_kwargs.pop("truncate", False)
@@ -108,12 +112,9 @@ def log_execution_time(logger, **log_kwargs):
         log_kwargs["state"] = "ok"
     finally:
         stop = process_time()
-        if sql and not sql.endswith("[truncated]") and len(sql_lines) > 2:
-            # if applicable we logged the full SQL at the start of the timing block
-            # Log just the truncated first line here at the end to help match up logs
-            # Only truncate if the total lines is > 2; this will keep a comment line
-            # with a single line of SQL
-            log_kwargs["sql"] = _truncate([first_non_comment_line])
+        # To reduce noise, don't log the sql at the end of the query.  We can rely on the query_id to
+        # match up logs
+        log_kwargs.pop("sql", None)
         elapsed_time = stop - start
         log_kwargs.update(
             timing="stop",
