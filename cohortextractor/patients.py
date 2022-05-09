@@ -1165,7 +1165,9 @@ def address_as_of(
         return_expectations: a dict defining the `rate` and the `categories` returned with ratios
 
     Returns:
-        list: of integers for `rural_urban_classification` and `index_of_multiple_deprivation`, strings for `msoa`
+        list: of integers for `rural_urban_classification` and `index_of_multiple_deprivation`, strings for `msoa`.
+            (IMD is a ranking from 1 to around 33000 (the number of LSOAs in England), where 1 represents most
+        deprived.)
 
     Raises:
         ValueError: if unsupported `returning` argument is provided
