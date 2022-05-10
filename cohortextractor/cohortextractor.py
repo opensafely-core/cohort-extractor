@@ -31,6 +31,7 @@ from pandas.api.types import (
 )
 
 import cohortextractor
+from cohortextractor import flags
 from cohortextractor.exceptions import DummyDataValidationError
 from cohortextractor.generate_codelist_report import generate_codelist_report
 
@@ -698,6 +699,10 @@ def main():
         help="Do not regenerate data if output file already exists",
         action="store_true",
     )
+    generate_cohort_parser.add_argument(
+        "--with-end-date-fix",
+        action="store_true",
+    )
     cohort_method_group = generate_cohort_parser.add_mutually_exclusive_group()
     cohort_method_group.add_argument(
         "--expectations-population",
@@ -781,6 +786,11 @@ def main():
     elif not hasattr(options, "which"):
         parser.print_help()
     elif options.which == "generate_cohort":
+        # This defaults to False for now (when --with-end-date-fix is not provided) so that
+        # study outputs don't change unexpectedly.  After some more investigation, we'll
+        # change the default to True (via --without-end-date-fix).
+        flags.WITH_END_DATE_FIX = bool(options.with_end_date_fix)
+
         if options.database_url:
             os.environ["DATABASE_URL"] = options.database_url
         if options.temp_database_name:
