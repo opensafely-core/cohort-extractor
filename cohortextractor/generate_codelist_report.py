@@ -20,6 +20,7 @@ def generate_codelist_report(output_dir, codelist_path, start_date, end_date):
 
     generate_counts(cursor, output_dir, codelist_path, start_date, end_date)
     generate_list_sizes(cursor, output_dir, end_date)
+    generate_patient_count(cursor, output_dir)
 
 
 def generate_counts(cursor, output_dir, codelist_path, start_date, end_date):
@@ -91,6 +92,23 @@ def generate_list_sizes(cursor, output_dir, end_date):
     cursor.execute(query)
     list_sizes = pd.DataFrame(list(cursor), columns=["practice", "list_size"])
     list_sizes.to_csv(os.path.join(output_dir, "list_sizes.csv"), index=False)
+
+
+def generate_patient_count(cursor, output_dir):
+    """Generate a CSV file reporting the number of patients in the population with an
+    event between the start_date and end_date.
+    """
+
+    query = """
+    SELECT COUNT(DISTINCT #population.Patient_ID)
+    FROM #events
+    INNER JOIN #population
+        ON #events.Patient_ID = #population.Patient_ID
+    """
+    logger.debug(query)
+    cursor.execute(query)
+    patient_count = pd.DataFrame(list(cursor), columns=["num"])
+    patient_count.to_csv(os.path.join(output_dir, "patient_count.csv"), index=False)
 
 
 def codelist_queries(codelist):
