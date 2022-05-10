@@ -120,12 +120,23 @@ def test_generate_codelist_report(tmpdir):
     )
 
     # Check list_sizes is as expected.  Only practice 1 has any patients registered on
-    # the end date, and it only has 1.
+    # the end date, and it has 2 patients.
+    #   * current_patient
+    #   * current_patient_no_events
     list_sizes = pd.read_csv(tmpdir / "list_sizes.csv").set_index("practice")
-    assert dict(list_sizes["list_size"]) == {1: 1}
+    assert dict(list_sizes["list_size"]) == {1: 2}
+
+    # Check patient_count is as expected.  There are 2 patients in the population with
+    # matching events:
+    #   * current_patient
+    #   * dead_patient
+    patient_count = pd.read_csv(tmpdir / "patient_count.csv")
+    assert patient_count["num"][0] == 2
 
 
 def set_up_patients(event_data):
+    organisations = [Organisation(Organisation_ID=ix) for ix in range(5)]
+
     # This patient is in the target population, because they're still registered at the
     # practice.
     current_patient = Patient()
@@ -133,17 +144,28 @@ def set_up_patients(event_data):
         RegistrationHistory(
             StartDate="2000-01-01",
             EndDate="2001-01-01",
-            Organisation=Organisation(Organisation_ID=0),
+            Organisation=organisations[0],
         ),
         RegistrationHistory(
             StartDate="2001-01-01",
             EndDate="9999-01-01",
-            Organisation=Organisation(Organisation_ID=1),
+            Organisation=organisations[1],
         ),
     ]
     current_patient.CodedEventsSnomed = [
         CodedEventSnomed(ConsultationDate=date, ConceptID=code)
         for date, code in event_data
+    ]
+
+    # This patient is in the target population, because they're still registered at the
+    # practice, but they have no events.
+    current_patient_no_events = Patient()
+    current_patient_no_events.RegistrationHistory = [
+        RegistrationHistory(
+            StartDate="2001-01-01",
+            EndDate="9999-01-01",
+            Organisation=organisations[1],
+        ),
     ]
 
     # This patient is in the target population, because they died during the timeframe
@@ -153,7 +175,7 @@ def set_up_patients(event_data):
         RegistrationHistory(
             StartDate="2001-01-01",
             EndDate="2022-01-15",
-            Organisation=Organisation(Organisation_ID=2),
+            Organisation=organisations[2],
         )
     ]
     dead_patient.CodedEventsSnomed = [
@@ -168,7 +190,7 @@ def set_up_patients(event_data):
         RegistrationHistory(
             StartDate="2001-01-01",
             EndDate="2022-01-15",
-            Organisation=Organisation(Organisation_ID=3),
+            Organisation=organisations[3],
         )
     ]
     former_patient.CodedEventsSnomed = [
@@ -183,7 +205,7 @@ def set_up_patients(event_data):
         RegistrationHistory(
             StartDate="2001-01-01",
             EndDate="2011-12-31",
-            Organisation=Organisation(Organisation_ID=4),
+            Organisation=organisations[4],
         )
     ]
     long_dead_patient.CodedEventsSnomed = [
@@ -193,6 +215,7 @@ def set_up_patients(event_data):
 
     session = make_session()
     session.add(current_patient)
+    session.add(current_patient_no_events)
     session.add(dead_patient)
     session.add(former_patient)
     session.add(long_dead_patient)
