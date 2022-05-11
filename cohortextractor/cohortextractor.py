@@ -589,6 +589,20 @@ def list_study_definitions(ignore_errors=False):
     return matches
 
 
+def check_maintenance(current_mode):
+    # avoid circular imports
+    from cohortextractor.study_definition import StudyDefinition
+
+    db_url = os.environ["DATABASE_URL"]
+    backend_cls = StudyDefinition.get_backend_for_database_url(db_url)
+    backend = backend_cls(db_url, None)
+
+    if backend.in_maintenance_mode(current_mode):
+        # Note: logs are output on stderr, so this should be the only output on
+        # stdout
+        print("db-maintenance")
+
+
 def main():
     parser = ArgumentParser(
         description="Generate cohorts and run models in openSAFELY framework. "
@@ -643,7 +657,6 @@ def main():
     dump_study_yaml_parser.add_argument(
         "--study-definition", help="Study definition name", type=str, required=True
     )
-
     # Cohort parser options
     generate_cohort_parser.add_argument(
         "--output-dir",
@@ -746,6 +759,21 @@ def main():
         type=datetime.date.fromisoformat,
     )
 
+    maintenance_parser = subparsers.add_parser(
+        "maintenance",
+        help="Report if backend db is currently performing maintenance",
+    )
+    maintenance_parser.set_defaults(which="maintenance")
+    maintenance_parser.add_argument(
+        "--database-url",
+        help="Database URL to query (can be supplied as DATABASE_URL environment variable)",
+    )
+    maintenance_parser.add_argument(
+        "--current-mode",
+        help="The current mode we think the database is in",
+        default="unknown",
+    )
+
     options = parser.parse_args()
 
     if options.version:
@@ -821,6 +849,10 @@ def main():
         dump_cohort_sql(options.study_definition)
     elif options.which == "dump_study_yaml":
         dump_study_yaml(options.study_definition)
+    elif options.which == "maintenance":
+        if options.database_url:
+            os.environ["DATABASE_URL"] = options.database_url
+        check_maintenance(options.current_mode)
 
 
 if __name__ == "__main__":

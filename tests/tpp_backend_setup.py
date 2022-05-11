@@ -1,4 +1,5 @@
 import os
+from datetime import datetime
 
 from sqlalchemy import (
     NVARCHAR,
@@ -1038,3 +1039,16 @@ class UKRR(Base):
     mod_prev = Column(String)
     creat = Column(Integer)
     eGFR_ckdepi = Column(Float)
+
+
+class BuildProgress(Base):
+    __tablename__ = "BuildProgress"
+
+    # fake pk to satisfy the ORM
+    id = Column(Integer, primary_key=True)
+
+    Event = Column(String)
+    BuildStart = Column(DateTime, default=datetime.utcnow)
+    EventStart = Column(DateTime, default=datetime.utcnow)
+    EventEnd = Column(DateTime, default="9999-12-31")
+    Duration = Column(Integer)

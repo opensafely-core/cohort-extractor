@@ -3,6 +3,7 @@ import csv
 import gzip
 import os
 import subprocess
+from datetime import datetime
 from unittest.mock import patch
 
 import pandas
@@ -33,6 +34,7 @@ from tests.tpp_backend_setup import (
     UKRR,
     APCS_Der,
     Appointment,
+    BuildProgress,
     ClusterRandomisedTrial,
     ClusterRandomisedTrialDetail,
     ClusterRandomisedTrialReference,
@@ -126,6 +128,7 @@ def setup_function(function):
     session.query(ONS_CIS).delete()
     session.query(UKRR).delete()
     session.query(Patient).delete()
+    session.query(BuildProgress).delete()
 
     session.commit()
 
@@ -6265,3 +6268,64 @@ def test_ukrr():
         rrt_between=["2019-01-01", "", "", "", "", "", "", "", ""],
         egfr_rrt_between=[4.5, 0, 0, 0, 0, 0, 0, 0, 0],
     )
+
+
+def test_maintenance_mode():
+    session = make_session()
+    backend = TPPBackend(os.environ["TPP_DATABASE_URL"], {})
+
+    assert backend.in_maintenance_mode("") is False
+
+    # initial event
+    OpenSAFELY_event = BuildProgress(Event="OpenSAFELY")
+    session.add(OpenSAFELY_event)
+    session.commit()
+
+    assert backend.in_maintenance_mode("") is False
+    assert backend.in_maintenance_mode("db-maintenance") is True
+
+    # Swap Tables starts
+    Swap_Tables_event = BuildProgress(Event="Swap Tables")
+    session.add(Swap_Tables_event)
+    session.commit()
+
+    assert backend.in_maintenance_mode("") is True
+    assert backend.in_maintenance_mode("db-maintenance") is True
+
+    # Swap Tables done
+    Swap_Tables_event.EventEnd = datetime.utcnow()
+    session.commit()
+
+    # This case is why we need the current mode, as without it,  we'll flap
+    # inbetween Swap Tables ending and CodedEvent_SNOMED starting
+    assert backend.in_maintenance_mode("") is False
+    # we're in maintenance, and there still open events, so stay in it
+    assert backend.in_maintenance_mode("db-maintenance") is True
+
+    # CodedEvent_SNOMED starts
+    CodedTable_SNOMED_event = BuildProgress(Event="CodedEvent_SNOMED")
+    session.add(CodedTable_SNOMED_event)
+    session.commit()
+
+    # robustness, if for some reason, we're not in maintenance mode, but we
+    # should be
+    assert backend.in_maintenance_mode("") is True
+    # yep still in maintenance
+    assert backend.in_maintenance_mode("db-maintenance") is True
+
+    # CodedEvent_SNOMED finishes
+    CodedTable_SNOMED_event.EventEnd = datetime.utcnow()
+    session.commit()
+
+    # technically correct, and would be ok if it ever happens
+    assert backend.in_maintenance_mode("") is False
+    # normally we're not done until the final event is done.
+    assert backend.in_maintenance_mode("db-maintenance") is True
+
+    # OpenSAFELY event finished
+    OpenSAFELY_event.EventEnd = datetime.utcnow()
+    session.commit()
+
+    # finally flip to off regardless of current state
+    assert backend.in_maintenance_mode("") is False
+    assert backend.in_maintenance_mode("db-maintenance") is False
