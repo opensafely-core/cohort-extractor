@@ -1,6 +1,7 @@
 import datetime
 import enum
 import hashlib
+import os
 import re
 import uuid
 
@@ -45,7 +46,10 @@ class TPPBackend:
         self.next_temp_table_id = 1
         self._therapeutics_table_name = None
         self._ons_cis_table_name = None
-        self.queries = self.get_queries(self.covariate_definitions)
+        if self.covariate_definitions:
+            self.queries = self.get_queries(self.covariate_definitions)
+        else:
+            self.queries = []
         self.truncate_sql_logs = False
 
     def to_file(self, filename):
@@ -3549,6 +3553,64 @@ class TPPBackend:
             WHERE dataset = '{dataset_mapping[from_dataset]}'
             AND {date_condition}
         """
+
+    def in_maintenance_mode(self, current_mode):
+        """TPP Specific maintenance mode query.
+
+        A BuildProgress table with the following columns:
+
+            Event (VARCHAR) - A description of the event
+            BuildStart (DATETIME) - When the overall build started
+            EventStart (DATETIME) - When the event started
+            EventEnd (DATETIME) - When the event ended
+            Duration (INT) - The duration in minutes
+
+        TPP will insert events for:
+        - The overall build (Event = 'OpenSAFELY') - This will span the other events
+        - Swapping the main tables (Event = 'Swap Tables')
+        - Building the CodedEvent_SNOMED table (Event = 'CodedEvent_SNOMED')
+
+        Events from the same overall build will have the same BuildStart value
+        A row will be inserted when the event starts with EventEnd = 31 Dec 9999
+        That row will be updated when the event ends to set EventEnd and Duration
+        So the trigger to kill currently running jobs and prevent more from
+        starting will be the presence of a 'Swap Tables' row with a Start but
+        no End.
+
+        The trigger to exit maintenance mode is when the final OpenSAFELY event
+        finishes.
+        """
+
+        conn = self.get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            SELECT Event FROM BuildProgress
+            WHERE EventEnd = '9999-12-31'
+            ORDER BY EventStart
+            """,
+            log_desc=False,
+        )
+        current_events = [row[0] for row in cursor.fetchall()]
+
+        # regardless of current mode, once there are no pending events, we are done.
+        if current_events == []:
+            return False
+
+        # Env var allows quick change of start event logic if needed
+        start_events = os.environ.get(
+            "TPP_MAINTENANCE_START_EVENT", "Swap Tables,CodedEvent_SNOMED"
+        ).split(",")
+
+        # we only start maintenance mode if we're not currently in it, and we
+        # see a specific event started but not finished.
+        if current_mode != "db-maintenance" and any(
+            e in current_events for e in start_events
+        ):
+            return True
+
+        # no change
+        return current_mode == "db-maintenance"
 
 
 class ColumnExpression:
