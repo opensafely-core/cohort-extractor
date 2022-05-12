@@ -76,8 +76,14 @@ def log_stats(logger, **kwargs):
 def log_execution_time(logger, **log_kwargs):
     log_kwargs["timing_id"] = next(timing_log_counter)
     log_kwargs["state"] = "started"
+
+    # pop sql-related kwargs
     sql = log_kwargs.pop("sql", None)
     truncate_all_sql = log_kwargs.pop("truncate", False)
+
+    start = process_time()
+    # log that we're starting timing
+    log_stats(logger, timing="start", time=start, **log_kwargs)
 
     def _truncate(lines):
         return "\n".join([*lines, "[truncated]"])
@@ -97,10 +103,9 @@ def log_execution_time(logger, **log_kwargs):
             # Limit the SQL logged to a max 1000 lines
             # Or, if we get the `truncate` flag, truncate any SQL (e.g. for reruns with multiple index dates)
             sql = _truncate(sql_lines[:999])
-        log_kwargs["sql"] = sql
 
-    start = process_time()
-    log_stats(logger, timing="start", time=start, **log_kwargs)
+        # log the SQL itself separately
+        log_stats(logger, timing_id=log_kwargs["timing_id"], sql=sql)
 
     try:
         yield
@@ -112,9 +117,6 @@ def log_execution_time(logger, **log_kwargs):
         log_kwargs["state"] = "ok"
     finally:
         stop = process_time()
-        # To reduce noise, don't log the sql at the end of the query.  We can rely on the query_id to
-        # match up logs
-        log_kwargs.pop("sql", None)
         elapsed_time = stop - start
         log_kwargs.update(
             timing="stop",
