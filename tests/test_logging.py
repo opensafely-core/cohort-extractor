@@ -1,5 +1,4 @@
 import re
-from datetime import datetime
 from unittest.mock import patch
 
 import pytest
@@ -675,7 +674,7 @@ def test_stats_logging_generate_measures(
     stats_logs = get_stats_logs(logger.entries)
     memory_logs = get_logs_by_key(stats_logs, "memory")
 
-    measure_date = datetime(2020, 1, 1).date()
+    measure_date = "2020-01-01"
     expected_timing_logs = [
         dict(
             description="generate_measures",
