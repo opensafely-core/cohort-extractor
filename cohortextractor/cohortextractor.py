@@ -348,11 +348,12 @@ def _generate_measures(
             continue
         filepath = os.path.join(output_dir, file)
         logger.info(f"Calculating measures for {filepath}")
+        date_string_for_logs = date.strftime("%Y-%m-%d")
         with log_execution_time(
             logger,
             description="generate_measures",
             input_file=filepath,
-            date=date,
+            date=date_string_for_logs,
             study_definition=study_name,
         ):
             patient_df = None
@@ -371,28 +372,28 @@ def _generate_measures(
                         logger,
                         description="Load patient dataframe for measures",
                         input_file=filepath,
-                        date=date,
+                        date=date_string_for_logs,
                     ):
                         patient_df = _load_dataframe_for_measures(filepath, measures)
                         log_stats(
                             logger,
                             dataframe="patient_df",
                             measure_id=measure.id,
-                            date=date,
+                            date=date_string_for_logs,
                             memory=patient_df.memory_usage(deep=True).sum(),
                         )
                 with log_execution_time(
                     logger,
                     description="Calculate measure",
                     measure_id=measure.id,
-                    date=date,
+                    date=date_string_for_logs,
                 ):
                     measure_df = measure.calculate(patient_df, _report)
                 log_stats(
                     logger,
                     dataframe="measure_df",
                     measure_id=measure.id,
-                    date=date,
+                    date=date_string_for_logs,
                     memory=measure_df.memory_usage(deep=True).sum(),
                 )
                 measure_df.to_csv(output_file, index=False)
