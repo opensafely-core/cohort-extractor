@@ -1,4 +1,5 @@
 import os
+from datetime import date
 
 import pandas as pd
 import structlog
@@ -15,23 +16,25 @@ def generate_codelist_report(output_dir, codelist_path, start_date, end_date):
     connection = mssql_dbapi_connection_from_url(os.environ["DATABASE_URL"])
     cursor = connection.cursor()
 
+    start_date_weekday = date.fromisoformat(start_date).weekday()  # Mon => 0, etc
     start_date = quote(start_date)
     end_date = quote(end_date)
 
-    generate_counts(cursor, output_dir, codelist_path, start_date, end_date)
+    generate_counts(
+        cursor, output_dir, codelist_path, start_date, end_date, start_date_weekday
+    )
     generate_list_sizes(cursor, output_dir, end_date)
     generate_patient_count(cursor, output_dir)
 
 
-def generate_counts(cursor, output_dir, codelist_path, start_date, end_date):
+def generate_counts(
+    cursor, output_dir, codelist_path, start_date, end_date, start_date_weekday
+):
     """Generate a pair of CSV files reporting usage of codes in given codelist.
 
-        * counts_per_code counts how many times each code appears in the given timeframe
-        * counts_per_week_per_practice counts how many times all the codes appear in
-            each week in the given timeframe, for each practice
-
-    Weeks begin on a Monday, and a code appearing on (say) a Wednesday is counted as
-    belonging to the following Monday.
+    * counts_per_code counts how many times each code appears in the given timeframe
+    * counts_per_week_per_practice counts how many times all the codes appear in
+        each week in the given timeframe, for each practice
     """
 
     codelist = codelist_from_csv(codelist_path, "snomedct")
@@ -55,10 +58,21 @@ def generate_counts(cursor, output_dir, codelist_path, start_date, end_date):
     # Computing counts per practice per week  is slightly more involved than computing
     # counts per code, because we need to account for weeks when a matching code is not
     # recorded at a practice.
-    week_grouper = pd.Grouper(key="date", freq="W-MON")
+
+    freq = [
+        "W-MON",
+        "W-TUE",
+        "W-WED",
+        "W-THU",
+        "W-FRI",
+        "W-SAT",
+        "W-SUN",
+    ][start_date_weekday]
+    week_grouper = pd.Grouper(key="date", label="left", closed="left", freq=freq)
     counts_per_week_per_practice = counts.groupby(["practice", week_grouper])[
         "num"
     ].sum()
+
     new_index = pd.MultiIndex.from_product(counts_per_week_per_practice.index.levels)
     counts_per_week_per_practice = (
         counts_per_week_per_practice.reindex(new_index).fillna(0).astype(int)
