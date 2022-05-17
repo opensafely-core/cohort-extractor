@@ -1,4 +1,5 @@
 import os
+import re
 from datetime import datetime
 
 from sqlalchemy import (
@@ -23,7 +24,24 @@ from cohortextractor.process_covariate_definitions import (
 from cohortextractor.tpp_backend import AppointmentStatus
 from tests.helpers import mssql_sqlalchemy_engine_from_url, wait_for_mssql_to_be_ready
 
-Base = declarative_base()
+
+# Hack: in order to improve the variety of our test data, we intercept object
+# initialization, adding a time part to any kwarg that is for a datetime field that has
+# been provided as a date.
+class BaseTable:
+    def __init__(self, **kwargs):
+        columns = type(self).__table__.columns
+        for k in kwargs:
+            if k not in columns:
+                continue
+            if not isinstance(columns[k].type, DateTime):
+                continue
+            if re.match(r"\d\d\d\d-\d\d-\d\d$", kwargs[k]):
+                kwargs[k] += " 12:00:00"
+        super().__init__(**kwargs)
+
+
+Base = declarative_base(cls=BaseTable)
 
 
 # a SQLAlchemy enum that uses the int values rather than the strings
@@ -120,6 +138,12 @@ class CodedEvent(Base):
         back_populates="CodedEvent",
         cascade="all, delete, delete-orphan",
     )
+
+    def __init__(self, **kwargs):
+        if "ConsultationDate" in kwargs:
+            if re.match(r"\d\d\d\d-\d\d-\d\d$", kwargs["ConsultationDate"]):
+                kwargs["ConsultationDate"] += " 12:00:00"
+        super().__init__(**kwargs)
 
 
 class CodedEventSnomed(Base):

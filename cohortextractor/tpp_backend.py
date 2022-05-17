@@ -8,6 +8,7 @@ import uuid
 import pandas
 import structlog
 
+from . import flags
 from .csv_utils import is_csv_filename, write_rows_to_csv
 from .date_expressions import MSSQLDateFormatter
 from .expressions import format_expression
@@ -630,6 +631,8 @@ class TPPBackend:
         The join provides the (possibly empty) JOINs which need to be appended
         to "table" in order to evaluate the condition.
         """
+        if flags.WITH_END_DATE_FIX:
+            date_expr = f"CAST({date_expr} AS date)"
         if between is None:
             between = (None, None)
         min_date, max_date = between
