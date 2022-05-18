@@ -1,5 +1,4 @@
 import os
-from datetime import date
 
 import pandas as pd
 import structlog
@@ -16,7 +15,7 @@ def generate_codelist_report(output_dir, codelist_path, start_date, end_date):
     connection = mssql_dbapi_connection_from_url(os.environ["DATABASE_URL"])
     cursor = connection.cursor()
 
-    start_date_weekday = date.fromisoformat(start_date).weekday()  # Mon => 0, etc
+    start_date_weekday = start_date.weekday()  # Mon => 0, etc
     start_date = quote(start_date)
     end_date = quote(end_date)
 

@@ -1,5 +1,6 @@
 import csv
 import os
+from datetime import date
 
 import pandas as pd
 import pytest
@@ -41,8 +42,8 @@ def setup_function(function):
 
 def test_generate_codelist_report(tmpdir):
     # The timeframe we're interested in.
-    start_date = "2022-01-02"
-    end_date = "2022-01-25"
+    start_date = date.fromisoformat("2022-01-02")
+    end_date = date.fromisoformat("2022-01-25")
 
     # The codes in our codelist.
     codelist_codes = ["11111111", "22222222"]
