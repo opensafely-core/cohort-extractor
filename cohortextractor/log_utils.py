@@ -3,7 +3,7 @@ import logging.config
 import os
 from contextlib import contextmanager
 from datetime import timedelta
-from time import process_time
+from time import monotonic
 
 import structlog
 
@@ -81,7 +81,7 @@ def log_execution_time(logger, **log_kwargs):
     sql = log_kwargs.pop("sql", None)
     truncate_all_sql = log_kwargs.pop("truncate", False)
 
-    start = process_time()
+    start = monotonic()
     # log that we're starting timing
     log_stats(logger, timing="start", time=start, **log_kwargs)
 
@@ -116,7 +116,7 @@ def log_execution_time(logger, **log_kwargs):
     else:
         log_kwargs["state"] = "ok"
     finally:
-        stop = process_time()
+        stop = monotonic()
         elapsed_time = stop - start
         log_kwargs.update(
             timing="stop",
