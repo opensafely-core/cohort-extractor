@@ -359,6 +359,18 @@ def test_stats_logging_generate_cohort(
         ),
         dict(description=None, timing="stop", state="ok", timing_id=start_counter + 8),
         dict(
+            description="Fetch batched results ",
+            timing="start",
+            state="started",
+            timing_id=start_counter + 9,
+        ),
+        dict(
+            description="Fetch batched results ",
+            timing="stop",
+            state="ok",
+            timing_id=start_counter + 9,
+        ),
+        dict(
             description=f"{write_to_file_log} {tmp_path}/input.{output_format}",
             timing="stop",
             state="ok",
@@ -368,18 +380,18 @@ def test_stats_logging_generate_cohort(
             description="Deleting '#final_output'",
             timing="start",
             state="started",
-            timing_id=start_counter + 9,
+            timing_id=start_counter + 10,
         ),
         dict(
             sql="DROP TABLE #final_output",
             is_truncated=False,
-            timing_id=start_counter + 9,
+            timing_id=start_counter + 10,
         ),
         dict(
             description="Deleting '#final_output'",
             timing="stop",
             state="ok",
-            timing_id=start_counter + 9,
+            timing_id=start_counter + 10,
         ),
         # logging the overall timing for the cohort generation
         dict(
@@ -573,6 +585,18 @@ def test_stats_logging_generate_cohort_with_index_dates(
                     timing_id=next_counter + 6,
                 ),
                 dict(
+                    description="Fetch batched results ",
+                    timing="start",
+                    state="started",
+                    timing_id=next_counter + 7,
+                ),
+                dict(
+                    description="Fetch batched results ",
+                    timing="stop",
+                    state="ok",
+                    timing_id=next_counter + 7,
+                ),
+                dict(
                     description=f"write_rows_to_csv {tmp_path}/input_test_{index_date}.csv",
                     timing="stop",
                     state="ok",
@@ -582,18 +606,18 @@ def test_stats_logging_generate_cohort_with_index_dates(
                     description="Deleting '#final_output'",
                     timing="start",
                     state="started",
-                    timing_id=next_counter + 7,
+                    timing_id=next_counter + 8,
                 ),
                 dict(
                     sql="DROP TABLE #final_output",
                     is_truncated=i != 1,
-                    timing_id=next_counter + 7,
+                    timing_id=next_counter + 8,
                 ),
                 dict(
                     description="Deleting '#final_output'",
                     timing="stop",
                     state="ok",
-                    timing_id=next_counter + 7,
+                    timing_id=next_counter + 8,
                 ),
                 # logging the overall timing for the cohort generation
                 dict(
@@ -606,7 +630,7 @@ def test_stats_logging_generate_cohort_with_index_dates(
             ]
         )
         # set next counter to one more than the max for this index date
-        next_counter += 7 + 1
+        next_counter += 8 + 1
 
     # add the log for the end of overall timing for the cohort generation; this should have the same
     # id as the first timing log
