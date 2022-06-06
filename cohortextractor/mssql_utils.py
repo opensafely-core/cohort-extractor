@@ -5,6 +5,8 @@ from urllib.parse import unquote, urlparse
 
 import structlog
 
+from .log_utils import log_execution_time
+
 # Some drivers warn about the use of features marked "optional" in the DB-ABI
 # spec, using a standardised set of warnings. See:
 # https://www.python.org/dev/peps/pep-0249/#optional-db-api-extensions
@@ -181,7 +183,11 @@ class BatchFetcher:
                 if self.cursor is None:
                     self.cursor = self.get_cursor()
                 self.cursor.execute(query)
-                return self.cursor.fetchall()
+                with log_execution_time(
+                    logger, description=f"Fetch batched results {where}"
+                ):
+                    results = self.cursor.fetchall()
+                return results
             # We can't be more specific than this because we don't know what class
             # of cursor object we'll be passed
             except Exception:
