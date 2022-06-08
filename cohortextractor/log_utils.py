@@ -7,7 +7,19 @@ from time import monotonic
 
 import structlog
 
-timing_log_counter = itertools.count()
+
+class TimingCounter:
+    def __init__(self):
+        self.counter = itertools.count()
+        self.current = 0
+
+    def __next__(self):
+        self.current = next(self.counter)
+        return self.current
+
+
+timing_log_counter = TimingCounter()
+
 
 pre_chain = [
     structlog.stdlib.add_log_level,
