@@ -9,12 +9,21 @@ import structlog
 
 
 class TimingCounter:
+    """
+    A wrapper around an itertools counter which keeps track of the
+    current and next values of the counter
+    """
+
     def __init__(self):
         self.counter = itertools.count()
-        self.current = 0
+        self.current = None
+        self.next = 0
 
     def __next__(self):
+        # increment the counter, set the current and next values with it,
+        # and return it
         self.current = next(self.counter)
+        self.next = self.current + 1
         return self.current
 
 

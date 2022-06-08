@@ -5,7 +5,7 @@ from urllib.parse import unquote, urlparse
 
 import structlog
 
-from .log_utils import log_execution_time
+from .log_utils import log_execution_time, timing_log_counter
 
 # Some drivers warn about the use of features marked "optional" in the DB-ABI
 # spec, using a standardised set of warnings. See:
@@ -93,6 +93,32 @@ def _ctds_connect(ctds, params):
     return ctds.connect(**params)
 
 
+def stats_msg_handler(msgstate, severity, srvname, procname, line, msgtext):
+    """
+    Log parse, compile and execution timing messages sent by the server.
+    """
+    timing_re = re.compile(
+        r"""
+        .*SQL\sServer\s(?P<timing_type>parse\sand\scompile\stime|Execution\sTime).*  # SQl Server Statistics time message prefix
+        .*CPU\stime\s=\s(?P<cpu_time>\d+)\sms  # cpu time in ms
+        .*elapsed\stime\s=\s(?P<elapsed_time>\d+)\sms  # elapsed time in ms
+        """,
+        flags=re.S | re.X,
+    )
+    if timing_match := timing_re.match(msgtext.decode()):
+        logger.info(
+            "sqlserver-stats",
+            description=timing_match.group("timing_type").lower().replace(" ", "_"),
+            cpu_time_secs=int(timing_match.group("cpu_time")) / 1000,
+            elapsed_time_secs=int(timing_match.group("elapsed_time")) / 1000,
+            # SQL Server statistics timing is only set to ON for timed query execution, so
+            # we may be able match it to the query it timed by tagging it with the current timing id
+            # This may result in multiple execution timings logged against one timing id if
+            # query execution is delayed until the time of fetching
+            timing_id=timing_log_counter.current,
+        )
+
+
 def _pymssql_connect(pymssql, params):
     # https://pymssql.readthedocs.io/en/stable/ref/pymssql.html#pymssql.connect
     params = params.copy()
@@ -102,7 +128,11 @@ def _pymssql_connect(pymssql, params):
     # set to one week
     params["timeout"] = 7 * 24 * 60 * 60
     params["autocommit"] = True
-    return pymssql.connect(**params)
+
+    connection = pymssql.connect(**params)
+    # Install our custom stats handler
+    connection._conn.set_msghandler(stats_msg_handler)
+    return connection
 
 
 def mssql_fetch_table(
