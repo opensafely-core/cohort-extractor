@@ -6329,3 +6329,115 @@ def test_maintenance_mode():
     # finally flip to off regardless of current state
     assert backend.in_maintenance_mode("") is False
     assert backend.in_maintenance_mode("db-maintenance") is False
+
+
+def test_blood_pressure_qof():
+    from tests.fixtures.studies.qof_blood_pressure.analysis.study_definition_bp002 import (
+        study,
+    )
+
+    session = make_session()
+
+    # set up the test data
+    #  start_date == index_date == "2019-03-01"
+    # add a patient registered on the index date and meeting population criteria
+    # population=patients.satisfying(
+    #     """
+    #     # Define general population parameters
+    #     (NOT died) AND
+    #     (sex = 'F' OR sex = 'M') AND
+    #     (age_band != 'missing') AND
+
+    #     # Define GMS registration status
+    #     gms_reg_status AND
+
+    #     # Define list size type:
+    #     age >= 45
+    #     """,
+    # )
+
+    # Set up an Organisation that holds the patients registered practiced data;
+    # region is retrieved from here
+    org1 = Organisation(
+        STPCode="123", MSOACode="E0201", Region="East of England", Organisation_ID=1
+    )
+    patient1 = Patient(
+        # > 45 yrs on index date
+        DateOfBirth="1971-01-01",
+        Sex="M",
+        # died after index_date, included
+        ONSDeath=[ONSDeaths(dod="2021-01-01", Place_of_occurrence="Home")],
+        # patient can have multiple addresses with start/end dates
+        # IMD comes from here
+        Addresses=[
+            PatientAddress(
+                StartDate="1980-01-01",
+                EndDate="9999-12-31",
+                ImdRankRounded=100,
+                RuralUrbanClassificationCode=1,
+                MSOACode="S02001286",
+            )
+        ],
+        # A registration record for the patient, with the link to the Organisation
+        RegistrationHistory=[
+            RegistrationHistory(
+                StartDate="1990-01-01", EndDate="2021-01-01", Organisation=org1
+            )
+        ],
+        # Add clinical events (CodedEvents for ctv3 and CodedEventSnomed for snomed) for
+        # clinical events we care about
+        CodedEvents=[
+            # ethnicity
+            CodedEvent(ConsultationDate="2020-01-15", CTV3Code="Y9930"),
+        ],
+        CodedEventsSnomed=[
+            # learning disability on_or_before last day of index date month - included
+            CodedEventSnomed(ConceptID="110359009", ConsultationDate="2000-01-01"),
+            # care home status on_or_before last day of index date month - excluded
+            CodedEventSnomed(ConceptID="24817100000010", ConsultationDate="2020-01-01"),
+            # bp_codes - counts if 5 years before first of index date month to end index date month
+            CodedEventSnomed(ConceptID="163020007", ConsultationDate="2016-01-01"),
+            # bp_dec_codes - counts 5 years before first of index date month to end index date month
+            CodedEventSnomed(ConceptID="413123006", ConsultationDate="2019-03-29"),
+        ],
+    )
+    patient2 = Patient(
+        # too young, not included
+        DateOfBirth="1980-01-01",
+        Sex="M",
+    )
+    patient3 = Patient(
+        # died before index date, not included
+        DateOfBirth="1970-01-01",
+        Sex="M",
+        ONSDeath=[ONSDeaths(dod="2018-01-01", Place_of_occurrence="Home")],
+    )
+    session.add_all([org1, patient1, patient2, patient3])
+    session.commit()
+
+    # get the results as a list of dicts
+    results = study.to_dicts()
+    assert len(results) == 1
+    result = results[0]
+
+    assert result == {
+        "patient_id": str(patient1.Patient_ID),
+        "gms_reg_status": "1",
+        "died": "0",
+        "age": "48",
+        "age_band": "40-49",
+        "sex": "M",
+        "imd": "1",
+        "region": "East of England",
+        "practice": "1",
+        "learning_disability": "1",
+        "care_home": "0",
+        "bp002_denominator_r1": "1",
+        "bp002_denominator_r2": "1",
+        "bp002_denominator_r3": "0",
+        "bp002_excl_denominator_r3": "1",
+        "bp002_denominator_r4": "1",
+        "bp002_excl_denominator_r4": "0",
+        "bp002_denominator": "1",
+        "bp002_numerator": "1",
+    }
