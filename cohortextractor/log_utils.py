@@ -169,6 +169,11 @@ class LoggingCursor(BaseLoggingWrapper):
         with log_execution_time(
             self.logger, sql=query, description=log_desc, truncate=self.truncate
         ):
+            query = f"""
+            SET STATISTICS TIME ON
+            {query}
+            SET STATISTICS TIME OFF
+            """
             self.cursor.execute(query)
 
 
