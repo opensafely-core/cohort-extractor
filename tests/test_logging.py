@@ -38,15 +38,15 @@ def fixture_logger():
         structlog.configure(processors=processors)
 
 
-def get_stats_logs(log_output):
+def get_stats_logs(log_output, event=None):
+    event = event or "cohortextractor-stats"
     # get the cohortextractor-stats logs
     stats_log_events = [
         log_item
         for log_item in log_output
         # sometimes the logged event is a pandas DataFrame or Index, which
         # has ambiguous boolean value, so check if it's a string before checking its value
-        if isinstance(log_item["event"], str)
-        and log_item["event"] == "cohortextractor-stats"
+        if isinstance(log_item["event"], str) and log_item["event"] == event
     ]
     # return just the log parameters
     return [
@@ -57,6 +57,29 @@ def get_stats_logs(log_output):
 
 def get_logs_by_key(log_output, key):
     return [log_entry for log_entry in log_output if key in log_entry]
+
+
+def _sql_execute_timing_logs(description, sql, timing_id, is_truncated=False):
+    """Build the expected timing logs for a single timed execute call"""
+    return [
+        dict(
+            description=description,
+            timing="start",
+            state="started",
+            timing_id=timing_id,
+        ),
+        dict(
+            sql=sql,
+            is_truncated=is_truncated,
+            timing_id=timing_id,
+        ),
+        dict(
+            description=description,
+            timing="stop",
+            state="ok",
+            timing_id=timing_id,
+        ),
+    ]
 
 
 def test_study_definition_initial_stats_logging(logger):
@@ -99,8 +122,8 @@ def test_study_definition_initial_stats_logging(logger):
 
 def test_stats_logging_tpp_backend(logger):
     # The query counter is a global at the module level, so it isn't reset between tests
-    # Find its current position
-    start_counter = next(timing_log_counter)
+    # Find the next position (without incrementing it); this is the start of the test's timing logs
+    start_counter = timing_log_counter.next
 
     study = StudyDefinition(
         population=patients.all(),
@@ -123,81 +146,31 @@ def test_stats_logging_tpp_backend(logger):
     # logs in tpp_backend during query execution
 
     expected_timing_log_params = [
-        dict(
+        *_sql_execute_timing_logs(
             description="Uploading codelist for event",
-            timing="start",
-            state="started",
-            timing_id=start_counter + 1,
-        ),
-        dict(
             sql="CREATE TABLE #tmp1_event_codelist",
-            timing_id=start_counter + 1,
+            timing_id=start_counter,
         ),
-        dict(
-            description="Uploading codelist for event",
-            timing="stop",
-            state="ok",
-            timing_id=start_counter + 1,
-        ),
-        dict(
+        *_sql_execute_timing_logs(
             description=None,
-            timing="start",
-            state="started",
-            timing_id=start_counter + 2,
-        ),
-        dict(
             sql="INSERT INTO #tmp1_event_codelist (code, category) VALUES\n[truncated]",
+            timing_id=start_counter + 1,
             is_truncated=True,
+        ),
+        *_sql_execute_timing_logs(
+            description="Query for event",
+            sql="SELECT * INTO #event",
             timing_id=start_counter + 2,
         ),
-        dict(description=None, timing="stop", state="ok", timing_id=start_counter + 2),
-        dict(
-            description="Query for event",
-            timing="start",
-            state="started",
-            timing_id=start_counter + 3,
-        ),
-        dict(
-            sql="SELECT * INTO #event",
-            timing_id=start_counter + 3,
-        ),
-        dict(
-            description="Query for event",
-            timing="stop",
-            state="ok",
-            timing_id=start_counter + 3,
-        ),
-        dict(
+        *_sql_execute_timing_logs(
             description="Query for population",
-            timing="start",
-            state="started",
-            timing_id=start_counter + 4,
-        ),
-        dict(
             sql="SELECT * INTO #population",
-            timing_id=start_counter + 4,
+            timing_id=start_counter + 3,
         ),
-        dict(
-            description="Query for population",
-            timing="stop",
-            state="ok",
-            timing_id=start_counter + 4,
-        ),
-        dict(
+        *_sql_execute_timing_logs(
             description="Join all columns for final output",
-            timing="start",
-            state="started",
-            timing_id=start_counter + 5,
-        ),
-        dict(
             sql="JOIN #event ON #event.patient_id = #population.patient_id",
-            timing_id=start_counter + 5,
-        ),
-        dict(
-            description="Join all columns for final output",
-            timing="stop",
-            state="ok",
-            timing_id=start_counter + 5,
+            timing_id=start_counter + 4,
         ),
     ]
 
@@ -216,7 +189,7 @@ def test_stats_logging_tpp_backend(logger):
     "output_format,write_to_file_log",
     [
         ("csv", "write_rows_to_csv"),
-        ("dta", "Create df and write dataframe_to_file"),
+        # ("dta", "Create df and write dataframe_to_file"),
     ],
 )
 def test_stats_logging_generate_cohort(
@@ -236,8 +209,8 @@ def test_stats_logging_generate_cohort(
         sex=patients.sex(),
     )
     # The query counter is a global at the module level, so it isn't reset between tests
-    # Find its current position
-    start_counter = next(timing_log_counter)
+    # Find the next position (without incrementing it); this is the start of the test's timing logs
+    start_counter = timing_log_counter.next
 
     generate_cohort(
         output_dir=tmp_path,
@@ -265,133 +238,71 @@ def test_stats_logging_generate_cohort(
             index_date="all",
             timing="start",
             state="started",
-            timing_id=start_counter + 1,
+            timing_id=start_counter,
         ),
         dict(
             description="generate_cohort",
             study_definition="study_definition",
             timing="start",
             state="started",
-            timing_id=start_counter + 2,
+            timing_id=start_counter + 1,
         ),
         # logs in tpp_backend during query execution
-        dict(
+        *_sql_execute_timing_logs(
             description="Query for sex",
-            timing="start",
-            state="started",
-            timing_id=start_counter + 3,
-        ),
-        dict(
             sql="SELECT * INTO #sex",
-            is_truncated=False,
-            timing_id=start_counter + 3,
+            timing_id=start_counter + 2,
         ),
-        dict(
-            description="Query for sex",
-            timing="stop",
-            state="ok",
-            timing_id=start_counter + 3,
-        ),
-        dict(
+        *_sql_execute_timing_logs(
             description="Query for population",
-            timing="start",
-            state="started",
-            timing_id=start_counter + 4,
-        ),
-        dict(
             sql="SELECT * INTO #population",
-            is_truncated=False,
-            timing_id=start_counter + 4,
-        ),
-        dict(
-            description="Query for population",
-            timing="stop",
-            state="ok",
-            timing_id=start_counter + 4,
+            timing_id=start_counter + 3,
         ),
         # logs specifically from study.to_file
-        dict(
+        *_sql_execute_timing_logs(
             description="Writing results into #final_output",
-            timing="start",
-            state="started",
-            timing_id=start_counter + 5,
-        ),
-        dict(
             sql="SELECT * INTO #final_output",
-            is_truncated=False,
-            timing_id=start_counter + 5,
+            timing_id=start_counter + 4,
         ),
-        dict(
-            description="Writing results into #final_output",
-            timing="stop",
-            state="ok",
-            timing_id=start_counter + 5,
-        ),
-        dict(
+        *_sql_execute_timing_logs(
             description=None,
-            timing="start",
-            state="started",
-            timing_id=start_counter + 6,
-        ),
-        dict(
             sql="CREATE INDEX ix_patient_id ON #final_output",
-            is_truncated=False,
-            timing_id=start_counter + 6,
+            timing_id=start_counter + 5,
         ),
-        dict(description=None, timing="stop", state="ok", timing_id=start_counter + 6),
         # results are fetched in batches for writing
         dict(
             description=f"{write_to_file_log} {tmp_path}/input.{output_format}",
             timing="start",
             state="started",
+            timing_id=start_counter + 6,
+        ),
+        *_sql_execute_timing_logs(
+            description=None,
+            sql="SELECT TOP 32000 * FROM #final_output",
             timing_id=start_counter + 7,
         ),
-        dict(
-            description=None,
-            timing="start",
-            state="started",
-            timing_id=start_counter + 8,
-        ),
-        dict(
-            sql="SELECT TOP 32000 * FROM #final_output",
-            is_truncated=False,
-            timing_id=start_counter + 8,
-        ),
-        dict(description=None, timing="stop", state="ok", timing_id=start_counter + 8),
         dict(
             description="Fetch batched results ",
             timing="start",
             state="started",
-            timing_id=start_counter + 9,
+            timing_id=start_counter + 8,
         ),
         dict(
             description="Fetch batched results ",
             timing="stop",
             state="ok",
-            timing_id=start_counter + 9,
+            timing_id=start_counter + 8,
         ),
         dict(
             description=f"{write_to_file_log} {tmp_path}/input.{output_format}",
             timing="stop",
             state="ok",
-            timing_id=start_counter + 7,
+            timing_id=start_counter + 6,
         ),
-        dict(
+        *_sql_execute_timing_logs(
             description="Deleting '#final_output'",
-            timing="start",
-            state="started",
-            timing_id=start_counter + 10,
-        ),
-        dict(
             sql="DROP TABLE #final_output",
-            is_truncated=False,
-            timing_id=start_counter + 10,
-        ),
-        dict(
-            description="Deleting '#final_output'",
-            timing="stop",
-            state="ok",
-            timing_id=start_counter + 10,
+            timing_id=start_counter + 9,
         ),
         # logging the overall timing for the cohort generation
         dict(
@@ -399,7 +310,7 @@ def test_stats_logging_generate_cohort(
             study_definition="study_definition",
             timing="stop",
             state="ok",
-            timing_id=start_counter + 2,
+            timing_id=start_counter + 1,
         ),
         dict(
             description="generate_cohort",
@@ -407,7 +318,7 @@ def test_stats_logging_generate_cohort(
             index_date="all",
             timing="stop",
             state="ok",
-            timing_id=start_counter + 1,
+            timing_id=start_counter,
         ),
     ]
 
@@ -433,8 +344,8 @@ def test_stats_logging_generate_cohort_with_index_dates(
         sex=patients.sex(),
     )
     # The query counter is a global at the module level, so it isn't reset between tests
-    # Find its current position by incrementing it once more
-    start_counter = next(timing_log_counter)
+    # Find the next position (without incrementing it); this is the start of the test's timing logs
+    start_counter = timing_log_counter.next
 
     generate_cohort(
         output_dir=tmp_path,
@@ -461,9 +372,6 @@ def test_stats_logging_generate_cohort_with_index_dates(
         ],
     ]
 
-    # The log function will increment the counter again from its starting value
-    first_counter = start_counter + 1
-
     expected_timing_log_params = [
         # logging the start of overall timing for the cohort generation
         dict(
@@ -472,12 +380,12 @@ def test_stats_logging_generate_cohort_with_index_dates(
             index_date="all",
             timing="start",
             state="started",
-            timing_id=first_counter,
+            timing_id=start_counter,
         )
     ]
 
     # find the value of the next counter, the start of the timing logs for the first index date
-    next_counter = first_counter + 1
+    next_counter = start_counter + 1
 
     for i, index_date in enumerate(expected_index_dates, start=1):
         expected_timing_log_params.extend(
@@ -490,73 +398,28 @@ def test_stats_logging_generate_cohort_with_index_dates(
                     timing_id=next_counter,
                 ),
                 # logs in tpp_backend during query execution
-                dict(
+                *_sql_execute_timing_logs(
                     description="Query for sex",
-                    timing="start",
-                    state="started",
-                    timing_id=next_counter + 1,
-                ),
-                dict(
                     sql="SELECT * INTO #sex",
                     is_truncated=i != 1,
                     timing_id=next_counter + 1,
                 ),
-                dict(
-                    description="Query for sex",
-                    timing="stop",
-                    state="ok",
-                    timing_id=next_counter + 1,
-                ),
-                dict(
+                *_sql_execute_timing_logs(
                     description="Query for population",
-                    timing="start",
-                    state="started",
-                    timing_id=next_counter + 2,
-                ),
-                dict(
                     sql="SELECT * INTO #population",
                     is_truncated=i != 1,
                     timing_id=next_counter + 2,
                 ),
-                dict(
-                    description="Query for population",
-                    timing="stop",
-                    state="ok",
-                    timing_id=next_counter + 2,
-                ),
                 # logs specifically from study.to_file
-                dict(
+                *_sql_execute_timing_logs(
                     description="Writing results into #final_output",
-                    timing="start",
-                    state="started",
-                    timing_id=next_counter + 3,
-                ),
-                dict(
                     sql="SELECT * INTO #final_output",
                     is_truncated=i != 1,
                     timing_id=next_counter + 3,
                 ),
-                dict(
-                    description="Writing results into #final_output",
-                    timing="stop",
-                    state="ok",
-                    timing_id=next_counter + 3,
-                ),
-                dict(
+                *_sql_execute_timing_logs(
                     description=None,
-                    timing="start",
-                    state="started",
-                    timing_id=next_counter + 4,
-                ),
-                dict(
                     sql="CREATE INDEX ix_patient_id ON #final_output",
-                    is_truncated=False,
-                    timing_id=next_counter + 4,
-                ),
-                dict(
-                    description=None,
-                    timing="stop",
-                    state="ok",
                     timing_id=next_counter + 4,
                 ),
                 # results are fetched in batches for writing
@@ -566,22 +429,9 @@ def test_stats_logging_generate_cohort_with_index_dates(
                     state="started",
                     timing_id=next_counter + 5,
                 ),
-                dict(
+                *_sql_execute_timing_logs(
                     description=None,
-                    timing="start",
-                    state="started",
-                    is_truncated=False,
-                    timing_id=next_counter + 6,
-                ),
-                dict(
                     sql="SELECT TOP 32000 * FROM #final_output",
-                    is_truncated=False,
-                    timing_id=next_counter + 6,
-                ),
-                dict(
-                    description=None,
-                    timing="stop",
-                    state="ok",
                     timing_id=next_counter + 6,
                 ),
                 dict(
@@ -602,21 +452,10 @@ def test_stats_logging_generate_cohort_with_index_dates(
                     state="ok",
                     timing_id=next_counter + 5,
                 ),
-                dict(
+                *_sql_execute_timing_logs(
                     description="Deleting '#final_output'",
-                    timing="start",
-                    state="started",
-                    timing_id=next_counter + 8,
-                ),
-                dict(
                     sql="DROP TABLE #final_output",
                     is_truncated=i != 1,
-                    timing_id=next_counter + 8,
-                ),
-                dict(
-                    description="Deleting '#final_output'",
-                    timing="stop",
-                    state="ok",
                     timing_id=next_counter + 8,
                 ),
                 # logging the overall timing for the cohort generation
@@ -641,7 +480,7 @@ def test_stats_logging_generate_cohort_with_index_dates(
             index_date="all",
             timing="stop",
             state="ok",
-            timing_id=first_counter,
+            timing_id=start_counter,
         )
     )
     assert_stats_logs(
@@ -818,13 +657,25 @@ def assert_stats_logs(
     expected_initial_study_def_logs,
     expected_timing_log_params,
 ):
-    all_stats_logs = get_stats_logs(log_output.entries)
+    # get the cohortextractor-stats logs
+    cohortextractor_stats_logs = get_stats_logs(log_output.entries)
     for log_params in expected_initial_study_def_logs:
-        assert log_params in all_stats_logs
+        assert log_params in cohortextractor_stats_logs
 
-    timing_logs = get_logs_by_key(log_output.entries, "timing_id")
-
+    timing_logs = get_logs_by_key(cohortextractor_stats_logs, "timing_id")
     assert len(timing_logs) == len(expected_timing_log_params), timing_logs
+
+    # get the sqlserver-stats logs
+    sqlserver_stats_logs = get_stats_logs(log_output.entries, event="sqlserver-stats")
+    for log in sqlserver_stats_logs:
+        assert log["description"] in ["parse_and_compile_time", "execution_time"]
+        assert list(log.keys()) == [
+            "description",
+            "cpu_time_secs",
+            "elapsed_time_secs",
+            "timing_id",
+        ]
+
     for i, timing_log in enumerate(timing_logs):
         actual_logged_sql = timing_log.get("sql", "")
 
@@ -842,7 +693,7 @@ def assert_stats_logs(
                 r"\d:\d{2}:\d{2}.\d{6}", timing_log["execution_time"]
             ).group(0), timing_log["execution_time"]
 
-    # Make sure we've checked all the stats logs
-    assert len(all_stats_logs) == len(expected_initial_study_def_logs) + len(
-        timing_logs
-    )
+    # Make sure we've checked all the cohortextractor stats logs
+    assert len(cohortextractor_stats_logs) == len(
+        expected_initial_study_def_logs
+    ) + len(timing_logs)
