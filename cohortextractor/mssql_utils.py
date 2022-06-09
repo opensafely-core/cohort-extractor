@@ -14,6 +14,15 @@ warnings.filterwarnings("ignore", re.escape("DB-API extension cursor.__iter__() 
 
 logger = structlog.get_logger()
 
+SQLSERVER_TIMING_REGEX = re.compile(
+    r"""
+        .*SQL\sServer\s(?P<timing_type>parse\sand\scompile\stime|Execution\sTime).*  # SQl Server Statistics time message prefix
+        .*CPU\stime\s=\s(?P<cpu_time>\d+)\sms  # cpu time in ms
+        .*elapsed\stime\s=\s(?P<elapsed_time>\d+)\sms  # elapsed time in ms
+        """,
+    flags=re.S | re.X,
+)
+
 
 def mssql_connection_params_from_url(url):
     parsed = urlparse(url)
@@ -97,15 +106,7 @@ def stats_msg_handler(msgstate, severity, srvname, procname, line, msgtext):
     """
     Log parse, compile and execution timing messages sent by the server.
     """
-    timing_re = re.compile(
-        r"""
-        .*SQL\sServer\s(?P<timing_type>parse\sand\scompile\stime|Execution\sTime).*  # SQl Server Statistics time message prefix
-        .*CPU\stime\s=\s(?P<cpu_time>\d+)\sms  # cpu time in ms
-        .*elapsed\stime\s=\s(?P<elapsed_time>\d+)\sms  # elapsed time in ms
-        """,
-        flags=re.S | re.X,
-    )
-    if timing_match := timing_re.match(msgtext.decode()):
+    if timing_match := SQLSERVER_TIMING_REGEX.match(msgtext.decode()):
         logger.info(
             "sqlserver-stats",
             description=timing_match.group("timing_type").lower().replace(" ", "_"),

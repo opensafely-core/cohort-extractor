@@ -1,4 +1,5 @@
 import re
+from collections import Counter
 from unittest.mock import patch
 
 import pytest
@@ -175,7 +176,10 @@ def test_stats_logging_tpp_backend(logger):
     ]
 
     assert_stats_logs(
-        logger, expected_initial_study_def_logs, expected_timing_log_params
+        logger,
+        expected_initial_study_def_logs,
+        expected_timing_log_params,
+        downloaded=False,
     )
 
 
@@ -656,6 +660,7 @@ def assert_stats_logs(
     log_output,
     expected_initial_study_def_logs,
     expected_timing_log_params,
+    downloaded=True,
 ):
     # get the cohortextractor-stats logs
     cohortextractor_stats_logs = get_stats_logs(log_output.entries)
@@ -667,14 +672,62 @@ def assert_stats_logs(
 
     # get the sqlserver-stats logs
     sqlserver_stats_logs = get_stats_logs(log_output.entries, event="sqlserver-stats")
-    for log in sqlserver_stats_logs:
-        assert log["description"] in ["parse_and_compile_time", "execution_time"]
-        assert list(log.keys()) == [
-            "description",
-            "cpu_time_secs",
-            "elapsed_time_secs",
-            "timing_id",
+
+    # Each SQL execute call has a timing id, and should be associated with
+    # one SQL Server parse/compile log and one execution log;
+    # **EXCEPT** CREATE INDEX and DROP TABLE queries, which don't create a parse/compile
+    # timing, only an execution timing
+
+    # However, when we generate the queries to select the final results and write
+    # them to file, we return a generator.  At the point where the query is actually
+    # executed and the timing message handler is called, the last timing id is the one for
+    # dropping the temporary results table query. So we get no execution_time log for the
+    # download queries' timing_ids, and the DROP TABLE query's timing id will collect execution timing for
+    # both the download queries and (finally) the real drop table query
+
+    if downloaded:
+        sql_timing_logs = {
+            log["timing_id"]: log["sql"] for log in timing_logs if "sql" in log
+        }
+        sqlserver_stats_logs_compile_timing_ids = [
+            log["timing_id"]
+            for log in sqlserver_stats_logs
+            if log["description"] == "parse_and_compile_time"
         ]
+        sqlserver_stats_logs_execute_timing_ids = [
+            log["timing_id"]
+            for log in sqlserver_stats_logs
+            if log["description"] == "execution_time"
+        ]
+
+        # Find timing_ids that only have a compile timing logged; this should only be for
+        # download queries, which are logged under the temp table DROP TABLE instead
+        compile_only = set(sqlserver_stats_logs_compile_timing_ids) - set(
+            sqlserver_stats_logs_execute_timing_ids
+        )
+        for timing_id in compile_only:
+            assert sql_timing_logs[timing_id].startswith(
+                "SELECT TOP 32000 * FROM #final_output"
+            )
+
+        # Find timing_ids that only have an execute timing logged; this should only be for
+        # CREATE INDEX and DROP TABLE queries
+        execute_only = set(sqlserver_stats_logs_execute_timing_ids) - set(
+            sqlserver_stats_logs_compile_timing_ids
+        )
+        for timing_id in execute_only:
+            assert re.match(
+                r".*[CREATE INDEX|DROP TABLE].*", sql_timing_logs[timing_id], flags=re.S
+            )
+
+        # Find timing_ids that have more than one execution timing logged; this should only be
+        # for DROP TABLE queries that collect the timing messages for the download queries as well
+        execution_id_counts = Counter(sqlserver_stats_logs_execute_timing_ids)
+        for timing_id, count in execution_id_counts.items():
+            if count > 1:
+                assert re.match(
+                    r".*DROP TABLE.*", sql_timing_logs[timing_id], flags=re.S
+                )
 
     for i, timing_log in enumerate(timing_logs):
         actual_logged_sql = timing_log.get("sql", "")
