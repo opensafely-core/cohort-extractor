@@ -175,10 +175,11 @@ class LoggingCursor(BaseLoggingWrapper):
     `execute` call
     """
 
-    def __init__(self, logger, cursor, truncate=False):
+    def __init__(self, logger, cursor, truncate=False, time_stats=False):
         super().__init__(logger, cursor)
         self.cursor = cursor
         self.truncate = truncate
+        self.time_stats = time_stats
 
     def __iter__(self):
         return self.cursor.__iter__()
@@ -190,11 +191,13 @@ class LoggingCursor(BaseLoggingWrapper):
         with log_execution_time(
             self.logger, sql=query, description=log_desc, truncate=self.truncate
         ):
-            query = f"""
-            SET STATISTICS TIME ON
-            {query}
-            SET STATISTICS TIME OFF
-            """
+            if self.time_stats:
+                # Wrap the query in the sql server stats timing
+                query = f"""
+                SET STATISTICS TIME ON
+                {query}
+                SET STATISTICS TIME OFF
+                """
             self.cursor.execute(query)
 
 
@@ -203,12 +206,16 @@ class LoggingDatabaseConnection(BaseLoggingWrapper):
     Provides a database connection instance with a LoggingCursor
     """
 
-    def __init__(self, logger, database_connection, truncate=False):
+    def __init__(self, logger, database_connection, truncate=False, time_stats=False):
         super().__init__(logger, database_connection)
         self.db_connection = database_connection
         self.truncate = truncate
+        self.time_stats = time_stats
 
     def cursor(self):
         return LoggingCursor(
-            self.logger, self.db_connection.cursor(), truncate=self.truncate
+            self.logger,
+            self.db_connection.cursor(),
+            truncate=self.truncate,
+            time_stats=self.time_stats,
         )
