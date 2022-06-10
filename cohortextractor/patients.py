@@ -1157,7 +1157,16 @@ def address_as_of(
         returning: string indicating value to be returned. Options are:
 
             * `index_of_multiple_deprivation`
-            * `rural_urban_classification` encoded (in at least TPP) as:
+            * `rural_urban_classification`
+            * `msoa`
+
+        round_to_nearest: an integer that represents how `index_of_multiple_deprivation` value are rounded.
+            Only use when returning is `index_of_multiple_deprivation`
+        return_expectations: a dict defining the `rate` and the `categories` returned with ratios
+
+    Returns:
+        list: of integers for and `index_of_multiple_deprivation`, strings for `msoa`.
+            `rural_urban_classification` is encoded (in at least TPP) as:
                 * 1 - Urban major conurbation
                 * 2 - Urban minor conurbation
                 * 3 - Urban city and town
@@ -1166,16 +1175,9 @@ def address_as_of(
                 * 6 - Rural town and fringe in a sparse setting
                 * 7 - Rural village and dispersed
                 * 8 - Rural village and dispersed in a sparse setting
-            * `msoa`
+            `index_of_multiple_deprivation` (IMD) is a ranking from 1 to around 33000 (the number of LSOAs
+            in England), where 1 represents most deprived.
 
-        round_to_nearest: an integer that represents how `index_of_multiple_deprivation` value are rounded.
-            Only use when returning is `index_of_multiple_deprivation`
-        return_expectations: a dict defining the `rate` and the `categories` returned with ratios
-
-    Returns:
-        list: of integers for `rural_urban_classification` and `index_of_multiple_deprivation`, strings for `msoa`.
-            (IMD is a ranking from 1 to around 33000 (the number of LSOAs in England), where 1 represents most
-        deprived.)
 
     Raises:
         ValueError: if unsupported `returning` argument is provided
