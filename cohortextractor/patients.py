@@ -1157,7 +1157,15 @@ def address_as_of(
         returning: string indicating value to be returned. Options are:
 
             * `index_of_multiple_deprivation`
-            * `rural_urban_classification`
+            * `rural_urban_classification` encoded (in at least TPP) as:
+                * 1 - Urban major conurbation
+                * 2 - Urban minor conurbation
+                * 3 - Urban city and town
+                * 4 - Urban city and town in a sparse setting
+                * 5 - Rural town and fringe
+                * 6 - Rural town and fringe in a sparse setting
+                * 7 - Rural village and dispersed
+                * 8 - Rural village and dispersed in a sparse setting
             * `msoa`
 
         round_to_nearest: an integer that represents how `index_of_multiple_deprivation` value are rounded.
