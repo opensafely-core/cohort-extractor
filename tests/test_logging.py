@@ -656,6 +656,26 @@ def test_stats_logging_with_error(logger):
     assert end_log["state"] == "error"
 
 
+@patch("cohortextractor.mssql_utils.SQLSERVER_TIMING_REGEX")
+def test_stats_logging_with_message_handle_exception(mock_regex, logger):
+    mock_regex.match.side_effect = Exception("message error")
+    study = StudyDefinition(
+        population=patients.all(),
+        event=patients.with_these_clinical_events(codelist(["A"], "snomed")),
+    )
+    study.to_dicts()
+
+    cohortextractor_stats_logs = get_stats_logs(logger.entries)
+    timing_logs = get_logs_by_key(cohortextractor_stats_logs, "timing_id")
+    sqlserver_stats_logs = get_stats_logs(logger.entries, event="sqlserver-stats")
+    # Study runs OK and we still get the normal cohortextractor-stats timing logs
+    assert len(timing_logs) > 0
+    # sqlserver-stats logs just consist of the error logs
+    for log in sqlserver_stats_logs:
+        assert log["description"] == "Exception in SQL server message handling"
+        assert str(log["exc_info"]) == "message error"
+
+
 def assert_stats_logs(
     log_output,
     expected_initial_study_def_logs,

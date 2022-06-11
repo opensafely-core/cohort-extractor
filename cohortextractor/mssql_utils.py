@@ -106,17 +106,25 @@ def stats_msg_handler(msgstate, severity, srvname, procname, line, msgtext):
     """
     Log parse, compile and execution timing messages sent by the server.
     """
-    if timing_match := SQLSERVER_TIMING_REGEX.match(msgtext.decode()):
-        logger.info(
+    try:
+        if timing_match := SQLSERVER_TIMING_REGEX.match(msgtext.decode()):
+            logger.info(
+                "sqlserver-stats",
+                description=timing_match.group("timing_type").lower().replace(" ", "_"),
+                cpu_time_secs=int(timing_match.group("cpu_time")) / 1000,
+                elapsed_time_secs=int(timing_match.group("elapsed_time")) / 1000,
+                # SQL Server statistics timing is only set to ON for timed query execution, so
+                # we may be able match it to the query it timed by tagging it with the current timing id
+                # This may result in multiple execution timings logged against one timing id if
+                # query execution is delayed until the time of fetching
+                timing_id=timing_log_counter.current,
+            )
+    except Exception as e:
+        # Don't raise any exceptions from the message handling itself, just log them
+        logger.error(
             "sqlserver-stats",
-            description=timing_match.group("timing_type").lower().replace(" ", "_"),
-            cpu_time_secs=int(timing_match.group("cpu_time")) / 1000,
-            elapsed_time_secs=int(timing_match.group("elapsed_time")) / 1000,
-            # SQL Server statistics timing is only set to ON for timed query execution, so
-            # we may be able match it to the query it timed by tagging it with the current timing id
-            # This may result in multiple execution timings logged against one timing id if
-            # query execution is delayed until the time of fetching
-            timing_id=timing_log_counter.current,
+            description="Exception in SQL server message handling",
+            exc_info=e,
         )
 
 
