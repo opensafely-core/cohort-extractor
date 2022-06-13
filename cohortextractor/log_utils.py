@@ -7,7 +7,28 @@ from time import monotonic
 
 import structlog
 
-timing_log_counter = itertools.count()
+
+class TimingCounter:
+    """
+    A wrapper around an itertools counter which keeps track of the
+    current and next values of the counter
+    """
+
+    def __init__(self):
+        self.counter = itertools.count()
+        self.current = None
+        self.next = 0
+
+    def __next__(self):
+        # increment the counter, set the current and next values with it,
+        # and return it
+        self.current = next(self.counter)
+        self.next = self.current + 1
+        return self.current
+
+
+timing_log_counter = TimingCounter()
+
 
 pre_chain = [
     structlog.stdlib.add_log_level,
@@ -154,10 +175,11 @@ class LoggingCursor(BaseLoggingWrapper):
     `execute` call
     """
 
-    def __init__(self, logger, cursor, truncate=False):
+    def __init__(self, logger, cursor, truncate=False, time_stats=False):
         super().__init__(logger, cursor)
         self.cursor = cursor
         self.truncate = truncate
+        self.time_stats = time_stats
 
     def __iter__(self):
         return self.cursor.__iter__()
@@ -169,6 +191,13 @@ class LoggingCursor(BaseLoggingWrapper):
         with log_execution_time(
             self.logger, sql=query, description=log_desc, truncate=self.truncate
         ):
+            if self.time_stats:
+                # Wrap the query in the sql server stats timing
+                query = f"""
+                SET STATISTICS TIME ON
+                {query}
+                SET STATISTICS TIME OFF
+                """
             self.cursor.execute(query)
 
 
@@ -177,12 +206,16 @@ class LoggingDatabaseConnection(BaseLoggingWrapper):
     Provides a database connection instance with a LoggingCursor
     """
 
-    def __init__(self, logger, database_connection, truncate=False):
+    def __init__(self, logger, database_connection, truncate=False, time_stats=False):
         super().__init__(logger, database_connection)
         self.db_connection = database_connection
         self.truncate = truncate
+        self.time_stats = time_stats
 
     def cursor(self):
         return LoggingCursor(
-            self.logger, self.db_connection.cursor(), truncate=self.truncate
+            self.logger,
+            self.db_connection.cursor(),
+            truncate=self.truncate,
+            time_stats=self.time_stats,
         )

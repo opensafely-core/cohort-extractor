@@ -281,6 +281,7 @@ class TPPBackend:
             logger,
             mssql_dbapi_connection_from_url(self.database_url),
             truncate=self.truncate_sql_logs,
+            time_stats=True,
         )
         return self._db_connection
 
