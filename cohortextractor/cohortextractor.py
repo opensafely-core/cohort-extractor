@@ -746,7 +746,7 @@ def main():
     generate_codelist_report_parser.add_argument(
         "--output-dir",
         help="Location to store output files",
-        type=str,
+        type=pathlib.Path,
         default="output",
     )
     generate_codelist_report_parser.add_argument(
@@ -763,6 +763,18 @@ def main():
         "--end-date",
         help="End date",
         type=datetime.date.fromisoformat,
+    )
+    generate_codelist_report_parser.add_argument(
+        "--codes",
+        default=16,
+        help="For dummy data, how many codes to use from the codelist",
+        type=int,
+    )
+    generate_codelist_report_parser.add_argument(
+        "--days",
+        default=70,
+        help="For dummy data, how many days of data to generate between start date and end date",
+        type=int,
     )
 
     maintenance_parser = subparsers.add_parser(
@@ -853,6 +865,8 @@ def main():
             options.codelist_path,
             options.start_date,
             options.end_date,
+            options.codes,
+            options.days,
         )
     elif options.which == "cohort_report":
         make_cohort_report(options.input_dir, options.output_dir)

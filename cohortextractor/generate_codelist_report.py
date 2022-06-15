@@ -1,4 +1,6 @@
 import os
+import random
+from datetime import timedelta
 
 import pandas as pd
 import structlog
@@ -10,8 +12,18 @@ from .tpp_backend import make_batches_of_insert_statements, quote
 logger = structlog.get_logger()
 
 
-def generate_codelist_report(output_dir, codelist_path, start_date, end_date):
-    os.makedirs(output_dir, exist_ok=True)
+def generate_codelist_report(
+    output_dir, codelist_path, start_date, end_date, codes=16, days=70
+):
+    output_dir.mkdir(exist_ok=True, parents=True)
+
+    codelist = codelist_from_csv(codelist_path, "snomedct")
+
+    # generate dummy data
+    if os.environ.get("OPENSAFELY_BACKEND") == "expectations":
+        generate_dummy_data(output_dir, codelist, start_date, end_date, codes, days)
+        return
+
     connection = mssql_dbapi_connection_from_url(os.environ["DATABASE_URL"])
     cursor = connection.cursor()
 
@@ -20,14 +32,14 @@ def generate_codelist_report(output_dir, codelist_path, start_date, end_date):
     end_date = quote(end_date)
 
     generate_counts(
-        cursor, output_dir, codelist_path, start_date, end_date, start_date_weekday
+        cursor, output_dir, codelist, start_date, end_date, start_date_weekday
     )
     generate_list_sizes(cursor, output_dir, end_date)
     generate_patient_count(cursor, output_dir)
 
 
 def generate_counts(
-    cursor, output_dir, codelist_path, start_date, end_date, start_date_weekday
+    cursor, output_dir, codelist, start_date, end_date, start_date_weekday
 ):
     """Generate a pair of CSV files reporting usage of codes in given codelist.
 
@@ -35,8 +47,6 @@ def generate_counts(
     * counts_per_week_per_practice counts how many times all the codes appear in
         each week in the given timeframe, for each practice
     """
-
-    codelist = codelist_from_csv(codelist_path, "snomedct")
 
     queries = codelist_queries(codelist) + [
         events_query(start_date, end_date),
@@ -214,3 +224,56 @@ def results_query():
         ON #population.Patient_ID = #practice.Patient_ID
     GROUP BY Organisation_ID, ConceptID, ConsultationDate
     """
+
+
+def generate_dummy_data(output_dir, codelist, start_date, end_date, codes, days):
+    """Generate dummy data outputs.
+
+    This is not meant to be realistic, it's for testing the charting and other actions work.
+    """
+    rows = []
+    rows_list_size = []
+
+    total_days = (end_date - start_date).days
+
+    # choose `code_count` codes to use from the codelist
+    codes = random.sample(codelist, min(len(codelist), codes))
+    for i, code in enumerate(codes):
+        # step from start date to end date in `days` steps, so we have a full date range
+        for date_offset in range(0, total_days, max(total_days // days, 1)):
+            for practice in range(100):
+                jitter = random.uniform(0.8, 1.2)
+                count = int(
+                    (1000 + practice * jitter - 5 * abs(date_offset - total_days))
+                    * jitter
+                    * 1.595**-i
+                )
+                rows.append(
+                    [
+                        code,
+                        start_date + timedelta(date_offset),
+                        f"{practice:02}",
+                        count,
+                    ]
+                )
+
+    for practice in range(100):
+        rows_list_size.append([f"{practice:02}", int(random.gauss(2000, 500))])
+
+    counts = pd.DataFrame(rows, columns=["code", "date", "practice", "num"])
+    counts["date"] = pd.to_datetime(counts["date"])
+
+    counts_per_code = counts.groupby("code")["num"].sum()
+    counts_per_code.to_csv(output_dir / "counts_per_code.csv")
+
+    grouper = pd.Grouper(key="date", freq="W-MON")
+    counts_per_week = counts.groupby(["practice", grouper])["num"].sum()
+    counts_per_week.to_csv(output_dir / "counts_per_week_per_practice.csv")
+
+    list_size = pd.DataFrame(rows_list_size, columns=["practice", "list_size"])
+    list_size.to_csv(output_dir / "list_sizes.csv", index=False)
+
+    # set number of patients as ~30% of the number of events
+    pcount = int(0.3 * len(rows))
+    patient_count = pd.DataFrame([pcount], columns=["num"])
+    patient_count.to_csv(output_dir / "patient_count.csv", index=False)
