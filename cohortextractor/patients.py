@@ -1165,19 +1165,22 @@ def address_as_of(
         return_expectations: a dict defining the `rate` and the `categories` returned with ratios
 
     Returns:
-        list: of integers for `rural_urban_classification` and `index_of_multiple_deprivation`,
-            strings for `msoa`.
-            `rural_urban_classification` is encoded (in at least TPP) as:
-                * 1 - Urban major conurbation
-                * 2 - Urban minor conurbation
-                * 3 - Urban city and town
-                * 4 - Urban city and town in a sparse setting
-                * 5 - Rural town and fringe
-                * 6 - Rural town and fringe in a sparse setting
-                * 7 - Rural village and dispersed
-                * 8 - Rural village and dispersed in a sparse setting
-            `index_of_multiple_deprivation` (IMD) is a ranking from 1 to 32800 (the number of LSOAs
-            in England), where 1 represents most deprived.
+        list: of integers for `rural_urban_classification` and `index_of_multiple_deprivation`, strings
+            for `msoa`.
+
+        rural_urban_classification is encoded (in at least TPP) as:
+
+        * 1 - Urban major conurbation
+        * 2 - Urban minor conurbation
+        * 3 - Urban city and town
+        * 4 - Urban city and town in a sparse setting
+        * 5 - Rural town and fringe
+        * 6 - Rural town and fringe in a sparse setting
+        * 7 - Rural village and dispersed
+        * 8 - Rural village and dispersed in a sparse setting
+
+        `index_of_multiple_deprivation` (IMD) is a ranking from 1 to 32800 (the number of LSOAs
+        in England), where 1 represents most deprived.
 
 
     Raises:
