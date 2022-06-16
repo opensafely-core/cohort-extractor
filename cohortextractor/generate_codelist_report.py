@@ -231,18 +231,20 @@ def generate_dummy_data(output_dir, codelist, start_date, end_date, codes, days)
 
     This is not meant to be realistic, it's for testing the charting and other actions work.
     """
+
+    local_random = random.Random(123)
     rows = []
     rows_list_size = []
 
     total_days = (end_date - start_date).days
 
     # choose `code_count` codes to use from the codelist
-    codes = random.sample(codelist, min(len(codelist), codes))
+    codes = local_random.sample(codelist, min(len(codelist), codes))
     for i, code in enumerate(codes):
         # step from start date to end date in `days` steps, so we have a full date range
         for date_offset in range(0, total_days, max(total_days // days, 1)):
             for practice in range(100):
-                jitter = random.uniform(0.8, 1.2)
+                jitter = local_random.uniform(0.8, 1.2)
                 count = int(
                     (1000 + practice * jitter - 5 * abs(date_offset - total_days))
                     * jitter
@@ -258,7 +260,7 @@ def generate_dummy_data(output_dir, codelist, start_date, end_date, codes, days)
                 )
 
     for practice in range(100):
-        rows_list_size.append([f"{practice:02}", int(random.gauss(2000, 500))])
+        rows_list_size.append([f"{practice:02}", int(local_random.gauss(2000, 500))])
 
     counts = pd.DataFrame(rows, columns=["code", "date", "practice", "num"])
     counts["date"] = pd.to_datetime(counts["date"])
