@@ -6,6 +6,7 @@ import pandas as pd
 import pytest
 
 from cohortextractor.generate_codelist_report import generate_codelist_report
+from tests import test_tpp_backend
 from tests.tpp_backend_setup import (
     CodedEventSnomed,
     Organisation,
@@ -32,15 +33,10 @@ def teardown_module(module):
 
 
 def setup_function(function):
-    session = make_session()
-    session.query(CodedEventSnomed).delete()
-    session.query(Organisation).delete()
-    session.query(Patient).delete()
-    session.query(RegistrationHistory).delete()
-    session.commit()
+    test_tpp_backend.setup_function(function)
 
 
-def test_generate_codelist_report(tmpdir):
+def test_generate_codelist_report(tmp_path):
     # The timeframe we're interested in.
     start_date = date.fromisoformat("2022-01-02")
     end_date = date.fromisoformat("2022-01-25")
@@ -48,7 +44,7 @@ def test_generate_codelist_report(tmpdir):
     # The codes in our codelist.
     codelist_codes = ["11111111", "22222222"]
 
-    with open(tmpdir / "codelist.csv", "w") as f:
+    with open(tmp_path / "codelist.csv", "w") as f:
         writer = csv.writer(f)
         writer.writerow(["code"])
         writer.writerows([[code] for code in codelist_codes])
@@ -98,19 +94,17 @@ def test_generate_codelist_report(tmpdir):
     set_up_patients(event_data)
 
     # Generate the codelist report.
-    generate_codelist_report(
-        str(tmpdir), os.path.join(tmpdir, "codelist.csv"), start_date, end_date
-    )
+    generate_codelist_report(tmp_path, tmp_path / "codelist.csv", start_date, end_date)
 
     # Check counts_per_code is as expected.
     counts_per_code = pd.read_csv(
-        tmpdir / "counts_per_code.csv", dtype={"code": "object"}
+        tmp_path / "counts_per_code.csv", dtype={"code": "object"}
     ).set_index("code")
     assert dict(counts_per_code["num"]) == expected_counts_per_code
 
     # Check counts_per_week_per_practice is as expected.
     counts_per_week_per_practice = pd.read_csv(
-        tmpdir / "counts_per_week_per_practice.csv", dtype={"date": "object"}
+        tmp_path / "counts_per_week_per_practice.csv", dtype={"date": "object"}
     ).set_index(["date", "practice"])
     assert (
         dict(counts_per_week_per_practice["num"])
@@ -121,14 +115,14 @@ def test_generate_codelist_report(tmpdir):
     # the end date, and it has 2 patients.
     #   * current_patient
     #   * current_patient_no_events
-    list_sizes = pd.read_csv(tmpdir / "list_sizes.csv").set_index("practice")
+    list_sizes = pd.read_csv(tmp_path / "list_sizes.csv").set_index("practice")
     assert dict(list_sizes["list_size"]) == {1: 2}
 
     # Check patient_count is as expected.  There are 2 patients in the population with
     # matching events:
     #   * current_patient
     #   * dead_patient
-    patient_count = pd.read_csv(tmpdir / "patient_count.csv")
+    patient_count = pd.read_csv(tmp_path / "patient_count.csv")
     assert patient_count["num"][0] == 2
 
 
@@ -218,3 +212,26 @@ def set_up_patients(event_data):
     session.add(former_patient)
     session.add(long_dead_patient)
     session.commit()
+
+
+def test_generate_codelist_report_dummy(tmp_path, monkeypatch):
+    monkeypatch.setitem(os.environ, "OPENSAFELY_BACKEND", "expectations")
+
+    start_date = date.fromisoformat("2022-01-02")
+    end_date = date.fromisoformat("2022-01-25")
+
+    # The codes in our codelist.
+    codelist_codes = ["11111111", "22222222"]
+
+    with open(tmp_path / "codelist.csv", "w") as f:
+        writer = csv.writer(f)
+        writer.writerow(["code"])
+        writer.writerows([[code] for code in codelist_codes])
+
+    generate_codelist_report(tmp_path, tmp_path / "codelist.csv", start_date, end_date)
+
+    # check the files are valid csv
+    pd.read_csv(tmp_path / "counts_per_code.csv", dtype={"code": "object"})
+    pd.read_csv(tmp_path / "counts_per_week_per_practice.csv", dtype={"date": "object"})
+    pd.read_csv(tmp_path / "list_sizes.csv")
+    pd.read_csv(tmp_path / "patient_count.csv")
