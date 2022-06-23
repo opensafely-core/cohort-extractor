@@ -3478,6 +3478,7 @@ def test_patients_admitted_to_hospital():
                             Spell_Primary_Diagnosis="BBBB",
                             Spell_PbR_CC_Day="4",
                         ),
+                        Der_Admit_Treatment_Function_Code="123",
                     ),
                     APCS(
                         APCS_Ident=3,
@@ -3658,6 +3659,10 @@ def test_patients_admitted_to_hospital():
             with_these_primary_diagnoses=codelist(["AAA"], "icd10"),
             returning="total_critical_care_days_in_period",
         ),
+        with_treatment_admission_function_code=patients.admitted_to_hospital(
+            with_admission_treatment_function_code="123",
+            returning="binary_flag",
+        ),
     )
 
     assert_results(
@@ -3683,6 +3688,7 @@ def test_patients_admitted_to_hospital():
         total_bed_days_with_primary_diagnoses=["0", "3", "0", "0"],
         total_critical_care_days=["0", "0", "0", "9"],
         total_critical_care_days_with_primary_diagnoses=["0", "3", "0", "0"],
+        with_treatment_admission_function_code=["0", "0", "1", "0"],
     )
 
 

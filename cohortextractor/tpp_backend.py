@@ -2537,7 +2537,7 @@ class TPPBackend:
 
         for column_name, column_value in column_conditions.items():
             value_sql = ", ".join(map(quote, to_list(column_value)))
-            conditions.append(f"{column_name} IN ({value_sql})")
+            conditions.append(f"{supported_columns[column_name]} IN ({value_sql})")
 
         if with_these_primary_diagnoses:
             assert with_these_primary_diagnoses.system == "icd10"
