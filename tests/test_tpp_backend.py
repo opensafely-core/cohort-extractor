@@ -166,6 +166,22 @@ def test_minimal_study_to_file(tmp_path, format):
     ]
 
 
+def test_minimal_study_with_reserved_keywords():
+    # Test that we can use reserved SQL keywords as study variables
+    session = make_session()
+    patient_1 = Patient(DateOfBirth="1980-01-01", Sex="M")
+    patient_2 = Patient(DateOfBirth="1965-01-01", Sex="F")
+    session.add_all([patient_1, patient_2])
+    session.commit()
+    study = StudyDefinition(
+        population=patients.all(),
+        all=patients.sex(),
+        asc=patients.age_as_of("2020-01-01"),
+    )
+
+    assert_results(study.to_dicts(), all=["M", "F"], asc=["40", "55"])
+
+
 @pytest.mark.parametrize("format", ["csv", "csv.gz", "feather", "dta", "dta.gz"])
 def test_study_to_file_with_therapeutic_risk_groups(tmp_path, format):
     session = make_session()
