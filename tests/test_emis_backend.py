@@ -106,6 +106,22 @@ def test_minimal_study_to_file(tmp_path, format):
     ]
 
 
+def test_minimal_study_with_reserved_keywords():
+    # Test that we can use reserved SQL keywords as study variables
+    session = make_session()
+    patient_1 = Patient(date_of_birth="1980-01-01", gender=1, hashed_organisation="abc")
+    patient_2 = Patient(date_of_birth="1965-01-01", gender=2, hashed_organisation="abc")
+    session.add_all([patient_1, patient_2])
+    session.commit()
+    study = StudyDefinition(
+        population=patients.all(),
+        all=patients.sex(),
+        asc=patients.age_as_of("2020-01-01"),
+    )
+
+    assert_results(study.to_dicts(), all=["M", "F"], asc=["40", "55"])
+
+
 def test_meds():
     session = make_session()
 

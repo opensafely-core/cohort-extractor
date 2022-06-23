@@ -363,7 +363,7 @@ class TPPBackend:
         # Insert `patient_id` as the first column
         output_columns = dict(patient_id=patient_id_expr, **output_columns)
         output_columns_str = ",\n          ".join(
-            f"{expr} AS {name}"
+            f"{expr} AS [{name}]"
             for (name, expr) in output_columns.items()
             if not expr.is_hidden and name != "population"
         )
