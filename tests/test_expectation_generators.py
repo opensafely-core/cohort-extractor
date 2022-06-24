@@ -840,6 +840,7 @@ def test_make_df_from_expectations_with_aggregate_of():
             "incidence": 0.2,
         },
         population=patients.all(),
+        fixed_date=patients.fixed_value("1980-10-20"),
         date_1=patients.with_these_clinical_events(
             codelist(["X"], system="ctv3"),
             returning="date",
@@ -860,7 +861,7 @@ def test_make_df_from_expectations_with_aggregate_of():
         ),
         date_min_fixed=patients.minimum_of(
             "date_1",
-            "1980-10-20",
+            "fixed_date",
         ),
         int_1=patients.with_these_clinical_events(
             codelist(["X"], system="ctv3"),
@@ -883,8 +884,8 @@ def test_make_df_from_expectations_with_aggregate_of():
     )
     population_size = 10000
     result = study.make_df_from_expectations(population_size)
+    assert len(result) == population_size
     for _, row in result.iterrows():
-        print(row)
         dates = [d for d in [row["date_1"], row["date_2"]] if isinstance(d, str)]
         if dates:
             date_min = min(dates)
@@ -903,6 +904,7 @@ def test_make_df_from_expectations_with_aggregate_of():
             int_max = float("nan")
         assert_nan_equal(row["int_min"], int_min)
         assert_nan_equal(row["int_max"], int_max)
+        assert row["fixed_date"] == "1980-10-20"
 
     # aggregate of variables defined only within aggregate function
     study = StudyDefinition(
