@@ -496,9 +496,8 @@ class StudyDefinition:
             if dt == "date":
                 extra_df = extra_df.apply(pd.to_datetime)
             if non_extra_columns:
-                extra_df = pd.concat(
-                    [df[non_extra_columns], extra_df], ignore_index=True
-                )
+                for c in non_extra_columns:
+                    extra_df[c] = df[c]
             columns = extra_df[column_names]
         else:
             columns = df[column_names]
