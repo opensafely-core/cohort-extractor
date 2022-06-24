@@ -440,7 +440,7 @@ class StudyDefinition:
             value = definition_args["value"]
             if definition_args["column_type"] == "date":
                 value = pd.to_datetime(value)
-            df[colname] = value
+            df[colname] = pd.Series([value] * population)
 
         # Calculate the value of aggregated columns
         for colname, definition_args in self.pandas_csv_args["args"].items():
