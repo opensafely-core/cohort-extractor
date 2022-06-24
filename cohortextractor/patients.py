@@ -746,7 +746,12 @@ def with_these_clinical_events(
 ):
     """
     Patients who have had at least one of these clinical events in the defined
-    period
+    period. This is used for many types of events in primary care, such as 
+    symptoms, test results, diagnoses, investigations, and some demographic 
+    and social characteristics. NB: for prescriptions and vaccinations, use
+    the other available queriesf For onward referrals, data is incomplete and 
+    should not be relied upon.
+    
 
     Args:
         codelist: a codelist for requested event(s)
