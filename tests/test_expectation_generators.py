@@ -863,6 +863,10 @@ def test_make_df_from_expectations_with_aggregate_of():
             "date_1",
             "fixed_date",
         ),
+        date_min_fixed_inline=patients.minimum_of(
+            "date_1",
+            "1990-05-20",
+        ),
         int_1=patients.with_these_clinical_events(
             codelist(["X"], system="ctv3"),
             returning="number_of_matches_in_period",
@@ -904,6 +908,8 @@ def test_make_df_from_expectations_with_aggregate_of():
             int_max = float("nan")
         assert_nan_equal(row["int_min"], int_min)
         assert_nan_equal(row["int_max"], int_max)
+        assert row["date_min_fixed"] <= "1980-10-20"
+        assert row["date_min_fixed_inline"] <= "1990-05-20"
         assert row["fixed_date"] == "1980-10-20"
 
     # aggregate of variables defined only within aggregate function
