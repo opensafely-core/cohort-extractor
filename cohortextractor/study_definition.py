@@ -351,15 +351,6 @@ class StudyDefinition:
                 )
                 population = new_population
 
-        # Populate dataframe with any fixed values
-        for colname, definition_args in self.pandas_csv_args["args"].items():
-            if definition_args["funcname"] != "fixed_value":
-                continue
-            value = definition_args["value"]
-            if definition_args["column_type"] == "date":
-                value = pd.to_datetime(value)
-            df[colname] = pd.Series(value)
-
         # Now dates, so we can use them as inputs for incidence matching on dependent
         # columns
         for colname in self.pandas_csv_args["parse_dates"]:
@@ -442,6 +433,15 @@ class StudyDefinition:
                     f"Column definition {colname} does not return expected type {dtype}"
                 )
 
+        # Populate dataframe with any fixed values
+        for colname, definition_args in self.pandas_csv_args["args"].items():
+            if definition_args["funcname"] != "fixed_value":
+                continue
+            value = definition_args["value"]
+            if definition_args["column_type"] == "date":
+                value = pd.to_datetime(value)
+            df[colname] = pd.Series([value] * population)
+
         # Calculate the value of aggregated columns
         for colname, definition_args in self.pandas_csv_args["args"].items():
             if definition_args["funcname"] != "aggregate_of":
@@ -496,9 +496,8 @@ class StudyDefinition:
             if dt == "date":
                 extra_df = extra_df.apply(pd.to_datetime)
             if non_extra_columns:
-                extra_df = pd.concat(
-                    [df[non_extra_columns], extra_df], ignore_index=True
-                )
+                for c in non_extra_columns:
+                    extra_df[c] = df[c]
             columns = extra_df[column_names]
         else:
             columns = df[column_names]
