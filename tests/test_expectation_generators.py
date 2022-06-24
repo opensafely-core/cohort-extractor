@@ -1078,22 +1078,12 @@ def test_make_df_from_expectations_with_aggregate_of():
         print(row)
         dates = [d for d in [row["date_1"], row["date_2"]] if isinstance(d, str)]
         if dates:
-            date_min = min(dates)
-            date_max = max(dates)
-        else:
-            date_min = float("nan")
-            date_max = float("nan")
-        assert_nan_equal(row["date_min"], date_min)
-        assert_nan_equal(row["date_max"], date_max)
+            assert row["date_min"] <= min(dates)
+            assert row["date_max"] >= max(dates)
         ints = [i for i in [row["int_1"], row["int_2"]] if isinstance(i, int)]
         if ints:
-            int_min = min(ints)
-            int_max = max(ints)
-        else:
-            int_min = float("nan")
-            int_max = float("nan")
-        assert_nan_equal(row["int_min"], int_min)
-        assert_nan_equal(row["int_max"], int_max)
+            assert row["int_min"] <= min(ints)
+            assert row["int_max"] >= max(ints)
 
 
 def assert_nan_equal(v1, v2):
