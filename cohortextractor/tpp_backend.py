@@ -398,6 +398,13 @@ class TPPBackend:
 
     def get_column_expression(self, column_type, source, returning, date_format=None):
         default_value = self.get_default_value_for_type(column_type)
+        # Zero is a legitimate IMD return value so we can't use it to indicate NULL.
+        # Instead we use -1, which matches the value used in the database when there's
+        # an address record with an unknown IMD. Obviously implementing this is a
+        # special case here is terrible, but there's no other way of doing it without
+        # serious refactoring elsewhere.
+        if returning == "index_of_multiple_deprivation":
+            default_value = -1
         column_expr = f"#{source}.{returning}"
         if column_type == "date":
             column_expr = truncate_date(column_expr, date_format)

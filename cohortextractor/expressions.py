@@ -169,6 +169,8 @@ def insert_implicit_comparisons(tokens, empty_value_map):
 def token_for_value(value):
     if value == 0:
         return sqlparse.sql.Token(ttypes.Number.Integer, "0")
+    elif value == -1:
+        return sqlparse.sql.Token(ttypes.Number.Integer, "-1")
     elif value == "":
         return sqlparse.sql.Token(ttypes.Literal.String.Single, "''")
     else:
