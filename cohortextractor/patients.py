@@ -751,7 +751,6 @@ def with_these_clinical_events(
     and social characteristics. NB: for prescriptions and vaccinations, use
     the more specific queries available in cohort-extractor. For onward referrals,
     data is incomplete and should not be relied upon.
-    
 
     Args:
         codelist: a codelist for requested event(s)
