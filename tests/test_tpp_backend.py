@@ -1706,7 +1706,7 @@ def test_patients_address_as_of():
     )
     assert_results(
         study.to_dicts(),
-        imd=["300", "600", "-1", "-1"],
+        imd=["300", "600", "0", "0"],
         rural_urban=["2", "4", "0", "0"],
         msoa=["E02001286", "S02001286", "", ""],
         foo_date=["2020-01-01", "", "", ""],

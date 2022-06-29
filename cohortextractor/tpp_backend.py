@@ -397,11 +397,7 @@ class TPPBackend:
         return all_queries
 
     def get_column_expression(self, column_type, source, returning, date_format=None):
-        default_value = (
-            -1
-            if returning == "index_of_multiple_deprivation"
-            else self.get_default_value_for_type(column_type)
-        )
+        default_value = self.get_default_value_for_type(column_type)
         column_expr = f"#{source}.{returning}"
         if column_type == "date":
             column_expr = truncate_date(column_expr, date_format)
