@@ -187,7 +187,7 @@ class LoggingCursor(BaseLoggingWrapper):
     def __next__(self):
         return self.cursor.__next__()
 
-    def execute(self, query, log_desc=None):
+    def execute(self, query, *args, log_desc=None, **kwargs):
         with log_execution_time(
             self.logger, sql=query, description=log_desc, truncate=self.truncate
         ):
@@ -198,7 +198,7 @@ class LoggingCursor(BaseLoggingWrapper):
                 {query}
                 SET STATISTICS TIME OFF
                 """
-            self.cursor.execute(query)
+            self.cursor.execute(query, *args, **kwargs)
 
 
 class LoggingDatabaseConnection(BaseLoggingWrapper):

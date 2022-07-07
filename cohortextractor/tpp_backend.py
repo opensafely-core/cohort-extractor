@@ -3587,12 +3587,21 @@ class TPPBackend:
 
         conn = self.get_db_connection()
         cursor = conn.cursor()
+        latest_rebuild = cursor.execute(
+            "SELECT TOP 1 EventStart FROM BuildProgress WHERE Event = 'OpenSAFELY' ORDER BY EventStart DESC"
+        )
+        latest_rebuild = cursor.fetchone()
+        if not latest_rebuild:
+            # no events at all, we can't be in maintenance mode
+            return False
+
         cursor.execute(
             """
             SELECT Event FROM BuildProgress
-            WHERE EventEnd = '9999-12-31'
+            WHERE EventEnd = '9999-12-31' AND EventStart >= %s
             ORDER BY EventStart
             """,
+            latest_rebuild[0],
             log_desc=False,
         )
         current_events = [row[0] for row in cursor.fetchall()]
