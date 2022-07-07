@@ -6298,6 +6298,16 @@ def test_maintenance_mode():
 
     assert backend.in_maintenance_mode("") is False
 
+    # old unfinsihed event
+    # we insert this here as a regression test to ensure that it doesn't
+    # prevent exiting maintenance mode when we're done.
+    old_OpenSAFELY_event = BuildProgress(Event="OpenSAFELY")
+    session.add(old_OpenSAFELY_event)
+    session.commit()
+
+    assert backend.in_maintenance_mode("") is False
+    assert backend.in_maintenance_mode("db-maintenance") is True
+
     # initial event
     OpenSAFELY_event = BuildProgress(Event="OpenSAFELY")
     session.add(OpenSAFELY_event)
