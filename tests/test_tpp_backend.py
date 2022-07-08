@@ -1706,11 +1706,80 @@ def test_patients_address_as_of():
     )
     assert_results(
         study.to_dicts(),
-        imd=["300", "600", "0", "0"],
+        imd=["300", "600", "-1", "-1"],
         rural_urban=["2", "4", "0", "0"],
         msoa=["E02001286", "S02001286", "", ""],
         foo_date=["2020-01-01", "", "", ""],
         msoa_on_foo_date=["E02001286", "", "", ""],
+    )
+
+
+def test_index_of_multiple_deprivation():
+    session = make_session()
+    session.add_all(
+        [
+            Patient(
+                Addresses=[
+                    PatientAddress(
+                        StartDate="1990-01-01",
+                        EndDate="9999-12-31",
+                        ImdRankRounded=0,
+                    ),
+                ],
+            ),
+            Patient(
+                Addresses=[
+                    PatientAddress(
+                        StartDate="1990-01-01",
+                        EndDate="9999-12-31",
+                        ImdRankRounded=1500,
+                    ),
+                ],
+            ),
+            Patient(
+                Addresses=[
+                    PatientAddress(
+                        StartDate="1990-01-01",
+                        EndDate="9999-12-31",
+                        ImdRankRounded=2500,
+                    ),
+                ],
+            ),
+            # IMD explictly recorded as missing
+            Patient(
+                Addresses=[
+                    PatientAddress(
+                        StartDate="1990-01-01",
+                        EndDate="9999-12-31",
+                        ImdRankRounded=-1,
+                    ),
+                ],
+            ),
+            # No address record
+            Patient(),
+        ]
+    )
+    session.commit()
+    study = StudyDefinition(
+        population=patients.all(),
+        imd=patients.address_as_of(
+            "2020-01-01",
+            returning="index_of_multiple_deprivation",
+            round_to_nearest=100,
+        ),
+        imd_bucket=patients.categorised_as(
+            {
+                "low": "imd >= 0 AND imd < 1000",
+                "medium": "imd >= 1000 AND imd < 2000",
+                "high": "imd >= 2000",
+                "unknown": "DEFAULT",
+            }
+        ),
+    )
+    assert_results(
+        study.to_dicts(),
+        imd=["0", "1500", "2500", "-1", "-1"],
+        imd_bucket=["low", "medium", "high", "unknown", "unknown"],
     )
 
 
