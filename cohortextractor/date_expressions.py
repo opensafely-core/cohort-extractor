@@ -371,6 +371,9 @@ class MSSQLDateFormatter(DateFormatter):
     def date_unit_days(self, date, value):
         return f"DATEADD(DAY, {value}, {date})"
 
+    def cast_as_date(date_expr):
+        return f"CAST({date_expr} AS date)"
+
     # Define the singular units as aliases to the plural
     date_unit_year = date_unit_years
     date_unit_month = date_unit_months

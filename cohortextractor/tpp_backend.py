@@ -640,7 +640,7 @@ class TPPBackend:
         to "table" in order to evaluate the condition.
         """
         if flags.WITH_END_DATE_FIX:
-            date_expr = f"CAST({date_expr} AS date)"
+            date_expr = MSSQLDateFormatter.cast_as_date(date_expr)
         if between is None:
             between = (None, None)
         min_date, max_date = between
@@ -654,8 +654,8 @@ class TPPBackend:
         join_str = "\n".join(joins)
         if min_date_expr is not None and max_date_expr is not None:
             if flags.WITH_END_DATE_FIX:
-                min_date_expr = f"CAST({min_date_expr} AS date)"
-                max_date_expr = f"CAST({max_date_expr} AS date)"
+                min_date_expr = MSSQLDateFormatter.cast_as_date(min_date_expr)
+                max_date_expr = MSSQLDateFormatter.cast_as_date(max_date_expr)
             return (
                 f"{date_expr} BETWEEN {min_date_expr} AND {max_date_expr}",
                 join_str,
