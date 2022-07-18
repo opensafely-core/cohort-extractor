@@ -9,7 +9,7 @@ from unittest.mock import patch
 import pandas
 import pytest
 
-from cohortextractor import StudyDefinition, codelist, patients, tpp_backend
+from cohortextractor import StudyDefinition, codelist, patients, tpp_backend, flags
 from cohortextractor.date_expressions import InvalidExpressionError
 from cohortextractor.mssql_utils import mssql_connection_params_from_url
 from cohortextractor.patients import (
@@ -1713,6 +1713,98 @@ def test_patients_address_as_of():
         msoa_on_foo_date=["E02001286", "", "", ""],
     )
 
+def test_date_window_behaviour_literals():
+    session = make_session()
+    session.add_all(
+        [
+            # This patient has event past midnight on end of date window
+            Patient(
+                CodedEvents=[
+                    CodedEvent(CTV3Code="foo1", ConsultationDate="2021-01-01"),
+                    CodedEvent(CTV3Code="foo2", ConsultationDate="2021-01-04"),
+                    CodedEvent(CTV3Code="foo3", ConsultationDate="2021-01-04T10:45:00"),
+                    CodedEvent(CTV3Code="foo2", ConsultationDate="2021-01-01T16:10:00"),
+                ]
+            ),
+            # This patient doesn't have any relevant events
+            Patient(
+                CodedEvents=[
+                    CodedEvent(CTV3Code="mto1", ConsultationDate="2010-01-01"),
+                    CodedEvent(CTV3Code="mto2", ConsultationDate="2010-01-14"),
+                    CodedEvent(CTV3Code="mto3", ConsultationDate="2010-01-20"),
+                    CodedEvent(CTV3Code="mto1", ConsultationDate="2010-02-04"),
+                    CodedEvent(CTV3Code="mto1", ConsultationDate="2012-01-01T10:45:00"),
+                    CodedEvent(CTV3Code="mtr2", ConsultationDate="2012-01-01T16:10:00"),
+                    CodedEvent(CTV3Code="mto1", ConsultationDate="2015-03-05"),
+                    CodedEvent(CTV3Code="mto1", ConsultationDate="2020-02-05"),
+                ]
+            ),
+        ]
+    )
+    session.commit()
+    foo_codes = codelist(["foo1", "foo2", "foo3"], "ctv3")
+    study = StudyDefinition(
+        population=patients.all(),
+        event_count=patients.with_these_clinical_events(
+            foo_codes,
+            between=["2021-01-01","2021-01-04"],
+            returning="number_of_matches_in_period",
+        )
+    )
+    results = study.to_dicts()
+    event_count = 4 if flags.WITH_END_DATE_FIX else 2
+    assert [i["event_count"] for i in results] == [f"{event_count}", "0"]
+
+
+def test_date_window_behaviour_variable():
+    session = make_session()
+    session.add_all(
+        [
+            # This patient has event past midnight on end of date window
+            Patient(
+                CodedEvents=[
+                    CodedEvent(CTV3Code="foo1", ConsultationDate="2021-01-01"),
+                    CodedEvent(CTV3Code="foo2", ConsultationDate="2021-01-01T16:10:00"),
+                    CodedEvent(CTV3Code="bar1", ConsultationDate="2021-01-01"),
+                    CodedEvent(CTV3Code="bar2", ConsultationDate="2021-01-01T16:10:00"),
+                ]
+            ),
+            # This patient doesn't have any relevant events
+            Patient(
+                CodedEvents=[
+                    CodedEvent(CTV3Code="mto1", ConsultationDate="2010-01-01"),
+                    CodedEvent(CTV3Code="mto2", ConsultationDate="2010-01-14"),
+                    CodedEvent(CTV3Code="mto3", ConsultationDate="2010-01-20"),
+                    CodedEvent(CTV3Code="mto1", ConsultationDate="2010-02-04"),
+                    CodedEvent(CTV3Code="mto1", ConsultationDate="2012-01-01T10:45:00"),
+                    CodedEvent(CTV3Code="mtr2", ConsultationDate="2012-01-01T16:10:00"),
+                    CodedEvent(CTV3Code="mto1", ConsultationDate="2015-03-05"),
+                    CodedEvent(CTV3Code="mto1", ConsultationDate="2020-02-05"),
+                ]
+            ),
+        ]
+    )
+    session.commit()
+    foo_codes = codelist(["foo1", "foo2", "foo3"], "ctv3")
+    bar_codes = codelist(["foo1", "foo2", "foo3"], "ctv3")
+    study = StudyDefinition(
+        population=patients.all(),
+        first_bar=patients.with_these_clinical_events(
+            bar_codes,
+            on_or_after="2021-01-01",
+            returning="date",
+            date_format="YYYY-MM-DD",
+            find_first_match_in_period=True,
+        ),
+        event_count=patients.with_these_clinical_events(
+            foo_codes,
+            between=["first_bar","first_bar"],
+            returning="number_of_matches_in_period",
+        )
+    )
+    results = study.to_dicts()
+    event_count = 2 if flags.WITH_END_DATE_FIX else 1
+    assert [i["event_count"] for i in results] == [f"{event_count}", "0"]
 
 def test_index_of_multiple_deprivation():
     session = make_session()
