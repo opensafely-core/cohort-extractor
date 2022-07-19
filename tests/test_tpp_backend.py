@@ -1787,7 +1787,7 @@ def test_date_window_behaviour_variable():
     )
     session.commit()
     foo_codes = codelist(["foo1", "foo2", "foo3"], "ctv3")
-    bar_codes = codelist(["foo1", "foo2", "foo3"], "ctv3")
+    bar_codes = codelist(["bar1", "bar2", "bar3"], "ctv3")
     study = StudyDefinition(
         population=patients.all(),
         first_bar=patients.with_these_clinical_events(
