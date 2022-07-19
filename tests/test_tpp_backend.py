@@ -9,7 +9,7 @@ from unittest.mock import patch
 import pandas
 import pytest
 
-from cohortextractor import StudyDefinition, codelist, patients, tpp_backend, flags
+from cohortextractor import StudyDefinition, codelist, flags, patients, tpp_backend
 from cohortextractor.date_expressions import InvalidExpressionError
 from cohortextractor.mssql_utils import mssql_connection_params_from_url
 from cohortextractor.patients import (
