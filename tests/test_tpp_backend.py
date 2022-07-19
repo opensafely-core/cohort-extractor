@@ -1713,6 +1713,7 @@ def test_patients_address_as_of():
         msoa_on_foo_date=["E02001286", "", "", ""],
     )
 
+
 def test_date_window_behaviour_literals():
     session = make_session()
     session.add_all(
@@ -1747,9 +1748,9 @@ def test_date_window_behaviour_literals():
         population=patients.all(),
         event_count=patients.with_these_clinical_events(
             foo_codes,
-            between=["2021-01-01","2021-01-04"],
+            between=["2021-01-01", "2021-01-04"],
             returning="number_of_matches_in_period",
-        )
+        ),
     )
     results = study.to_dicts()
     event_count = 4 if flags.WITH_END_DATE_FIX else 2
@@ -1798,13 +1799,14 @@ def test_date_window_behaviour_variable():
         ),
         event_count=patients.with_these_clinical_events(
             foo_codes,
-            between=["first_bar","first_bar"],
+            between=["first_bar", "first_bar"],
             returning="number_of_matches_in_period",
-        )
+        ),
     )
     results = study.to_dicts()
     event_count = 2 if flags.WITH_END_DATE_FIX else 1
     assert [i["event_count"] for i in results] == [f"{event_count}", "0"]
+
 
 def test_index_of_multiple_deprivation():
     session = make_session()
