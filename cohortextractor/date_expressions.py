@@ -318,7 +318,7 @@ class MSSQLDateFormatter(DateFormatter):
         if match:
             column_ref = match.group(1)
             if date_format == "YYYY-MM-DD":
-                return column_ref
+                return MSSQLDateFormatter.cast_as_date(column_ref)
             elif date_format == "YYYY-MM":
                 return self.date_function_first_day_of_month(column_ref)
             else:
