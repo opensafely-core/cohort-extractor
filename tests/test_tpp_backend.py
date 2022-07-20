@@ -6136,6 +6136,90 @@ def test_ons_cis():
     )
 
 
+def test_nested_ons_cis_variables():
+    session = make_session()
+    session.add_all(
+        [
+            Patient(
+                ONS_CIS=[
+                    ONS_CIS(
+                        age_at_visit=20,
+                        visit_date="2021-10-01",
+                        covid_test_blood_pos_first_date="2021-08-01",
+                        result_tdi="0",
+                        country=0,
+                        self_isolating=0,
+                    ),
+                ],
+            ),
+            Patient(
+                ONS_CIS=[
+                    ONS_CIS(
+                        age_at_visit=30,
+                        visit_date="2021-11-01",
+                        covid_test_blood_pos_first_date="2021-07-01",
+                        result_tdi="1",
+                        country=1,
+                        self_isolating=1,
+                    ),
+                ],
+            ),
+            Patient(
+                ONS_CIS=[
+                    ONS_CIS(
+                        age_at_visit=40,
+                        visit_date="2021-10-01",
+                        covid_test_blood_pos_first_date="2021-06-01",
+                        result_tdi="10",
+                        country=2,
+                        self_isolating=0,
+                    ),
+                    ONS_CIS(
+                        age_at_visit=41,
+                        visit_date="2021-11-01",
+                        covid_test_blood_pos_first_date="2021-06-01",
+                        result_tdi="1",
+                        country=2,
+                        self_isolating=0,
+                    ),
+                ],
+            ),
+        ]
+    )
+    session.commit()
+    study = StudyDefinition(
+        population=patients.all(),
+        # by default returns last match in period, using visit date
+        visit_date_1=patients.with_an_ons_cis_record(
+            returning="visit_date",
+            date_filter_column="visit_date",
+            include_date_of_match=True,
+            date_format="YYYY-MM-DD",
+            find_first_match_in_period=True,
+        ),
+        # specifiy first match in period
+        visit_date_2=patients.with_an_ons_cis_record(
+            returning="visit_date",
+            date_filter_column="visit_date",
+            on_or_after="visit_date_1 + 7 days",
+            date_format="YYYY-MM-DD",
+            find_first_match_in_period=True,
+        ),
+        num_visits_on_or_before_visit_date_1=patients.with_an_ons_cis_record(
+            returning="number_of_matches_in_period",
+            date_filter_column="visit_date",
+            on_or_before="visit_date_1",
+        ),
+    )
+    res = study.to_dicts()
+    assert_results(
+        res,
+        visit_date_1=["2021-10-01", "2021-11-01", "2021-10-01"],
+        visit_date_2=["", "", "2021-11-01"],
+        num_visits_on_or_before_visit_date_1=["1", "1", "1"],
+    )
+
+
 def test_ukrr():
     "Test UK Renal Registry"
     session = make_session()
