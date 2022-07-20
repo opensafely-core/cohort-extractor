@@ -639,13 +639,15 @@ class TPPBackend:
         The join provides the (possibly empty) JOINs which need to be appended
         to "table" in order to evaluate the condition.
         """
-        if flags.WITH_END_DATE_FIX:
-            date_expr = f"CAST({date_expr} AS date)"
         if between is None:
             between = (None, None)
         min_date, max_date = between
         min_date_expr, join_tables1 = self.date_ref_to_sql_expr(min_date)
         max_date_expr, join_tables2 = self.date_ref_to_sql_expr(max_date)
+        if flags.WITH_END_DATE_FIX:
+            date_expr = MSSQLDateFormatter.cast_as_date(date_expr)
+            min_date_expr = MSSQLDateFormatter.cast_as_date(min_date_expr)
+            max_date_expr = MSSQLDateFormatter.cast_as_date(max_date_expr)
         joins = [
             f"LEFT JOIN {join_table}\n"
             f"ON {join_table}.patient_id = {table}.patient_id"

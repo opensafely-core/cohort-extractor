@@ -318,7 +318,7 @@ class MSSQLDateFormatter(DateFormatter):
         if match:
             column_ref = match.group(1)
             if date_format == "YYYY-MM-DD":
-                return column_ref
+                return MSSQLDateFormatter.cast_as_date(column_ref)
             elif date_format == "YYYY-MM":
                 return self.date_function_first_day_of_month(column_ref)
             else:
@@ -370,6 +370,9 @@ class MSSQLDateFormatter(DateFormatter):
 
     def date_unit_days(self, date, value):
         return f"DATEADD(DAY, {value}, {date})"
+
+    def cast_as_date(date_expr):
+        return f"CAST({date_expr} AS date)" if date_expr else None
 
     # Define the singular units as aliases to the plural
     date_unit_year = date_unit_years
