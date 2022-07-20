@@ -3437,7 +3437,7 @@ class TPPBackend:
                     mapping = ONS_CIS_CATEGORY_COLUMNS[returning]
                     case_definitions = "\n".join(
                         [
-                            f"WHEN {returning} = {key} THEN '{value}'"
+                            f"WHEN {table}.{returning} = {key} THEN '{value}'"
                             for key, value in mapping.items()
                         ]
                     )
@@ -3450,9 +3450,9 @@ class TPPBackend:
                     # When returning the codes rather than the string labels, we need to
                     # cast to varchar, otherwise any int-type codes will return missing
                     # values as 0, which is usually a valid category
-                    column_definition = f"CAST({returning} AS VARCHAR)"
+                    column_definition = f"CAST({table}.{returning} AS VARCHAR)"
             else:
-                column_definition = returning
+                column_definition = f"{table}.{returning}"
         if date_filter_column:
             # If we have a date_filter column, make sure it's valid
             filter_type = ONS_CIS_COLUMN_MAPPINGS.get(date_filter_column)
@@ -3480,7 +3480,7 @@ class TPPBackend:
             raise ValueError("date_filter_column is required")
 
         date_condition, date_joins = self.get_date_condition(
-            table, date_filter_column, between
+            table, f"{table}.{date_filter_column}", between
         )
 
         if use_partition_query:
@@ -3496,12 +3496,12 @@ class TPPBackend:
                 t.{date_filter_column} AS date
                 FROM (
                 SELECT
-                    Patient_ID,
+                    {table}.Patient_ID,
                     {column_definition} as return_value,
-                    {date_filter_column},
+                    {table}.{date_filter_column},
                     ROW_NUMBER() OVER (
                     PARTITION BY {table}.Patient_ID
-                    ORDER BY {date_filter_column} {ordering}, visit_id
+                    ORDER BY {table}.{date_filter_column} {ordering}, visit_id
                     ) AS rownum
                 FROM {table}
                 {date_joins}
@@ -3513,12 +3513,12 @@ class TPPBackend:
             # number_of_matches_in_period only
             sql = f"""
                 SELECT
-                Patient_ID AS patient_id,
+                {table}.Patient_ID AS patient_id,
                 {column_definition} AS {returning}
                 FROM {table}
                 {date_joins}
                 WHERE {date_condition}
-                GROUP BY Patient_ID
+                GROUP BY {table}.Patient_ID
             """
         return table_queries + [sql]
 
