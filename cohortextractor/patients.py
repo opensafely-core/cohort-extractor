@@ -2556,7 +2556,7 @@ def with_ethnicity_from_sus(
             look like
 
     Returns:
-        list: of integers, encoded (in at least TPP) as follows.
+        list: of integers, encoded (in at least TPP) in line with 2001 Census categories as follows.
 
         `group_6`:
 
