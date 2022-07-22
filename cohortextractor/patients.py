@@ -2555,6 +2555,36 @@ def with_ethnicity_from_sus(
         return_expectations: a dictionary describing what dummy data should
             look like
 
+    Returns:
+        list: of integers, encoded (in at least TPP) as follows.
+
+        `group_6`:
+
+        * 1 - White
+        * 2 - Mixed
+        * 3 - Asian or Asian British
+        * 4 - Black or Black British
+        * 5 - Other Ethnic Groups
+
+        `group_16`:
+
+        * 1 - White - British
+        * 2 - White - Irish
+        * 3 - White - Any other White background
+        * 4 - Mixed - White and Black Caribbean
+        * 5 - Mixed - White and Black African
+        * 6 - Mixed - White and Asian
+        * 7 - Mixed - Any other mixed background
+        * 8 - Asian or Asian British - Indian
+        * 9 - Asian or Asian British - Pakistani
+        * 10 - Asian or Asian British - Bangladeshi
+        * 11 - Asian or Asian British - Any other Asian background
+        * 12 - Black or Black British - Caribbean
+        * 13 - Black or Black British - African
+        * 14 - Black or Black British - Any other Black background
+        * 15 - Other Ethnic Groups - Chinese
+        * 16 - Other Ethnic Groups - Any other ethnic group
+
     Example:
         Patients with ethnicity, grouped to our 16 categories:
 
