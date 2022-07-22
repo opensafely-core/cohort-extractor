@@ -799,10 +799,9 @@ def main():
     elif not hasattr(options, "which"):
         parser.print_help()
     elif options.which == "generate_cohort":
-        # This defaults to False for now (when --with-end-date-fix is not provided) so that
-        # study outputs don't change unexpectedly.  After some more investigation, we'll
-        # change the default to True (via --without-end-date-fix).
-        flags.WITH_END_DATE_FIX = bool(options.with_end_date_fix)
+        # This defaults to True
+        # The old behaviour is configurable via --without-end-date-fix.
+        flags.WITH_END_DATE_FIX = not bool(options.without_end_date_fix)
 
         if options.database_url:
             os.environ["DATABASE_URL"] = options.database_url
