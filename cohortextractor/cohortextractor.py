@@ -701,8 +701,8 @@ def main():
         action="store_true",
     )
     generate_cohort_parser.add_argument(
-        "--with-end-date-fix",
-        action="store_true",
+        "--without-end-date-fix",
+        action="store_false",
     )
     cohort_method_group = generate_cohort_parser.add_mutually_exclusive_group()
     cohort_method_group.add_argument(
