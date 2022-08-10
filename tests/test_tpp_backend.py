@@ -3731,6 +3731,63 @@ def test_patients_admitted_to_hospital():
                     ),
                 ],
             ),
+            # Patient with no critical care days in period
+            Patient(
+                Patient_ID=5,
+                APCSEpisodes=[
+                    APCS(
+                        APCS_Ident=8,
+                        Admission_Date="2020-02-01",
+                        Discharge_Date="2020-03-01",
+                        Der_Diagnosis_All="||BBBB ,XXXB, XXXC",
+                        Der_Procedure_All="||BBBB ,YYYB, YYYC",
+                        APCS_Der=APCS_Der(
+                            Patient_ID=5,
+                            Spell_Primary_Diagnosis="BBBB",
+                        ),
+                    ),
+                ],
+            ),
+            # Patient with multiple admissions and some critical care days in period
+            Patient(
+                Patient_ID=6,
+                APCSEpisodes=[
+                    APCS(
+                        APCS_Ident=9,
+                        Admission_Date="2020-02-01",
+                        Discharge_Date="2020-03-01",
+                        Der_Diagnosis_All="||AAAA ,XXXB, XXXC",
+                        Der_Procedure_All="||AAAA ,YYYB, YYYC",
+                        APCS_Der=APCS_Der(
+                            Patient_ID=6,
+                            Spell_Primary_Diagnosis="AAAA",
+                        ),
+                    ),
+                    APCS(
+                        APCS_Ident=10,
+                        Admission_Date="2020-03-01",
+                        Discharge_Date="2020-04-01",
+                        Der_Diagnosis_All="||BBBB ,XXXB, XXXC",
+                        Der_Procedure_All="||BBBB ,YYYB, YYYC",
+                        APCS_Der=APCS_Der(
+                            Patient_ID=6,
+                            Spell_Primary_Diagnosis="BBBB",
+                            Spell_PbR_CC_Day="1",
+                        ),
+                    ),
+                    APCS(
+                        APCS_Ident=11,
+                        Admission_Date="2020-04-01",
+                        Discharge_Date="2020-05-01",
+                        Der_Diagnosis_All="||CCCC ,XXXB, XXXC",
+                        Der_Procedure_All="||CCCC ,YYYB, YYYC",
+                        APCS_Der=APCS_Der(
+                            Patient_ID=6,
+                            Spell_Primary_Diagnosis="CCCC",
+                        ),
+                    ),
+                ],
+            ),
         ]
     )
     session.commit()
@@ -3812,7 +3869,7 @@ def test_patients_admitted_to_hospital():
             with_source_of_admission="2A",
             returning="discharge_destination",
         ),
-        critical_care_days=patients.admitted_to_hospital(
+        critical_care_days_with_admission_method=patients.admitted_to_hospital(
             with_admission_method=["11", "99"],
             returning="days_in_critical_care",
         ),
@@ -3842,32 +3899,123 @@ def test_patients_admitted_to_hospital():
             with_admission_treatment_function_code="123",
             returning="binary_flag",
         ),
+        # variables which select ONLY admissions with at least one critical care day
+        with_at_least_one_critical_care_day_primary_diagnosis=patients.admitted_to_hospital(
+            on_or_after="2020-02-01",
+            with_at_least_one_day_in_critical_care=True,
+            returning="primary_diagnosis",
+        ),
+        with_at_least_one_critical_care_day_first_date_admitted=patients.admitted_to_hospital(
+            on_or_after="2020-02-01",
+            returning="date_admitted",
+            find_first_match_in_period=True,
+            with_at_least_one_day_in_critical_care=True,
+            date_format="YYYY-MM-DD",
+        ),
+        with_at_least_one_critical_care_day_last_date_admitted=patients.admitted_to_hospital(
+            on_or_after="2020-02-01",
+            returning="date_admitted",
+            find_last_match_in_period=True,
+            with_at_least_one_day_in_critical_care=True,
+            date_format="YYYY-MM-DD",
+        ),
+        with_at_least_one_critical_care_day_and_primary_diagnosis=patients.admitted_to_hospital(
+            returning="number_of_matches_in_period",
+            with_at_least_one_day_in_critical_care=True,
+            with_these_primary_diagnoses=codelist(["FFFF"], "icd10"),
+            date_format="YYYY-MM-DD",
+        ),
     )
 
+    res = study.to_dicts()
+
+    def get_result(key):
+        return [r[key] for r in res]
+
     assert_results(
-        study.to_dicts(),
-        admitted=["0", "0", "1", "1"],
-        count=["0", "0", "1", "4"],
-        first_date_admitted=["", "", "2020-03-01", "2020-03-01"],
-        last_date_admitted=["", "", "2020-03-01", "2020-07-01"],
-        first_date_discharged=["", "", "2020-04-01", "2020-04-01"],
-        last_date_discharged=["", "", "2020-04-01", "2020-08-01"],
-        with_particular_primary_diagnosis=["0", "0", "0", "1"],
-        with_particular_diagnoses_1=["0", "0", "1", "1"],
-        with_particular_diagnoses_2=["0", "0", "0", "2"],
-        with_particular_diagnoses_3=["0", "0", "1", "4"],
-        with_particular_diagnoses_4=["0", "0", "1", "2"],
-        with_particular_procedures=["0", "0", "1", "2"],
-        first_primary_diagnosis=["", "", "CCCC", "DDDD"],
-        last_primary_diagnosis=["", "", "CCCC", "FFFF"],
-        discharge_dest=["", "11", "99", ""],
-        critical_care_days=["", "3", "", "5"],
-        primary_diagnosis_prefix=["0", "1", "0", "0"],
-        total_bed_days=["0", "0", "3", "9"],
-        total_bed_days_with_primary_diagnoses=["0", "3", "0", "0"],
-        total_critical_care_days=["0", "0", "0", "9"],
-        total_critical_care_days_with_primary_diagnoses=["0", "3", "0", "0"],
-        with_treatment_admission_function_code=["0", "0", "1", "0"],
+        res,
+        admitted=["0", "0", "1", "1", "1", "1"],
+        count=["0", "0", "1", "4", "1", "3"],
+        first_date_admitted=[
+            "",
+            "",
+            "2020-03-01",
+            "2020-03-01",
+            "2020-02-01",
+            "2020-02-01",
+        ],
+        last_date_admitted=[
+            "",
+            "",
+            "2020-03-01",
+            "2020-07-01",
+            "2020-02-01",
+            "2020-04-01",
+        ],
+        first_date_discharged=[
+            "",
+            "",
+            "2020-04-01",
+            "2020-04-01",
+            "2020-03-01",
+            "2020-03-01",
+        ],
+        last_date_discharged=[
+            "",
+            "",
+            "2020-04-01",
+            "2020-08-01",
+            "2020-03-01",
+            "2020-05-01",
+        ],
+        with_particular_primary_diagnosis=["0", "0", "0", "1", "0", "0"],
+        with_particular_diagnoses_1=["0", "0", "1", "1", "0", "0"],
+        with_particular_diagnoses_2=["0", "0", "0", "2", "0", "0"],
+        with_particular_diagnoses_3=["0", "0", "1", "4", "1", "3"],
+        with_particular_diagnoses_4=["0", "0", "1", "2", "1", "3"],
+        with_particular_procedures=["0", "0", "1", "2", "1", "3"],
+        first_primary_diagnosis=["", "", "CCCC", "DDDD", "BBBB", "AAAA"],
+        last_primary_diagnosis=["", "", "CCCC", "FFFF", "BBBB", "CCCC"],
+        discharge_dest=["", "11", "99", "", "", ""],
+        critical_care_days_with_admission_method=["", "3", "", "5", "", ""],
+        primary_diagnosis_prefix=["0", "1", "0", "0", "0", "1"],
+        total_bed_days=["0", "0", "3", "9", "0", "0"],
+        total_bed_days_with_primary_diagnoses=["0", "3", "0", "0", "0", "0"],
+        total_critical_care_days=["0", "0", "0", "9", "0", "1"],
+        total_critical_care_days_with_primary_diagnoses=["0", "3", "0", "0", "0", "0"],
+        with_treatment_admission_function_code=["0", "0", "1", "0", "0", "0"],
+        with_at_least_one_critical_care_day_primary_diagnosis=[
+            "",
+            "",
+            "",
+            "FFFF",
+            "",
+            "BBBB",
+        ],
+        with_at_least_one_critical_care_day_first_date_admitted=[
+            "",
+            "",
+            "",
+            "2020-03-01",
+            "",
+            "2020-03-01",
+        ],
+        with_at_least_one_critical_care_day_last_date_admitted=[
+            "",
+            "",
+            "",
+            "2020-07-01",
+            "",
+            "2020-03-01",
+        ],
+        with_at_least_one_critical_care_day_and_primary_diagnosis=[
+            "0",
+            "0",
+            "0",
+            "1",
+            "0",
+            "0",
+        ],
     )
 
 

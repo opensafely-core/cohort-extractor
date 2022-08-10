@@ -2460,6 +2460,7 @@ class TPPBackend:
         with_these_primary_diagnoses=None,
         with_these_diagnoses=None,
         with_these_procedures=None,
+        with_at_least_one_day_in_critical_care=False,
         **kwargs,
     ):
         supported_columns = {
@@ -2547,6 +2548,9 @@ class TPPBackend:
         for column_name, column_value in column_conditions.items():
             value_sql = ", ".join(map(quote, to_list(column_value)))
             conditions.append(f"{supported_columns[column_name]} IN ({value_sql})")
+
+        if with_at_least_one_day_in_critical_care:
+            conditions.append("CAST(APCS_Der.Spell_PbR_CC_Day AS int) > 0")
 
         if with_these_primary_diagnoses:
             assert with_these_primary_diagnoses.system == "icd10"

@@ -2392,6 +2392,7 @@ def admitted_to_hospital(
     with_patient_classification=None,
     with_admission_treatment_function_code=None,
     with_administrative_category=None,
+    with_at_least_one_day_in_critical_care=False,
     return_expectations=None,
 ):
     """
@@ -2451,6 +2452,8 @@ def admitted_to_hospital(
         with_patient_classification: string or list of strings to match against
         with_admission_treatment_function_code: string or list of strings to match against
         with_administrative_category: string or list of strings to match against
+        with_at_least_one_day_in_critical_care: a boolean; if True, matches only admissions with at
+            least one critical care day
         return_expectations: a dictionary defining the incidence and distribution of expected value
             within the population in question.
 
