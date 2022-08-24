@@ -1717,99 +1717,92 @@ def test_patients_address_as_of():
 @pytest.mark.parametrize("with_end_date_fix", [True, False])
 def test_date_window_behaviour_literals(monkeypatch, with_end_date_fix):
     monkeypatch.setattr(flags, "WITH_END_DATE_FIX", with_end_date_fix)
+
     session = make_session()
     session.add_all(
         [
-            # This patient has event past midnight on end of date window
             Patient(
                 CodedEvents=[
-                    CodedEvent(CTV3Code="foo1", ConsultationDate="2021-01-01T00:00:00"),
-                    CodedEvent(CTV3Code="foo2", ConsultationDate="2021-01-04T00:00:00"),
-                    CodedEvent(CTV3Code="foo3", ConsultationDate="2021-01-04T10:45:00"),
-                    CodedEvent(CTV3Code="foo2", ConsultationDate="2021-01-01T16:10:00"),
-                ]
-            ),
-            # This patient doesn't have any relevant events
-            Patient(
-                CodedEvents=[
-                    CodedEvent(CTV3Code="mto1", ConsultationDate="2010-01-01T00:00:00"),
-                    CodedEvent(CTV3Code="mto2", ConsultationDate="2010-01-14T00:00:00"),
-                    CodedEvent(CTV3Code="mto3", ConsultationDate="2010-01-20T00:00:00"),
-                    CodedEvent(CTV3Code="mto1", ConsultationDate="2010-02-04T00:00:00"),
-                    CodedEvent(CTV3Code="mto1", ConsultationDate="2012-01-01T10:45:00"),
-                    CodedEvent(CTV3Code="mtr2", ConsultationDate="2012-01-01T16:10:00"),
-                    CodedEvent(CTV3Code="mto1", ConsultationDate="2015-03-05T00:00:00"),
-                    CodedEvent(CTV3Code="mto1", ConsultationDate="2020-02-05T00:00:00"),
+                    # This event is before the start date and is never captured
+                    CodedEvent(CTV3Code="foo", ConsultationDate="2021-01-03T23:59:59"),
+                    # These event is captured with and without the fix
+                    CodedEvent(CTV3Code="foo", ConsultationDate="2021-01-04T00:00:00"),
+                    # This event is after midnight on the end date, and is only captured with the fix
+                    CodedEvent(CTV3Code="foo", ConsultationDate="2021-01-04T10:45:00"),
+                    # This event is after the end date and is never captured
+                    CodedEvent(CTV3Code="foo", ConsultationDate="2021-01-05T00:00:00"),
                 ]
             ),
         ]
     )
     session.commit()
-    foo_codes = codelist(["foo1", "foo2", "foo3"], "ctv3")
+
     study = StudyDefinition(
         population=patients.all(),
         event_count=patients.with_these_clinical_events(
-            foo_codes,
-            between=["2021-01-01", "2021-01-04"],
+            codelist(["foo"], "ctv3"),
+            between=["2021-01-04", "2021-01-04"],
             returning="number_of_matches_in_period",
         ),
     )
+
     results = study.to_dicts()
-    event_count = 4 if with_end_date_fix else 3
-    assert [i["event_count"] for i in results] == [f"{event_count}", "0"]
+    if with_end_date_fix:
+        assert results[0]["event_count"] == "2"
+    else:
+        assert results[0]["event_count"] == "1"
 
 
 @pytest.mark.parametrize("with_end_date_fix", [True, False])
 def test_date_window_behaviour_variable(monkeypatch, with_end_date_fix):
     monkeypatch.setattr(flags, "WITH_END_DATE_FIX", with_end_date_fix)
+
     session = make_session()
     session.add_all(
         [
-            # This patient has event past midnight on end of date window
             Patient(
                 CodedEvents=[
-                    CodedEvent(CTV3Code="foo1", ConsultationDate="2021-01-01T00:00:00"),
-                    CodedEvent(CTV3Code="foo2", ConsultationDate="2021-01-01T16:10:00"),
-                    CodedEvent(CTV3Code="bar1", ConsultationDate="2021-01-01T00:00:00"),
-                    CodedEvent(CTV3Code="bar2", ConsultationDate="2021-01-01T16:10:00"),
-                ]
-            ),
-            # This patient doesn't have any relevant events
-            Patient(
-                CodedEvents=[
-                    CodedEvent(CTV3Code="mto1", ConsultationDate="2010-01-01T00:00:00"),
-                    CodedEvent(CTV3Code="mto2", ConsultationDate="2010-01-14T00:00:00"),
-                    CodedEvent(CTV3Code="mto3", ConsultationDate="2010-01-20T00:00:00"),
-                    CodedEvent(CTV3Code="mto1", ConsultationDate="2010-02-04T00:00:00"),
-                    CodedEvent(CTV3Code="mto1", ConsultationDate="2012-01-01T10:45:00"),
-                    CodedEvent(CTV3Code="mtr2", ConsultationDate="2012-01-01T16:10:00"),
-                    CodedEvent(CTV3Code="mto1", ConsultationDate="2015-03-05T00:00:00"),
-                    CodedEvent(CTV3Code="mto1", ConsultationDate="2020-02-05T00:00:00"),
+                    # This is the last bar event without the fix
+                    CodedEvent(CTV3Code="bar1", ConsultationDate="2021-01-03T16:10:00"),
+                    # This is the last bar event with the fix
+                    CodedEvent(CTV3Code="bar2", ConsultationDate="2021-01-04T16:10:00"),
+                    # Thse two foo event is on the date of bar1, but only one will be
+                    # captured without the fix.
+                    CodedEvent(CTV3Code="foo", ConsultationDate="2021-01-03T00:00:00"),
+                    CodedEvent(CTV3Code="foo", ConsultationDate="2021-01-03T16:10:00"),
+                    # These two foo events are on the date of bar2, and both will be
+                    # captured with the fix.
+                    CodedEvent(CTV3Code="foo", ConsultationDate="2021-01-04T16:10:00"),
+                    CodedEvent(CTV3Code="foo", ConsultationDate="2021-01-04T16:10:01"),
                 ]
             ),
         ]
     )
     session.commit()
-    foo_codes = codelist(["foo1", "foo2", "foo3"], "ctv3")
-    bar_codes = codelist(["bar1", "bar2", "bar3"], "ctv3")
+
     study = StudyDefinition(
         population=patients.all(),
-        first_bar=patients.with_these_clinical_events(
-            bar_codes,
-            on_or_after="2021-01-01",
+        last_bar=patients.with_these_clinical_events(
+            codelist(["bar1", "bar2"], "ctv3"),
+            between=["2021-01-01", "2021-01-04"],
             returning="date",
             date_format="YYYY-MM-DD",
-            find_first_match_in_period=True,
+            find_last_match_in_period=True,
         ),
         event_count=patients.with_these_clinical_events(
-            foo_codes,
-            between=["first_bar", "first_bar"],
+            codelist(["foo"], "ctv3"),
+            between=["last_bar", "last_bar"],
             returning="number_of_matches_in_period",
         ),
     )
+
     results = study.to_dicts()
-    event_count = 2 if with_end_date_fix else 1
-    assert [i["event_count"] for i in results] == [f"{event_count}", "0"]
+    if with_end_date_fix:
+        assert results[0]["last_bar"] == "2021-01-04"
+        assert results[0]["event_count"] == "2"
+    else:
+        assert results[0]["last_bar"] == "2021-01-03"
+        assert results[0]["event_count"] == "1"
 
 
 def test_index_of_multiple_deprivation():
