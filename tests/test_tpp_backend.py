@@ -1723,8 +1723,8 @@ def test_date_window_behaviour_literals(monkeypatch, with_end_date_fix):
             # This patient has event past midnight on end of date window
             Patient(
                 CodedEvents=[
-                    CodedEvent(CTV3Code="foo1", ConsultationDate="2021-01-01"),
-                    CodedEvent(CTV3Code="foo2", ConsultationDate="2021-01-04"),
+                    CodedEvent(CTV3Code="foo1", ConsultationDate="2021-01-01T00:00:00"),
+                    CodedEvent(CTV3Code="foo2", ConsultationDate="2021-01-04T00:00:00"),
                     CodedEvent(CTV3Code="foo3", ConsultationDate="2021-01-04T10:45:00"),
                     CodedEvent(CTV3Code="foo2", ConsultationDate="2021-01-01T16:10:00"),
                 ]
@@ -1732,14 +1732,14 @@ def test_date_window_behaviour_literals(monkeypatch, with_end_date_fix):
             # This patient doesn't have any relevant events
             Patient(
                 CodedEvents=[
-                    CodedEvent(CTV3Code="mto1", ConsultationDate="2010-01-01"),
-                    CodedEvent(CTV3Code="mto2", ConsultationDate="2010-01-14"),
-                    CodedEvent(CTV3Code="mto3", ConsultationDate="2010-01-20"),
-                    CodedEvent(CTV3Code="mto1", ConsultationDate="2010-02-04"),
+                    CodedEvent(CTV3Code="mto1", ConsultationDate="2010-01-01T00:00:00"),
+                    CodedEvent(CTV3Code="mto2", ConsultationDate="2010-01-14T00:00:00"),
+                    CodedEvent(CTV3Code="mto3", ConsultationDate="2010-01-20T00:00:00"),
+                    CodedEvent(CTV3Code="mto1", ConsultationDate="2010-02-04T00:00:00"),
                     CodedEvent(CTV3Code="mto1", ConsultationDate="2012-01-01T10:45:00"),
                     CodedEvent(CTV3Code="mtr2", ConsultationDate="2012-01-01T16:10:00"),
-                    CodedEvent(CTV3Code="mto1", ConsultationDate="2015-03-05"),
-                    CodedEvent(CTV3Code="mto1", ConsultationDate="2020-02-05"),
+                    CodedEvent(CTV3Code="mto1", ConsultationDate="2015-03-05T00:00:00"),
+                    CodedEvent(CTV3Code="mto1", ConsultationDate="2020-02-05T00:00:00"),
                 ]
             ),
         ]
@@ -1755,7 +1755,7 @@ def test_date_window_behaviour_literals(monkeypatch, with_end_date_fix):
         ),
     )
     results = study.to_dicts()
-    event_count = 4 if with_end_date_fix else 2
+    event_count = 4 if with_end_date_fix else 3
     assert [i["event_count"] for i in results] == [f"{event_count}", "0"]
 
 
@@ -1768,23 +1768,23 @@ def test_date_window_behaviour_variable(monkeypatch, with_end_date_fix):
             # This patient has event past midnight on end of date window
             Patient(
                 CodedEvents=[
-                    CodedEvent(CTV3Code="foo1", ConsultationDate="2021-01-01"),
+                    CodedEvent(CTV3Code="foo1", ConsultationDate="2021-01-01T00:00:00"),
                     CodedEvent(CTV3Code="foo2", ConsultationDate="2021-01-01T16:10:00"),
-                    CodedEvent(CTV3Code="bar1", ConsultationDate="2021-01-01"),
+                    CodedEvent(CTV3Code="bar1", ConsultationDate="2021-01-01T00:00:00"),
                     CodedEvent(CTV3Code="bar2", ConsultationDate="2021-01-01T16:10:00"),
                 ]
             ),
             # This patient doesn't have any relevant events
             Patient(
                 CodedEvents=[
-                    CodedEvent(CTV3Code="mto1", ConsultationDate="2010-01-01"),
-                    CodedEvent(CTV3Code="mto2", ConsultationDate="2010-01-14"),
-                    CodedEvent(CTV3Code="mto3", ConsultationDate="2010-01-20"),
-                    CodedEvent(CTV3Code="mto1", ConsultationDate="2010-02-04"),
+                    CodedEvent(CTV3Code="mto1", ConsultationDate="2010-01-01T00:00:00"),
+                    CodedEvent(CTV3Code="mto2", ConsultationDate="2010-01-14T00:00:00"),
+                    CodedEvent(CTV3Code="mto3", ConsultationDate="2010-01-20T00:00:00"),
+                    CodedEvent(CTV3Code="mto1", ConsultationDate="2010-02-04T00:00:00"),
                     CodedEvent(CTV3Code="mto1", ConsultationDate="2012-01-01T10:45:00"),
                     CodedEvent(CTV3Code="mtr2", ConsultationDate="2012-01-01T16:10:00"),
-                    CodedEvent(CTV3Code="mto1", ConsultationDate="2015-03-05"),
-                    CodedEvent(CTV3Code="mto1", ConsultationDate="2020-02-05"),
+                    CodedEvent(CTV3Code="mto1", ConsultationDate="2015-03-05T00:00:00"),
+                    CodedEvent(CTV3Code="mto1", ConsultationDate="2020-02-05T00:00:00"),
                 ]
             ),
         ]
