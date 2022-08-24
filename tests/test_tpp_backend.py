@@ -1714,7 +1714,9 @@ def test_patients_address_as_of():
     )
 
 
-def test_date_window_behaviour_literals():
+@pytest.mark.parametrize("with_end_date_fix", [True, False])
+def test_date_window_behaviour_literals(monkeypatch, with_end_date_fix):
+    monkeypatch.setattr(flags, "WITH_END_DATE_FIX", with_end_date_fix)
     session = make_session()
     session.add_all(
         [
@@ -1753,11 +1755,13 @@ def test_date_window_behaviour_literals():
         ),
     )
     results = study.to_dicts()
-    event_count = 4 if flags.WITH_END_DATE_FIX else 2
+    event_count = 4 if with_end_date_fix else 2
     assert [i["event_count"] for i in results] == [f"{event_count}", "0"]
 
 
-def test_date_window_behaviour_variable():
+@pytest.mark.parametrize("with_end_date_fix", [True, False])
+def test_date_window_behaviour_variable(monkeypatch, with_end_date_fix):
+    monkeypatch.setattr(flags, "WITH_END_DATE_FIX", with_end_date_fix)
     session = make_session()
     session.add_all(
         [
@@ -1804,7 +1808,7 @@ def test_date_window_behaviour_variable():
         ),
     )
     results = study.to_dicts()
-    event_count = 2 if flags.WITH_END_DATE_FIX else 1
+    event_count = 2 if with_end_date_fix else 1
     assert [i["event_count"] for i in results] == [f"{event_count}", "0"]
 
 
