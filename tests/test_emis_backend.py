@@ -6,7 +6,7 @@ import tempfile
 import pandas
 import pytest
 
-from cohortextractor import StudyDefinition, codelist, patients
+from cohortextractor import StudyDefinition, codelist, flags, patients
 from cohortextractor.date_expressions import InvalidExpressionError
 from cohortextractor.emis_backend import quote, truncate_patient_id
 from cohortextractor.patients import (
@@ -2591,3 +2591,114 @@ def test_patients_died_from_any_cause_dynamic_dates():
         antipsychotics_date=["2021-01-02", "2021-01-02", "", "", "2021-01-02"],
         died_2weeks_post_antipsychotic=["0", "0", "0", "0", "1"],
     )
+
+
+@pytest.mark.parametrize("with_end_date_fix", [True, False])
+def test_date_window_behaviour_literals(monkeypatch, with_end_date_fix):
+    monkeypatch.setattr(flags, "WITH_END_DATE_FIX", with_end_date_fix)
+
+    session = make_session()
+    session.add_all(
+        [
+            Patient(
+                observations=[
+                    # This event is before the start date and is never captured
+                    Observation(
+                        snomed_concept_id="111", effective_date="2021-01-03T23:59:59"
+                    ),
+                    # These event is captured with and without the fix
+                    Observation(
+                        snomed_concept_id="111", effective_date="2021-01-04T00:00:00"
+                    ),
+                    # This event is after midnight on the end date, and is only captured with the fix
+                    Observation(
+                        snomed_concept_id="111", effective_date="2021-01-04T10:45:00"
+                    ),
+                    # This event is after the end date and is never captured
+                    Observation(
+                        snomed_concept_id="111", effective_date="2021-01-05T00:00:00"
+                    ),
+                ]
+            ),
+        ]
+    )
+    session.commit()
+
+    study = StudyDefinition(
+        population=patients.all(),
+        event_count=patients.with_these_clinical_events(
+            codelist(["111"], "snomedct"),
+            between=["2021-01-04", "2021-01-04"],
+            returning="number_of_matches_in_period",
+        ),
+    )
+
+    results = study.to_dicts()
+    if with_end_date_fix:
+        assert results[0]["event_count"] == "2"
+    else:
+        assert results[0]["event_count"] == "1"
+
+
+@pytest.mark.parametrize("with_end_date_fix", [True, False])
+def test_date_window_behaviour_variable(monkeypatch, with_end_date_fix):
+    monkeypatch.setattr(flags, "WITH_END_DATE_FIX", with_end_date_fix)
+
+    session = make_session()
+    session.add_all(
+        [
+            Patient(
+                observations=[
+                    # This is the last 222 event without the fix
+                    Observation(
+                        snomed_concept_id="2221", effective_date="2021-01-03T16:10:00"
+                    ),
+                    # This is the last 222 event with the fix
+                    Observation(
+                        snomed_concept_id="2222", effective_date="2021-01-04T16:10:00"
+                    ),
+                    # Thse two 111 event is on the date of 2221, but only one will be
+                    # captured without the fix.
+                    Observation(
+                        snomed_concept_id="111", effective_date="2021-01-03T00:00:00"
+                    ),
+                    Observation(
+                        snomed_concept_id="111", effective_date="2021-01-03T16:10:00"
+                    ),
+                    # These two 111 events are on the date of 2222, and both will be
+                    # captured with the fix.
+                    Observation(
+                        snomed_concept_id="111", effective_date="2021-01-04T16:10:00"
+                    ),
+                    Observation(
+                        snomed_concept_id="111", effective_date="2021-01-04T16:10:01"
+                    ),
+                ]
+            ),
+        ]
+    )
+    session.commit()
+
+    study = StudyDefinition(
+        population=patients.all(),
+        last_222=patients.with_these_clinical_events(
+            codelist(["2221", "2222"], "snomedct"),
+            between=["2021-01-01", "2021-01-04"],
+            returning="date",
+            date_format="YYYY-MM-DD",
+            find_last_match_in_period=True,
+        ),
+        event_count=patients.with_these_clinical_events(
+            codelist(["111"], "snomedct"),
+            between=["last_222", "last_222"],
+            returning="number_of_matches_in_period",
+        ),
+    )
+
+    results = study.to_dicts()
+    if with_end_date_fix:
+        assert results[0]["last_222"] == "2021-01-04"
+        assert results[0]["event_count"] == "2"
+    else:
+        assert results[0]["last_222"] == "2021-01-03"
+        assert results[0]["event_count"] == "1"

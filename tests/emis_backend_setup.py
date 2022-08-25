@@ -11,6 +11,7 @@ For immediate convenience while testing we use the SQL Server connector (as we
 already need an instance running for the TPP tests).
 """
 import os
+import re
 import uuid
 
 from sqlalchemy import (
@@ -38,7 +39,24 @@ from cohortextractor.emis_backend import (
 from cohortextractor.trino_utils import wait_for_trino_to_be_ready
 from tests.helpers import mssql_sqlalchemy_engine_from_url, wait_for_mssql_to_be_ready
 
-Base = declarative_base()
+
+# Hack: in order to improve the variety of our test data, we intercept object
+# initialization, adding a time part to any kwarg that is for a datetime field that has
+# been provided as a date.
+class BaseTable:
+    def __init__(self, **kwargs):
+        columns = type(self).__table__.columns
+        for k in kwargs:
+            if k not in columns:
+                continue
+            if not isinstance(columns[k].type, DateTime):
+                continue
+            if re.match(r"\d\d\d\d-\d\d-\d\d$", kwargs[k]):
+                kwargs[k] += " 12:00:00"
+        super().__init__(**kwargs)
+
+
+Base = declarative_base(cls=BaseTable)
 metadata = Base.metadata
 
 
