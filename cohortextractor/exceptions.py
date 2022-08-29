@@ -4,3 +4,7 @@ class ValidationError(Exception):
 
 class DummyDataValidationError(ValidationError):
     human_name = "Dummy data error"
+
+
+class MissingParameterError(ValidationError):
+    human_name = "Missing --param error"

@@ -164,6 +164,30 @@ def test_patients_from_file(tmp_path):
     assert contents[1][2] == "1"  # boolean
 
 
+def test_passing_params_to_study_definition(tmp_path):
+    population_size = 4
+    _cohortextractor(
+        study="test_params",
+        args=[
+            "generate_cohort",
+            "--expectations-population",
+            str(population_size),
+            "--output-file",
+            tmp_path / "results_with_params.csv",
+            "--param",
+            "age_suffix=one",
+            "--param",
+            "sex_suffix",
+            "=",
+            "two",
+        ],
+    )
+    with open(tmp_path / "results_with_params.csv") as f:
+        contents = list(csv.reader(f))
+    assert len(contents) == population_size + 1
+    assert set(contents[0]) == {"patient_id", "age_one", "sex_two"}
+
+
 def _cohortextractor(study, args):
     study_path = os.path.join(os.path.dirname(__file__), "fixtures", "studies", study)
     cohortextractor_path = os.path.dirname(os.path.dirname(cohortextractor.__file__))

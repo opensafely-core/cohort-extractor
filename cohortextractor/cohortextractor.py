@@ -142,6 +142,7 @@ def generate_cohort(
     skip_existing=False,
     output_format=SUPPORTED_FILE_FORMATS[0],
     output_name=None,
+    params=(),
 ):
     preflight_generation_check()
     study_definitions = list_study_definitions()
@@ -174,6 +175,7 @@ def generate_cohort(
                 skip_existing=skip_existing,
                 output_format=output_format,
                 output_name=output_name or "input",
+                params=params,
             )
 
 
@@ -187,6 +189,7 @@ def _generate_cohort(
     skip_existing=False,
     output_format=SUPPORTED_FILE_FORMATS[0],
     output_name="input",
+    params=(),
 ):
     logger.info(
         f"Generating cohort for {study_name} in {output_dir}",
@@ -201,7 +204,7 @@ def _generate_cohort(
         output_format=output_format,
     )
 
-    study = load_study_definition(study_name)
+    study = load_study_definition(study_name, params=params)
 
     os.makedirs(output_dir, exist_ok=True)
 
@@ -562,20 +565,24 @@ def _make_cohort_report(input_dir, output_dir, study_name, suffix):
     logger.info(f"Created cohort report at {output_dir}/descriptives{suffix}.html")
 
 
-def dump_cohort_sql(study_definition):
-    study = load_study_definition(study_definition)
+def dump_cohort_sql(study_definition, params=()):
+    study = load_study_definition(study_definition, params=params)
     print(study.to_sql())
 
 
-def dump_study_yaml(study_definition):
-    study = load_study_definition(study_definition)
+def dump_study_yaml(study_definition, params=()):
+    study = load_study_definition(study_definition, params=params)
     print(yaml.dump(study.to_data()))
 
 
-def load_study_definition(name, value="study"):
+def load_study_definition(name, value="study", params=()):
     sys.path.extend([relative_dir(), os.path.join(relative_dir(), "analysis")])
     # Avoid creating __pycache__ files in the analysis directory
     sys.dont_write_bytecode = True
+    # Set any supplied "<key>=<value>" parameters on the global `params` dict
+    cohortextractor.params.clear()
+    cohortextractor.params.update(params)
+    logger.info(f"Setting cohortextractor.params to: {cohortextractor.params}")
     return getattr(importlib.import_module(name), value)
 
 
@@ -660,6 +667,14 @@ def main(args=None):
     dump_cohort_sql_parser.add_argument(
         "--study-definition", help="Study definition name", type=str, required=True
     )
+    dump_cohort_sql_parser.add_argument(
+        "--param",
+        nargs="+",
+        action="append",
+        dest="params",
+        default=[],
+        help="Additional parameter to pass to study definition",
+    )
     dump_cohort_sql_parser.set_defaults(which="dump_cohort_sql")
     dump_study_yaml_parser = subparsers.add_parser(
         "dump_study_yaml", help="Show study definition as YAML"
@@ -667,6 +682,14 @@ def main(args=None):
     dump_study_yaml_parser.set_defaults(which="dump_study_yaml")
     dump_study_yaml_parser.add_argument(
         "--study-definition", help="Study definition name", type=str, required=True
+    )
+    dump_study_yaml_parser.add_argument(
+        "--param",
+        nargs="+",
+        action="append",
+        dest="params",
+        default=[],
+        help="Additional parameter to pass to study definition",
     )
     # Cohort parser options
     generate_cohort_parser.add_argument(
@@ -718,6 +741,14 @@ def main(args=None):
     generate_cohort_parser.add_argument(
         "--with-end-date-fix",
         action="store_true",
+    )
+    generate_cohort_parser.add_argument(
+        "--param",
+        nargs="+",
+        action="append",
+        dest="params",
+        default=[],
+        help="Additional parameter to pass to study definition",
     )
     cohort_method_group = generate_cohort_parser.add_mutually_exclusive_group()
     cohort_method_group.add_argument(
@@ -864,6 +895,7 @@ def main(args=None):
                 skip_existing=options.skip_existing,
                 output_format=output_format,
                 output_name=output_name,
+                params=dict_from_params(options.params),
             )
         except ValidationError as e:
             print(f"{e.human_name}: {e}")
@@ -909,13 +941,33 @@ def main(args=None):
     elif options.which == "cohort_report":
         make_cohort_report(options.input_dir, options.output_dir)
     elif options.which == "dump_cohort_sql":
-        dump_cohort_sql(options.study_definition)
+        dump_cohort_sql(
+            options.study_definition, params=dict_from_params(options.params)
+        )
     elif options.which == "dump_study_yaml":
-        dump_study_yaml(options.study_definition)
+        dump_study_yaml(
+            options.study_definition, params=dict_from_params(options.params)
+        )
     elif options.which == "maintenance":
         if options.database_url:
             os.environ["DATABASE_URL"] = options.database_url
         check_maintenance(options.current_mode)
+
+
+def dict_from_params(params):
+    # Arguments like this:
+    #
+    #     --param key1=value1 --param key2 = value2 --param key3= 'value 3'
+    #
+    # Are parsed by argpase into a list like this:
+    #
+    #     [["key1=value1"], ["key2", "=", "value2"], ["key3=", "value 3"]]
+    #
+    # We want to transform that into a dict like this:
+    #
+    #     {"key1": "value1", "key2": "value2", "key3: "value 3"}
+    #
+    return dict("".join(param_parts).partition("=")[::2] for param_parts in params)
 
 
 if __name__ == "__main__":

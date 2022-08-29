@@ -5,6 +5,7 @@ from unittest.mock import patch
 
 import pytest
 
+from cohortextractor import MissingParameterError, params
 from cohortextractor.cohortextractor import flags, list_study_definitions, main
 
 
@@ -131,6 +132,7 @@ def test_output_file_args_passed_to_generate_cohort(patch_generate_cohort):
         skip_existing=False,
         output_format="csv.gz",
         output_name="results",
+        params={},
     )
 
 
@@ -146,6 +148,7 @@ def test_multiple_studies_handled_if_no_output_file_option(patch_generate_cohort
         skip_existing=False,
         output_format="feather",
         output_name="input",
+        params={},
     )
     patch_generate_cohort.assert_any_call(
         "output",
@@ -157,4 +160,10 @@ def test_multiple_studies_handled_if_no_output_file_option(patch_generate_cohort
         skip_existing=False,
         output_format="feather",
         output_name="input",
+        params={},
     )
+
+
+def test_params_dict_raises_correct_error():
+    with pytest.raises(MissingParameterError, match="nothere"):
+        params["nothere"]
