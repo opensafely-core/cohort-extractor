@@ -1,4 +1,5 @@
 import datetime
+import math
 import os
 import re
 import uuid
@@ -1652,7 +1653,10 @@ def is_iso_date(value):
 
 def quote(value, reformat_dates=True):
     if isinstance(value, (int, float)):
-        return str(value)
+        if math.isnan(value):
+            return "NULL"
+        else:
+            return str(value)
 
     value = str(value)
     if reformat_dates:
