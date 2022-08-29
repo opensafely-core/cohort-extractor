@@ -5114,6 +5114,23 @@ def test_with_float_value_from_file(patient_ids, tmp_path):
     assert_results(study.to_dicts(), case_bmi=["18.5", "0.0"])
 
 
+def test_with_nan_float_value_from_file(patient_ids, tmp_path):
+    f_path = _to_csv(
+        [
+            {"patient_id": patient_ids[0], "bmi": float("nan")},
+            {"patient_id": patient_ids[1], "bmi": 18.5},
+        ],
+        tmp_path,
+    )
+    study = StudyDefinition(
+        population=patients.all(),
+        case_bmi=patients.with_value_from_file(
+            f_path, returning="bmi", returning_type="float"
+        ),
+    )
+    assert_results(study.to_dicts(), case_bmi=["0.0", "18.5"])
+
+
 def test_with_value_from_file_with_unexpected_file_type():
     with pytest.raises(TypeError):
         StudyDefinition(
