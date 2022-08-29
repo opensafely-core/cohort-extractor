@@ -32,7 +32,7 @@ from pandas.api.types import (
 
 import cohortextractor
 from cohortextractor import flags
-from cohortextractor.exceptions import DummyDataValidationError
+from cohortextractor.exceptions import DummyDataValidationError, ValidationError
 from cohortextractor.generate_codelist_report import generate_codelist_report
 
 from .log_utils import log_execution_time, log_stats
@@ -141,6 +141,7 @@ def generate_cohort(
     index_date_range=None,
     skip_existing=False,
     output_format=SUPPORTED_FILE_FORMATS[0],
+    output_name=None,
 ):
     preflight_generation_check()
     study_definitions = list_study_definitions()
@@ -152,6 +153,10 @@ def generate_cohort(
     if dummy_data_file and len(study_definitions) > 1:
         msg = "You can only provide dummy data for a single study definition"
         raise DummyDataValidationError(msg)
+    if output_name and len(study_definitions) > 1:
+        raise ValidationError(
+            "You can only use the --output-file argument with a single study definition"
+        )
     for study_name, suffix in study_definitions:
         with log_execution_time(
             logger,
@@ -162,12 +167,13 @@ def generate_cohort(
             _generate_cohort(
                 output_dir,
                 study_name,
-                suffix,
+                suffix if not output_name else "",
                 expectations_population,
                 dummy_data_file,
                 index_date_range=index_date_range,
                 skip_existing=skip_existing,
                 output_format=output_format,
+                output_name=output_name or "input",
             )
 
 
@@ -180,6 +186,7 @@ def _generate_cohort(
     index_date_range=None,
     skip_existing=False,
     output_format=SUPPORTED_FILE_FORMATS[0],
+    output_name="input",
 ):
     logger.info(
         f"Generating cohort for {study_name} in {output_dir}",
@@ -222,7 +229,9 @@ def _generate_cohort(
                 date_suffix = ""
             # If this is changed then the regex in `_generate_measures()`
             # must be updated
-            output_file = f"{output_dir}/input{suffix}{date_suffix}.{output_format}"
+            output_file = (
+                f"{output_dir}/{output_name}{suffix}{date_suffix}.{output_format}"
+            )
             if skip_existing and os.path.exists(output_file):
                 logger.info(f"Not regenerating pre-existing file at {output_file}")
             else:
@@ -605,7 +614,7 @@ def check_maintenance(current_mode):
         print("db-maintenance")
 
 
-def main():
+def main(args=None):
     parser = ArgumentParser(
         description="Generate cohorts and run models in openSAFELY framework. "
     )
@@ -664,7 +673,6 @@ def main():
         "--output-dir",
         help="Location to store output files",
         type=str,
-        default="output",
     )
     generate_cohort_parser.add_argument(
         "--output-format",
@@ -674,7 +682,14 @@ def main():
         ),
         type=str,
         choices=SUPPORTED_FILE_FORMATS,
-        default=SUPPORTED_FILE_FORMATS[0],
+    )
+    generate_cohort_parser.add_argument(
+        "--output-file",
+        help=(
+            f"Full path to output file, including directory and extension e.g. "
+            f"output/input.{SUPPORTED_FILE_FORMATS[0]}"
+        ),
+        type=pathlib.Path,
     )
     generate_cohort_parser.add_argument(
         "--study-definition",
@@ -792,7 +807,7 @@ def main():
         default="unknown",
     )
 
-    options = parser.parse_args()
+    options = parser.parse_args(sys.argv[1:] if args is None else args)
 
     if options.version:
         print(f"v{cohortextractor.__version__}")
@@ -817,18 +832,41 @@ def main():
                 "generate_cohort: error: one of the arguments "
                 "--expectations-population --dummy-data-file --database-url is required"
             )
+        if options.output_file:
+            if options.output_dir or options.output_format:
+                parser.error(
+                    "generate_cohort: error: cannot combine --output-file argument "
+                    "with --output-dir or --output-format"
+                )
+            output_dir = options.output_file.parent
+            match = re.match(
+                rf"^(.+)\.({EXTENSION_REGEX})$", str(options.output_file.name)
+            )
+            if not match:
+                parser.error(
+                    f"generate_cohort: error: --output-file must have a supported "
+                    f"extension: {', '.join(SUPPORTED_FILE_FORMATS)}"
+                )
+            output_name = match.group(1)
+            output_format = match.group(2)
+        else:
+            output_dir = options.output_dir or "output"
+            output_name = None
+            output_format = options.output_format or SUPPORTED_FILE_FORMATS[0]
+
         try:
             generate_cohort(
-                options.output_dir,
+                str(output_dir),
                 options.expectations_population,
                 options.dummy_data_file,
                 selected_study_name=options.study_definition,
                 index_date_range=options.index_date_range,
                 skip_existing=options.skip_existing,
-                output_format=options.output_format,
+                output_format=output_format,
+                output_name=output_name,
             )
-        except DummyDataValidationError as e:
-            print(f"Dummy data error: {e}")
+        except ValidationError as e:
+            print(f"{e.human_name}: {e}")
             sys.exit(1)
         except Exception as e:
             # Checking for "DatabaseError" in the MRO means we can identify database errors without

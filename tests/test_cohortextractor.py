@@ -1,11 +1,11 @@
 import tempfile
-from contextlib import contextmanager
+from contextlib import ExitStack, contextmanager
 from pathlib import Path
 from unittest.mock import patch
 
 import pytest
 
-from cohortextractor.cohortextractor import list_study_definitions
+from cohortextractor.cohortextractor import flags, list_study_definitions, main
 
 
 @contextmanager
@@ -32,3 +32,129 @@ def test_list_study_definition(relative_dir):
         relative_dir.return_value = dummy_repo
         definitions = list_study_definitions()
         assert definitions == [("study_definition_test", "_test")]
+
+
+class PatchStack(ExitStack):
+    """
+    Apply multiple `patch` context managers without nesting or using the ugly multi
+    argument form
+    """
+
+    def __call__(self, *args, **kwargs):
+        return self.enter_context(patch(*args, **kwargs))
+
+
+@pytest.fixture
+def patch_generate_cohort(monkeypatch):
+    monkeypatch.setenv("DATABASE_URL", "mssql://")
+    # We don't care what value we use here as `main()` will change that value in any
+    # case, we just want to make sure it's reset to the original value when we're done
+    monkeypatch.setattr(flags, "WITH_END_DATE_FIX", None)
+    module = "cohortextractor.cohortextractor"
+    with PatchStack() as patch:
+        patch(
+            f"{module}.list_study_definitions",
+            return_value=[
+                ("study_definition", ""),
+                ("study_definition_test", "_test"),
+            ],
+        )
+        patch(f"{module}.preflight_generation_check")
+        yield patch(f"{module}._generate_cohort")
+
+
+@pytest.mark.parametrize("option", ["--output-dir", "--output-format"])
+def test_output_file_cannot_be_combined_with_some_options(
+    option, patch_generate_cohort, capsys
+):
+    with pytest.raises(SystemExit):
+        main(
+            [
+                "generate_cohort",
+                "--output-file",
+                "output/input.csv",
+                option,
+                "csv",
+            ]
+        )
+    assert "cannot combine --output-file argument" in capsys.readouterr().err
+
+
+def test_output_file_can_only_be_used_with_single_study(patch_generate_cohort, capsys):
+    with pytest.raises(SystemExit):
+        main(
+            [
+                "generate_cohort",
+                "--output-file",
+                "output/input.csv",
+                "--study-definition",
+                "all",
+            ]
+        )
+    assert (
+        "Validation error: You can only use the --output-file argument with a "
+        "single study definition"
+    ) in capsys.readouterr().out
+
+
+def test_output_file_must_have_supported_format(patch_generate_cohort, capsys):
+    with pytest.raises(SystemExit):
+        main(
+            [
+                "generate_cohort",
+                "--output-file",
+                "output/input.docx",
+                "--study-definition",
+                "all",
+            ]
+        )
+    assert "--output-file must have a supported extension" in capsys.readouterr().err
+
+
+def test_output_file_args_passed_to_generate_cohort(patch_generate_cohort):
+    main(
+        [
+            "generate_cohort",
+            "--output-file",
+            "my_dir/results.csv.gz",
+            "--study-definition",
+            "study_definition_test",
+        ]
+    )
+    patch_generate_cohort.assert_called_with(
+        "my_dir",
+        "study_definition_test",
+        "",
+        0,
+        None,
+        index_date_range="",
+        skip_existing=False,
+        output_format="csv.gz",
+        output_name="results",
+    )
+
+
+def test_multiple_studies_handled_if_no_output_file_option(patch_generate_cohort):
+    main(["generate_cohort", "--output-format", "feather"])
+    patch_generate_cohort.assert_any_call(
+        "output",
+        "study_definition",
+        "",
+        0,
+        None,
+        index_date_range="",
+        skip_existing=False,
+        output_format="feather",
+        output_name="input",
+    )
+    patch_generate_cohort.assert_any_call(
+        "output",
+        "study_definition_test",
+        "_test",
+        0,
+        None,
+        index_date_range="",
+        skip_existing=False,
+        output_format="feather",
+        output_name="input",
+    )
