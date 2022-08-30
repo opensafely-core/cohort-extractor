@@ -646,6 +646,41 @@ def test_clinical_event_with_category():
     assert [x["code_category_date"] for x in results] == ["", "2020", "2019"]
 
 
+def test_joining_multiple_categorised_variables():
+    # Previously this triggered an "ambiguous column name 'category'" error
+    session = make_session()
+    session.add_all(
+        [
+            Patient(
+                CodedEvents=[
+                    CodedEvent(CTV3Code="foo2", ConsultationDate="2018-01-01"),
+                    CodedEvent(CTV3Code="foo1", ConsultationDate="2019-01-01"),
+                    CodedEvent(CTV3Code="foo3", ConsultationDate="2020-01-01"),
+                ]
+            ),
+        ]
+    )
+    session.commit()
+    codes_1 = codelist([("foo1", "A")], "ctv3")
+    codes_2 = codelist([("foo2", "B"), ("foo3", "C")], "ctv3")
+    study = StudyDefinition(
+        population=patients.all(),
+        category_1=patients.with_these_clinical_events(
+            codes_1,
+            returning="category",
+            find_last_match_in_period=True,
+        ),
+        category_1_date=patients.date_of("category_1", date_format="YYYY-MM-DD"),
+        category_2=patients.with_these_clinical_events(
+            codes_2,
+            returning="category",
+            find_last_match_in_period=True,
+            on_or_before="category_1_date",
+        ),
+    )
+    assert_results(study.to_dicts(), category_2=["B"])
+
+
 def test_patient_registered_as_of():
     session = make_session()
 
