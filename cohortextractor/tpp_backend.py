@@ -1191,6 +1191,7 @@ class TPPBackend:
             date_aggregate = "MAX"
 
         column_name = returning
+        outer_column_definition = None
         if returning == "binary_flag" or returning == "date":
             column_name = "binary_flag"
             column_definition = "1"
@@ -1212,7 +1213,8 @@ class TPPBackend:
                     "Cannot return categories because the supplied codelist does "
                     "not have any categories defined"
                 )
-            column_definition = "category"
+            outer_column_definition = "category"
+            column_definition = f"{codelist_table}.category"
             use_partition_query = True
         else:
             raise ValueError(f"Unsupported `returning` value: {returning}")
@@ -1222,11 +1224,13 @@ class TPPBackend:
                 from_table_id_col = "CodedEvent_ID"
             else:
                 from_table_id_col = f"{from_table}_ID"
+            if outer_column_definition is None:
+                outer_column_definition = column_definition
 
             sql = f"""
             SELECT
               Patient_ID AS patient_id,
-              {column_definition} AS {column_name},
+              {outer_column_definition} AS {column_name},
               {additional_columns}
               ConsultationDate AS date
             FROM (
