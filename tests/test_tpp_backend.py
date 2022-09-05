@@ -4495,6 +4495,83 @@ def test_nhs_financial_year_date_expressions(index_date, expected_patient_ids):
     assert_results(results, patient_id=expected_patient_ids)
 
 
+@pytest.mark.parametrize(
+    "index_date,expected_patient_ids",
+    [
+        ("2020-08-15", ["2", "3"]),  # school year 2019-09-01 to 2020-08-31
+        ("2017-10-15", ["4", "5"]),  # school year 2017-09-01 to 2018-08-31
+    ],
+)
+def test_school_year_date_expressions(index_date, expected_patient_ids):
+    session = make_session()
+    session.add_all(
+        [
+            # Event too early
+            Patient(
+                Patient_ID=1,
+                DateOfBirth="2010-01-01",
+                CodedEvents=[CodedEvent(ConsultationDate="2016-12-15", CTV3Code="foo")],
+            ),
+            # Events in range 2019-09-01 to 2020-08-31
+            Patient(
+                Patient_ID=2,
+                DateOfBirth="2010-05-01",
+                CodedEvents=[CodedEvent(ConsultationDate="2019-10-01", CTV3Code="foo")],
+            ),
+            Patient(
+                Patient_ID=3,
+                DateOfBirth="2010-05-01",
+                CodedEvents=[CodedEvent(ConsultationDate="2020-02-15", CTV3Code="foo")],
+            ),
+            # Events in range 2017-09-01 to 2018-08-31
+            Patient(
+                Patient_ID=4,
+                DateOfBirth="2010-07-01",
+                CodedEvents=[CodedEvent(ConsultationDate="2018-08-01", CTV3Code="foo")],
+            ),
+            Patient(
+                Patient_ID=5,
+                DateOfBirth="2010-07-01",
+                CodedEvents=[CodedEvent(ConsultationDate="2017-09-02", CTV3Code="foo")],
+            ),
+            # Events out of range (at beginning/end of adjacent school years)
+            Patient(
+                Patient_ID=6,
+                DateOfBirth="2010-01-01",
+                CodedEvents=[CodedEvent(ConsultationDate="2017-08-31", CTV3Code="foo")],
+            ),
+            Patient(
+                Patient_ID=7,
+                DateOfBirth="2010-01-01",
+                CodedEvents=[CodedEvent(ConsultationDate="2018-09-01", CTV3Code="foo")],
+            ),
+            Patient(
+                Patient_ID=8,
+                DateOfBirth="2010-01-01",
+                CodedEvents=[CodedEvent(ConsultationDate="2019-08-31", CTV3Code="foo")],
+            ),
+            Patient(
+                Patient_ID=9,
+                DateOfBirth="2010-01-01",
+                CodedEvents=[CodedEvent(ConsultationDate="2020-09-01", CTV3Code="foo")],
+            ),
+        ]
+    )
+    session.commit()
+    study = StudyDefinition(
+        index_date=index_date,
+        population=patients.with_these_clinical_events(
+            codelist(["foo"], system="ctv3"),
+            between=[
+                "first_day_of_school_year(index_date)",
+                "last_day_of_school_year(index_date)",
+            ],
+        ),
+    )
+    results = study.to_dicts()
+    assert_results(results, patient_id=expected_patient_ids)
+
+
 def test_high_cost_drugs():
     session = make_session()
     session.add_all(

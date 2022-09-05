@@ -30,6 +30,8 @@ def test_date_expression_evaluator():
     assert expr("2019-06-10") == "2019-06-10"
     # Test column references are passed through
     assert expr("hospital_admission + 6 months") == "hospital_admission + 6 months"
+    assert expr("first_day_of_school_year(index_date)") == "2016-09-01"
+    assert expr("last_day_of_school_year(index_date)") == "2017-08-31"
 
 
 @pytest.mark.parametrize(
@@ -47,6 +49,21 @@ def test_date_expression_evaluator_nhs_financial_year(
     expr = DateExpressionEvaluator(index_date=index_date)
     assert expr("first_day_of_nhs_financial_year(index_date)") == first_of_year
     assert expr("last_day_of_nhs_financial_year(index_date)") == last_of_year
+
+
+@pytest.mark.parametrize(
+    "index_date,first_of_year,last_of_year",
+    [
+        ("2017-08-19", "2016-09-01", "2017-08-31"),
+        ("2018-07-04", "2017-09-01", "2018-08-31"),
+        ("2019-09-01", "2019-09-01", "2020-08-31"),
+        ("2020-08-31", "2019-09-01", "2020-08-31"),
+    ],
+)
+def test_date_expression_evaluator_school_year(index_date, first_of_year, last_of_year):
+    expr = DateExpressionEvaluator(index_date=index_date)
+    assert expr("first_day_of_school_year(index_date)") == first_of_year
+    assert expr("last_day_of_school_year(index_date)") == last_of_year
 
 
 def test_date_expression_evaluator_errors():
