@@ -207,6 +207,16 @@ class DateExpressionEvaluator:
         year = date.year + 1 if date.month >= 4 else date.year
         return date.replace(year=year, month=3, day=31)
 
+    def date_function_first_day_of_school_year(self, date):
+        """The school year in England runs from 1st September - 31st August"""
+        year = date.year - 1 if date.month < 9 else date.year
+        return date.replace(year=year, month=9, day=1)
+
+    def date_function_last_day_of_school_year(self, date):
+        """The school year in England runs from 1st September - 31st August"""
+        year = date.year + 1 if date.month >= 9 else date.year
+        return date.replace(year=year, month=8, day=31)
+
     def date_unit_years(self, date, value):
         # This can potentially throw an error if used on 29 Feb
         return date_replace(date, year=date.year + value)
