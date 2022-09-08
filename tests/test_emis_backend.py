@@ -6,7 +6,7 @@ import tempfile
 import pandas
 import pytest
 
-from cohortextractor import StudyDefinition, codelist, flags, patients
+from cohortextractor import StudyDefinition, codelist, patients
 from cohortextractor.date_expressions import InvalidExpressionError
 from cohortextractor.emis_backend import quote, truncate_patient_id
 from cohortextractor.patients import (
@@ -2686,10 +2686,7 @@ def test_patients_died_from_any_cause_dynamic_dates():
     )
 
 
-@pytest.mark.parametrize("with_end_date_fix", [True, False])
-def test_date_window_behaviour_literals(monkeypatch, with_end_date_fix):
-    monkeypatch.setattr(flags, "WITH_END_DATE_FIX", with_end_date_fix)
-
+def test_date_window_behaviour_literals():
     session = make_session()
     session.add_all(
         [
@@ -2727,16 +2724,10 @@ def test_date_window_behaviour_literals(monkeypatch, with_end_date_fix):
     )
 
     results = study.to_dicts()
-    if with_end_date_fix:
-        assert results[0]["event_count"] == "2"
-    else:
-        assert results[0]["event_count"] == "1"
+    assert results[0]["event_count"] == "2"
 
 
-@pytest.mark.parametrize("with_end_date_fix", [True, False])
-def test_date_window_behaviour_variable(monkeypatch, with_end_date_fix):
-    monkeypatch.setattr(flags, "WITH_END_DATE_FIX", with_end_date_fix)
-
+def test_date_window_behaviour_variable():
     session = make_session()
     session.add_all(
         [
@@ -2789,9 +2780,5 @@ def test_date_window_behaviour_variable(monkeypatch, with_end_date_fix):
     )
 
     results = study.to_dicts()
-    if with_end_date_fix:
-        assert results[0]["last_222"] == "2021-01-04"
-        assert results[0]["event_count"] == "2"
-    else:
-        assert results[0]["last_222"] == "2021-01-03"
-        assert results[0]["event_count"] == "1"
+    assert results[0]["last_222"] == "2021-01-04"
+    assert results[0]["event_count"] == "2"

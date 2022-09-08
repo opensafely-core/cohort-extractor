@@ -9,7 +9,6 @@ import uuid
 import pandas
 import structlog
 
-from . import flags
 from .csv_utils import is_csv_filename, write_rows_to_csv
 from .date_expressions import MSSQLDateFormatter
 from .expressions import format_expression
@@ -645,10 +644,9 @@ class TPPBackend:
         min_date, max_date = between
         min_date_expr, join_tables1 = self.date_ref_to_sql_expr(min_date)
         max_date_expr, join_tables2 = self.date_ref_to_sql_expr(max_date)
-        if flags.WITH_END_DATE_FIX:
-            date_expr = MSSQLDateFormatter.cast_as_date(date_expr)
-            min_date_expr = MSSQLDateFormatter.cast_as_date(min_date_expr)
-            max_date_expr = MSSQLDateFormatter.cast_as_date(max_date_expr)
+        date_expr = MSSQLDateFormatter.cast_as_date(date_expr)
+        min_date_expr = MSSQLDateFormatter.cast_as_date(min_date_expr)
+        max_date_expr = MSSQLDateFormatter.cast_as_date(max_date_expr)
         joins = [
             f"LEFT JOIN {join_table}\n"
             f"ON {join_table}.patient_id = {table}.patient_id"

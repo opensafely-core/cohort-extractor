@@ -9,7 +9,7 @@ from unittest.mock import patch
 import pandas
 import pytest
 
-from cohortextractor import StudyDefinition, codelist, flags, patients, tpp_backend
+from cohortextractor import StudyDefinition, codelist, patients, tpp_backend
 from cohortextractor.date_expressions import InvalidExpressionError
 from cohortextractor.mssql_utils import mssql_connection_params_from_url
 from cohortextractor.patients import (
@@ -1749,10 +1749,7 @@ def test_patients_address_as_of():
     )
 
 
-@pytest.mark.parametrize("with_end_date_fix", [True, False])
-def test_date_window_behaviour_literals(monkeypatch, with_end_date_fix):
-    monkeypatch.setattr(flags, "WITH_END_DATE_FIX", with_end_date_fix)
-
+def test_date_window_behaviour_literals():
     session = make_session()
     session.add_all(
         [
@@ -1782,16 +1779,10 @@ def test_date_window_behaviour_literals(monkeypatch, with_end_date_fix):
     )
 
     results = study.to_dicts()
-    if with_end_date_fix:
-        assert results[0]["event_count"] == "2"
-    else:
-        assert results[0]["event_count"] == "1"
+    assert results[0]["event_count"] == "2"
 
 
-@pytest.mark.parametrize("with_end_date_fix", [True, False])
-def test_date_window_behaviour_variable(monkeypatch, with_end_date_fix):
-    monkeypatch.setattr(flags, "WITH_END_DATE_FIX", with_end_date_fix)
-
+def test_date_window_behaviour_variable():
     session = make_session()
     session.add_all(
         [
@@ -1832,12 +1823,8 @@ def test_date_window_behaviour_variable(monkeypatch, with_end_date_fix):
     )
 
     results = study.to_dicts()
-    if with_end_date_fix:
-        assert results[0]["last_bar"] == "2021-01-04"
-        assert results[0]["event_count"] == "2"
-    else:
-        assert results[0]["last_bar"] == "2021-01-03"
-        assert results[0]["event_count"] == "1"
+    assert results[0]["last_bar"] == "2021-01-04"
+    assert results[0]["event_count"] == "2"
 
 
 def test_index_of_multiple_deprivation():

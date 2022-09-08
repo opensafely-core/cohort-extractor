@@ -6,7 +6,7 @@ from unittest.mock import patch
 import pytest
 
 from cohortextractor import MissingParameterError, params
-from cohortextractor.cohortextractor import flags, list_study_definitions, main
+from cohortextractor.cohortextractor import list_study_definitions, main
 
 
 @contextmanager
@@ -48,9 +48,6 @@ class PatchStack(ExitStack):
 @pytest.fixture
 def patch_generate_cohort(monkeypatch):
     monkeypatch.setenv("DATABASE_URL", "mssql://")
-    # We don't care what value we use here as `main()` will change that value in any
-    # case, we just want to make sure it's reset to the original value when we're done
-    monkeypatch.setattr(flags, "WITH_END_DATE_FIX", None)
     module = "cohortextractor.cohortextractor"
     with PatchStack() as patch:
         patch(
