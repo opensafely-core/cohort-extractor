@@ -65,7 +65,7 @@ def patch_generate_cohort(monkeypatch):
 
 
 @pytest.mark.parametrize("option", ["--output-dir", "--output-format"])
-def test_output_file_cannot_be_combined_with_some_options(
+def test_output_file_cannot_be_combined_with_conflicting_options(
     option, patch_generate_cohort, capsys
 ):
     with pytest.raises(SystemExit):
@@ -75,10 +75,27 @@ def test_output_file_cannot_be_combined_with_some_options(
                 "--output-file",
                 "output/input.csv",
                 option,
-                "csv",
+                "feather",
             ]
         )
-    assert "cannot combine --output-file argument" in capsys.readouterr().err
+    assert f"{option} 'feather' does not match" in capsys.readouterr().err
+
+
+def test_output_file_can_be_combined_with_matching_options(patch_generate_cohort):
+    main(
+        [
+            "generate_cohort",
+            "--study-definition",
+            "study_definition",
+            "--output-file",
+            "mydir/input.feather",
+            "--output-dir",
+            "mydir",
+            "--output-format",
+            "feather",
+        ]
+    )
+    patch_generate_cohort.assert_called_once()
 
 
 def test_output_file_can_only_be_used_with_single_study(patch_generate_cohort, capsys):

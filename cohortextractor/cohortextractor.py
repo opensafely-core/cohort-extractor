@@ -864,11 +864,6 @@ def main(args=None):
                 "--expectations-population --dummy-data-file --database-url is required"
             )
         if options.output_file:
-            if options.output_dir or options.output_format:
-                parser.error(
-                    "generate_cohort: error: cannot combine --output-file argument "
-                    "with --output-dir or --output-format"
-                )
             output_dir = options.output_file.parent
             match = re.match(
                 rf"^(.+)\.({EXTENSION_REGEX})$", str(options.output_file.name)
@@ -880,6 +875,19 @@ def main(args=None):
                 )
             output_name = match.group(1)
             output_format = match.group(2)
+            # It would be simpler if we could just insist that these other options
+            # weren't present, but job-runner adds `--output-dir` automatically so we
+            # can't do that.
+            if options.output_dir and options.output_dir != str(output_dir):
+                parser.error(
+                    f"generate_cohort: error: --output-dir '{options.output_dir}' "
+                    f"does not match directory in --output-file"
+                )
+            if options.output_format and options.output_format != output_format:
+                parser.error(
+                    f"generate_cohort: error: --output-format '{options.output_format}' "
+                    f"does not match format in --output-file"
+                )
         else:
             output_dir = options.output_dir or "output"
             output_name = None
