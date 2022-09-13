@@ -6,7 +6,6 @@ import uuid
 
 import structlog
 
-from . import flags
 from .codelistlib import codelist
 from .csv_utils import is_csv_filename, write_rows_to_csv
 from .date_expressions import TrinoDateFormatter
@@ -544,10 +543,9 @@ class EMISBackend:
         min_date, max_date = between
         min_date_expr, join_tables1 = self.date_ref_to_sql_expr(min_date)
         max_date_expr, join_tables2 = self.date_ref_to_sql_expr(max_date)
-        if flags.WITH_END_DATE_FIX:
-            date_expr = TrinoDateFormatter.cast_as_date(date_expr)
-            min_date_expr = TrinoDateFormatter.cast_as_date(min_date_expr)
-            max_date_expr = TrinoDateFormatter.cast_as_date(max_date_expr)
+        date_expr = TrinoDateFormatter.cast_as_date(date_expr)
+        min_date_expr = TrinoDateFormatter.cast_as_date(min_date_expr)
+        max_date_expr = TrinoDateFormatter.cast_as_date(max_date_expr)
 
         joins = [
             f"LEFT JOIN {join_table}\n"
