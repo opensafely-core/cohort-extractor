@@ -1825,18 +1825,20 @@ def with_gp_consultations(
 ):
     """
     !!! warning
-        A "consultation" as returned by this function may not actually be a consultation between a health care professional and patient.
+    In TPP this data comes from the "Appointment" table. The data in this table contains
+    records created when an appointment is made with a GP practice.
+    It may not capture absolutely all GP/patient interactions,
+    for example it's uncertain whether an ad-hoc call to a patient would be included.
 
-        For example, simple administrative tasks such as updating a patient's details may also cause creation of a "consultation" record.
+    A **very important** caveat for this data:
+    there are some circumstances where historical appointment records will be incomplete,
+    for example when a practice moves from a different EHR provider to SystmOne.
+    If your study could be negatively affected by such missing data, it may be important to use the
+    [`patients.with_complete_gp_consultation_history_between` flag](./#cohortextractor.patients.with_complete_gp_consultation_history_between)
+    to only include patients with complete data.
 
-        It is, therefore, extremely unlikely you can use this field to infer anything about real clinician-patient interactions,
-        and it is even more difficult to compare activity between practices as recording behaviour can vary.
-        Some EHRs even delete consultation data for a patient when they switch practice.
-
-    These are GP-patient interactions, either in person or via phone/video
-    call. The concept of a "consultation" in EHR systems is generally broader
-    and might include things like updating a phone number with the
-    receptionist.
+    Some further investigation of the appointments data in TPP can be found in
+    [this King's fund report](https://www.kingsfund.org.uk/blog/2016/05/crisis-general-practice).
 
     Args:
         on_or_before: date of interest as a string with the format `YYYY-MM-DD`. Filters results to
