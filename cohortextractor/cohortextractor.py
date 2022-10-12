@@ -913,7 +913,11 @@ def main(args=None):
 
             traceback.print_exc()
             # Exit with specific exit codes to help identify known issues
-            if "Unexpected EOF from the server" in str(e):
+            transient_errors = [
+                "Unexpected EOF from the server",
+                "DBPROCESS is dead or not enabled",
+            ]
+            if any(message in str(e) for message in transient_errors):
                 logger.error(f"Intermittent database error: {e}")
                 sys.exit(3)
             if "Invalid object name 'CodedEvent_SNOMED'" in str(e):
