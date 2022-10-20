@@ -154,7 +154,7 @@ def test_stats_logging_tpp_backend(logger):
         ),
         *_sql_execute_timing_logs(
             description=None,
-            sql="INSERT INTO #tmp1_event_codelist (code, category) VALUES\n[truncated]",
+            sql="INSERT INTO [#tmp1_event_codelist] ([code], [category]) VALUES\n[truncated]",
             timing_id=start_counter + 1,
             is_truncated=True,
         ),

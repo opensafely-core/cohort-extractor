@@ -405,7 +405,7 @@ class TPPBackend:
         # serious refactoring elsewhere.
         if returning == "index_of_multiple_deprivation":
             default_value = -1
-        column_expr = f"#{source}.{returning}"
+        column_expr = f"#{source}.{escape_identifer(returning)}"
         if column_type == "date":
             column_expr = truncate_date(column_expr, date_format)
         return ColumnExpression(
@@ -3296,9 +3296,9 @@ class TPPBackend:
         queries = [
             f"""
             -- Uploading file for {returning}
-            CREATE TABLE {table_name} (
+            CREATE TABLE {escape_identifer(table_name)} (
                 patient_id BIGINT,
-                {returning} {column_type}
+                {escape_identifer(returning)} {column_type}
             )
             """,
         ]
@@ -3309,9 +3309,9 @@ class TPPBackend:
             f"""
             SELECT
                 patient_id,
-                {returning}
+                {escape_identifer(returning)}
             FROM
-                {table_name}
+                {escape_identifer(table_name)}
             """
         )
 
@@ -3782,8 +3782,10 @@ def pop_keys_from_dict(dictionary, keys):
 
 
 def make_batches_of_insert_statements(table_name, column_names, values):
-    column_names_sql = ", ".join(column_names)
-    insert_sql = f"INSERT INTO {table_name} ({column_names_sql}) VALUES"
+    column_names_sql = ", ".join(map(escape_identifer, column_names))
+    insert_sql = (
+        f"INSERT INTO {escape_identifer(table_name)} ({column_names_sql}) VALUES"
+    )
 
     # There's a limit on how many rows we can insert in one go using this method.
     # See: https://docs.microsoft.com/en-us/sql/t-sql/queries/table-value-constructor-transact-sql?view=sql-server-ver15#limitations-and-restrictions
@@ -3796,6 +3798,12 @@ def make_batches_of_insert_statements(table_name, column_names, values):
         batches.append(f"{insert_sql}\n{values_sql}")
 
     return batches
+
+
+def escape_identifer(identifier):
+    if "[" in identifier or "]" in identifier:
+        raise ValueError(f"Invalid identifier: {identifier}")
+    return f"[{identifier}]"
 
 
 class AppointmentStatus(enum.IntEnum):
