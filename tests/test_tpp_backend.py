@@ -5151,16 +5151,19 @@ def _to_csv(records, tmp_path):
 
 def test_with_bool_value_from_file(patient_ids, tmp_path):
     f_path = _to_csv(
-        [{"patient_id": patient_ids[0], "has_asthma": 1}],
+        [{"patient_id": patient_ids[0], "case": 1}],
         tmp_path,
     )
     study = StudyDefinition(
         population=patients.all(),
-        case_has_asthma=patients.with_value_from_file(
-            f_path, returning="has_asthma", returning_type="bool"
+        case=patients.with_value_from_file(
+            f_path,
+            # Deliberately using the reserved word "case" here to test quoting
+            returning="case",
+            returning_type="bool",
         ),
     )
-    assert_results(study.to_dicts(), case_has_asthma=["1", "0"])  # zero-as-null
+    assert_results(study.to_dicts(), case=["1", "0"])  # zero-as-null
 
 
 def test_with_date_value_from_file(patient_ids, tmp_path):
