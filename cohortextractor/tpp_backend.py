@@ -343,6 +343,10 @@ class TPPBackend:
                     f"-- Query for {name}\n"
                     f"SELECT * INTO #{name} FROM ({sql_list[-1]}) t"
                 )
+                # Add the index query
+                sql_list.append(
+                    f"CREATE CLUSTERED INDEX patient_id_ix ON #{name} (patient_id)"
+                )
                 table_queries[name] = sql_list
                 # The first column should always be patient_id so we can join on it
                 output_columns[name] = self.get_column_expression(
@@ -393,7 +397,6 @@ class TPPBackend:
             table_count=len(table_queries),
             table_joins_count=len(joins),
         )
-
         return all_queries
 
     def get_column_expression(self, column_type, source, returning, date_format=None):
