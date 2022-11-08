@@ -164,14 +164,26 @@ def test_stats_logging_tpp_backend(logger):
             timing_id=start_counter + 2,
         ),
         *_sql_execute_timing_logs(
+            description=None,
+            sql="CREATE CLUSTERED INDEX patient_id_ix ON #event (patient_id)",
+            timing_id=start_counter + 3,
+            is_truncated=False,
+        ),
+        *_sql_execute_timing_logs(
             description="Query for population",
             sql="SELECT * INTO #population",
-            timing_id=start_counter + 3,
+            timing_id=start_counter + 4,
+        ),
+        *_sql_execute_timing_logs(
+            description=None,
+            sql="CREATE CLUSTERED INDEX patient_id_ix ON #population (patient_id)",
+            timing_id=start_counter + 5,
+            is_truncated=False,
         ),
         *_sql_execute_timing_logs(
             description="Join all columns for final output",
             sql="JOIN #event ON #event.patient_id = #population.patient_id",
-            timing_id=start_counter + 4,
+            timing_id=start_counter + 6,
         ),
     ]
 
@@ -258,55 +270,65 @@ def test_stats_logging_generate_cohort(
             timing_id=start_counter + 2,
         ),
         *_sql_execute_timing_logs(
+            description=None,
+            sql="CREATE CLUSTERED INDEX patient_id_ix ON #sex (patient_id)",
+            timing_id=start_counter + 3,
+        ),
+        *_sql_execute_timing_logs(
             description="Query for population",
             sql="SELECT * INTO #population",
-            timing_id=start_counter + 3,
+            timing_id=start_counter + 4,
+        ),
+        *_sql_execute_timing_logs(
+            description=None,
+            sql="CREATE CLUSTERED INDEX patient_id_ix ON #population (patient_id)",
+            timing_id=start_counter + 5,
         ),
         # logs specifically from study.to_file
         *_sql_execute_timing_logs(
             description="Writing results into #final_output",
             sql="SELECT * INTO #final_output",
-            timing_id=start_counter + 4,
+            timing_id=start_counter + 6,
         ),
         *_sql_execute_timing_logs(
             description=None,
             sql="CREATE INDEX ix_patient_id ON #final_output",
-            timing_id=start_counter + 5,
+            timing_id=start_counter + 7,
         ),
         # results are fetched in batches for writing
         dict(
             description=f"{write_to_file_log} {tmp_path}/input.{output_format}",
             timing="start",
             state="started",
-            timing_id=start_counter + 6,
+            timing_id=start_counter + 8,
         ),
         *_sql_execute_timing_logs(
             description=None,
             sql="SELECT TOP 32000 * FROM #final_output",
-            timing_id=start_counter + 7,
+            timing_id=start_counter + 9,
         ),
         dict(
             description="Fetch batched results ",
             timing="start",
             state="started",
-            timing_id=start_counter + 8,
+            timing_id=start_counter + 10,
         ),
         dict(
             description="Fetch batched results ",
             timing="stop",
             state="ok",
-            timing_id=start_counter + 8,
+            timing_id=start_counter + 10,
         ),
         dict(
             description=f"{write_to_file_log} {tmp_path}/input.{output_format}",
             timing="stop",
             state="ok",
-            timing_id=start_counter + 6,
+            timing_id=start_counter + 8,
         ),
         *_sql_execute_timing_logs(
             description="Deleting '#final_output'",
             sql="DROP TABLE #final_output",
-            timing_id=start_counter + 9,
+            timing_id=start_counter + 11,
         ),
         # logging the overall timing for the cohort generation
         dict(
@@ -409,58 +431,70 @@ def test_stats_logging_generate_cohort_with_index_dates(
                     timing_id=next_counter + 1,
                 ),
                 *_sql_execute_timing_logs(
+                    description=None,
+                    sql="CREATE CLUSTERED INDEX patient_id_ix ON #sex (patient_id)",
+                    is_truncated=False,
+                    timing_id=next_counter + 2,
+                ),
+                *_sql_execute_timing_logs(
                     description="Query for population",
                     sql="SELECT * INTO #population",
                     is_truncated=i != 1,
-                    timing_id=next_counter + 2,
+                    timing_id=next_counter + 3,
+                ),
+                *_sql_execute_timing_logs(
+                    description=None,
+                    sql="CREATE CLUSTERED INDEX patient_id_ix ON #population (patient_id)",
+                    is_truncated=False,
+                    timing_id=next_counter + 4,
                 ),
                 # logs specifically from study.to_file
                 *_sql_execute_timing_logs(
                     description="Writing results into #final_output",
                     sql="SELECT * INTO #final_output",
                     is_truncated=i != 1,
-                    timing_id=next_counter + 3,
+                    timing_id=next_counter + 5,
                 ),
                 *_sql_execute_timing_logs(
                     description=None,
                     sql="CREATE INDEX ix_patient_id ON #final_output",
-                    timing_id=next_counter + 4,
+                    timing_id=next_counter + 6,
                 ),
                 # results are fetched in batches for writing
                 dict(
                     description=f"write_rows_to_csv {tmp_path}/input_test_{index_date}.csv",
                     timing="start",
                     state="started",
-                    timing_id=next_counter + 5,
+                    timing_id=next_counter + 7,
                 ),
                 *_sql_execute_timing_logs(
                     description=None,
                     sql="SELECT TOP 32000 * FROM #final_output",
-                    timing_id=next_counter + 6,
+                    timing_id=next_counter + 8,
                 ),
                 dict(
                     description="Fetch batched results ",
                     timing="start",
                     state="started",
-                    timing_id=next_counter + 7,
+                    timing_id=next_counter + 9,
                 ),
                 dict(
                     description="Fetch batched results ",
                     timing="stop",
                     state="ok",
-                    timing_id=next_counter + 7,
+                    timing_id=next_counter + 9,
                 ),
                 dict(
                     description=f"write_rows_to_csv {tmp_path}/input_test_{index_date}.csv",
                     timing="stop",
                     state="ok",
-                    timing_id=next_counter + 5,
+                    timing_id=next_counter + 7,
                 ),
                 *_sql_execute_timing_logs(
                     description="Deleting '#final_output'",
                     sql="DROP TABLE #final_output",
                     is_truncated=i != 1,
-                    timing_id=next_counter + 8,
+                    timing_id=next_counter + 10,
                 ),
                 # logging the overall timing for the cohort generation
                 dict(
@@ -473,7 +507,7 @@ def test_stats_logging_generate_cohort_with_index_dates(
             ]
         )
         # set next counter to one more than the max for this index date
-        next_counter += 8 + 1
+        next_counter += 10 + 1
 
     # add the log for the end of overall timing for the cohort generation; this should have the same
     # id as the first timing log
@@ -737,7 +771,9 @@ def assert_stats_logs(
         )
         for timing_id in execute_only:
             assert re.match(
-                r".*[CREATE INDEX|DROP TABLE].*", sql_timing_logs[timing_id], flags=re.S
+                r".*[CREATE INDEX|CREATE CLUSTERED INDEX|DROP TABLE].*",
+                sql_timing_logs[timing_id],
+                flags=re.S,
             )
 
         # Find timing_ids that have more than one execution timing logged; this should only be
@@ -760,7 +796,6 @@ def assert_stats_logs(
 
         for key, value in expected_timing_log_params[i].items():
             assert timing_log[key] == value
-
         if timing_log.get("state") != "started" and not actual_logged_sql:
             assert re.match(
                 r"\d:\d{2}:\d{2}.\d{6}", timing_log["execution_time"]
