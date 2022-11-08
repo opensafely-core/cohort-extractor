@@ -159,31 +159,37 @@ def test_stats_logging_tpp_backend(logger):
             is_truncated=True,
         ),
         *_sql_execute_timing_logs(
+            description=None,
+            sql="CREATE CLUSTERED INDEX code_ix ON #tmp1_event_codelist (code)",
+            timing_id=start_counter + 2,
+            is_truncated=False,
+        ),
+        *_sql_execute_timing_logs(
             description="Query for event",
             sql="SELECT * INTO #event",
-            timing_id=start_counter + 2,
+            timing_id=start_counter + 3,
         ),
         *_sql_execute_timing_logs(
             description=None,
             sql="CREATE CLUSTERED INDEX patient_id_ix ON #event (patient_id)",
-            timing_id=start_counter + 3,
+            timing_id=start_counter + 4,
             is_truncated=False,
         ),
         *_sql_execute_timing_logs(
             description="Query for population",
             sql="SELECT * INTO #population",
-            timing_id=start_counter + 4,
+            timing_id=start_counter + 5,
         ),
         *_sql_execute_timing_logs(
             description=None,
             sql="CREATE CLUSTERED INDEX patient_id_ix ON #population (patient_id)",
-            timing_id=start_counter + 5,
+            timing_id=start_counter + 6,
             is_truncated=False,
         ),
         *_sql_execute_timing_logs(
             description="Join all columns for final output",
             sql="JOIN #event ON #event.patient_id = #population.patient_id",
-            timing_id=start_counter + 6,
+            timing_id=start_counter + 7,
         ),
     ]
 

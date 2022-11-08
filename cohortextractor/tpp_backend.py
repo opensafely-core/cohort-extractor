@@ -616,6 +616,7 @@ class TPPBackend:
         queries += make_batches_of_insert_statements(
             table_name, ("code", "category"), values
         )
+        queries += [f"CREATE CLUSTERED INDEX code_ix ON {table_name} (code)"]
         return table_name, queries
 
     def get_temp_table_name(self, suffix):
