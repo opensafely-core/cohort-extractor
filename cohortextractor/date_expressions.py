@@ -322,8 +322,9 @@ class MSSQLDateFormatter(DateFormatter):
         """
         date_format = date_column.date_format
         date_sql = re.sub(r"\s", "", str(date_column))
+        # e.g. ISNULL(CONVERT(VARCHAR(10),#some_table.[some_column],23),'')
         match = re.match(
-            r"ISNULL\(CONVERT\(VARCHAR\(\d+\),([#\w\.]+),23\),''\)", date_sql
+            r"ISNULL\(CONVERT\(VARCHAR\(\d+\),([#\w\.\[\]]+),23\),''\)", date_sql
         )
         if match:
             column_ref = match.group(1)
