@@ -2093,6 +2093,7 @@ class TPPBackend:
         returning="binary_flag",
         include_date_of_match=False,
         date_type="Seen",
+        statuses=None,
     ):
         if returning == "binary_flag" or returning == "date":
             column_name = "binary_flag"
@@ -2103,15 +2104,16 @@ class TPPBackend:
         else:
             raise ValueError(f"Unsupported `returning` value: {returning}")
 
-        valid_states = [
-            AppointmentStatus.ARRIVED,
-            AppointmentStatus.WAITING,
-            AppointmentStatus.IN_PROGRESS,
-            AppointmentStatus.FINISHED,
-            AppointmentStatus.PATIENT_WALKED_OUT,
-            AppointmentStatus.VISIT,
-        ]
-        valid_states_str = codelist_to_sql(map(int, valid_states))
+        if statuses is None:
+            statuses = [
+                AppointmentStatus.ARRIVED,
+                AppointmentStatus.WAITING,
+                AppointmentStatus.IN_PROGRESS,
+                AppointmentStatus.FINISHED,
+                AppointmentStatus.PATIENT_WALKED_OUT,
+                AppointmentStatus.VISIT,
+            ]
+        statuses_str = codelist_to_sql(map(int, statuses))
 
         if date_type not in ["Seen", "Booked", "Start"]:
             raise ValueError(f"Unsupported `date_type` value: {date_type}")
@@ -2129,7 +2131,7 @@ class TPPBackend:
           {date_aggregate}({date_col}) AS date
         FROM Appointment
         {date_joins}
-        WHERE Status IN ({valid_states_str}) AND {date_condition}
+        WHERE Status IN ({statuses_str}) AND {date_condition}
         GROUP BY Appointment.Patient_ID
         """
 

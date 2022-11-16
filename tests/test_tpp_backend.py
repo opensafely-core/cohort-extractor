@@ -2853,6 +2853,10 @@ def test_patients_with_gp_consultations():
                     Appointment(
                         SeenDate="2009-01-01", Status=AppointmentStatus.FINISHED
                     ),
+                    # Should not be counted by default
+                    Appointment(
+                        SeenDate="2012-01-01", Status=AppointmentStatus.DID_NOT_ATTEND
+                    ),
                     # After period ends
                     Appointment(
                         SeenDate="2020-02-01", Status=AppointmentStatus.FINISHED
@@ -2871,7 +2875,7 @@ def test_patients_with_gp_consultations():
                     Appointment(
                         SeenDate="2011-01-01", Status=AppointmentStatus.FINISHED
                     ),
-                    # Should not be counted
+                    # Should not be counted by default
                     Appointment(
                         SeenDate="2012-01-01", Status=AppointmentStatus.DID_NOT_ATTEND
                     ),
@@ -2922,6 +2926,10 @@ def test_patients_with_gp_consultations():
             returning="date",
             date_format="YYYY-MM-DD",
         ),
+        has_did_not_attend=patients.with_gp_consultations(
+            returning="binary_flag",
+            statuses=[AppointmentStatus.DID_NOT_ATTEND],
+        ),
         has_history=patients.with_complete_gp_consultation_history_between(
             "2010-01-01", "2015-01-01"
         ),
@@ -2935,6 +2943,7 @@ def test_patients_with_gp_consultations():
         "2012-12-25",
         "",
     ]
+    assert [x["has_did_not_attend"] for x in results] == ["1", "1", "0"]
     assert [x["has_history"] for x in results] == ["0", "1", "0"]
 
 

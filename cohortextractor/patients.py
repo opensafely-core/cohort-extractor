@@ -1822,6 +1822,7 @@ def with_gp_consultations(
     returning="binary_flag",
     date_format=None,
     date_type="Seen",
+    statuses=None,
     return_expectations=None,
 ):
     """
@@ -1860,6 +1861,37 @@ def with_gp_consultations(
             `YYYY-MM` or `YYYY` and wherever possible the least disclosive data should be returned. i.e returning
             only year is less disclosive than a date with day, month and year.
         date_type: one of `"Seen"`, `"Booked"`, `"Start"`.
+        statuses: a list containing one or more of the following:
+
+            * `AppointmentStatus.BOOKED`
+            * `AppointmentStatus.ARRIVED`
+            * `AppointmentStatus.DID_NOT_ATTEND`
+            * `AppointmentStatus.IN_PROGRESS`
+            * `AppointmentStatus.FINISHED`
+            * `AppointmentStatus.REQUESTED`
+            * `AppointmentStatus.BLOCKED`
+            * `AppointmentStatus.VISIT`
+            * `AppointmentStatus.WAITING`
+            * `AppointmentStatus.CANCELLED_BY_PATIENT`
+            * `AppointmentStatus.CANCELLED_BY_UNIT`
+            * `AppointmentStatus.CANCELLED_BY_OTHER_SERVICE`
+            * `AppointmentStatus.NO_ACCESS_VISIT`
+            * `AppointmentStatus.CANCELLED_DUE_TO_DEATH`
+            * `AppointmentStatus.PATIENT_WALKED_OUT`
+
+        If not provided, defaults to a list containing:
+
+            * `AppointmentStatus.ARRIVED`
+            * `AppointmentStatus.IN_PROGRESS`
+            * `AppointmentStatus.FINISHED`
+            * `AppointmentStatus.VISIT`
+            * `AppointmentStatus.WAITING`
+            * `AppointmentStatus.PATIENT_WALKED_OUT`
+
+        Results are filtered to include only those matching the given statuses.
+        To use this parameter, you must include the following line in your study definition file:
+        `from cohortextractor.tpp_backend import AppointmentStatus`.
+
         return_expectations: a dictionary defining the incidence and distribution of expected value
             within the population in question.
 
