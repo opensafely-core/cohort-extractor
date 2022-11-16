@@ -2092,6 +2092,7 @@ class TPPBackend:
         # Set return type
         returning="binary_flag",
         include_date_of_match=False,
+        date_type="Seen",
     ):
         if returning == "binary_flag" or returning == "date":
             column_name = "binary_flag"
@@ -2112,8 +2113,12 @@ class TPPBackend:
         ]
         valid_states_str = codelist_to_sql(map(int, valid_states))
 
+        if date_type not in ["Seen", "Booked", "Start"]:
+            raise ValueError(f"Unsupported `date_type` value: {date_type}")
+        date_col = f"{date_type}Date"
+
         date_condition, date_joins = self.get_date_condition(
-            "Appointment", "SeenDate", between
+            "Appointment", date_col, between
         )
         # Result ordering
         date_aggregate = "MIN" if find_first_match_in_period else "MAX"
@@ -2121,7 +2126,7 @@ class TPPBackend:
         SELECT
           Appointment.Patient_ID AS patient_id,
           {column_definition} AS {column_name},
-          {date_aggregate}(SeenDate) AS date
+          {date_aggregate}({date_col}) AS date
         FROM Appointment
         {date_joins}
         WHERE Status IN ({valid_states_str}) AND {date_condition}

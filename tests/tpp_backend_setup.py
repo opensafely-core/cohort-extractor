@@ -201,6 +201,8 @@ class Appointment(Base):
     # The real table has various other datetime columns but we don't currently
     # use them
     SeenDate = Column(DateTime)
+    BookedDate = Column(DateTime)
+    StartDate = Column(DateTime)
     Status = Column(IntEnum(AppointmentStatus))
 
 

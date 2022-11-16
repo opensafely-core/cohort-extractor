@@ -1821,6 +1821,7 @@ def with_gp_consultations(
     # Set return type
     returning="binary_flag",
     date_format=None,
+    date_type="Seen",
     return_expectations=None,
 ):
     """
@@ -1858,6 +1859,7 @@ def with_gp_consultations(
         date_format: a string detailing the format of the dates to be returned. It can be `YYYY-MM-DD`,
             `YYYY-MM` or `YYYY` and wherever possible the least disclosive data should be returned. i.e returning
             only year is less disclosive than a date with day, month and year.
+        date_type: one of `"Seen"`, `"Booked"`, `"Start"`.
         return_expectations: a dictionary defining the incidence and distribution of expected value
             within the population in question.
 

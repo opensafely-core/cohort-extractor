@@ -2876,7 +2876,9 @@ def test_patients_with_gp_consultations():
                         SeenDate="2012-01-01", Status=AppointmentStatus.DID_NOT_ATTEND
                     ),
                     Appointment(
-                        SeenDate="2013-01-01", Status=AppointmentStatus.FINISHED
+                        BookedDate="2012-12-25",
+                        SeenDate="2013-01-01",
+                        Status=AppointmentStatus.FINISHED,
                     ),
                 ],
             ),
@@ -2902,16 +2904,37 @@ def test_patients_with_gp_consultations():
             find_last_match_in_period=True,
             returning="number_of_matches_in_period",
         ),
-        latest_consultation_date=patients.date_of(
+        latest_consultation_date_1=patients.date_of(
             "consultation_count", date_format="YYYY-MM"
+        ),
+        latest_consultation_date_2=patients.with_gp_consultations(
+            between=["2010-01-01", "2015-01-01"],
+            find_last_match_in_period=True,
+            returning="date",
+            date_format="YYYY-MM-DD",
+        ),
+        latest_consultation_booked_date=patients.with_gp_consultations(
+            date_type="Booked",
+            # An end date of 2012-12-31 ensures we're not accidentally filtering on
+            # SeenDate.
+            between=["2010-01-01", "2012-12-31"],
+            find_last_match_in_period=True,
+            returning="date",
+            date_format="YYYY-MM-DD",
         ),
         has_history=patients.with_complete_gp_consultation_history_between(
             "2010-01-01", "2015-01-01"
         ),
     )
     results = study.to_dicts()
-    assert [x["latest_consultation_date"] for x in results] == ["", "2013-01", ""]
     assert [x["consultation_count"] for x in results] == ["0", "2", "0"]
+    assert [x["latest_consultation_date_1"] for x in results] == ["", "2013-01", ""]
+    assert [x["latest_consultation_date_2"] for x in results] == ["", "2013-01-01", ""]
+    assert [x["latest_consultation_booked_date"] for x in results] == [
+        "",
+        "2012-12-25",
+        "",
+    ]
     assert [x["has_history"] for x in results] == ["0", "1", "0"]
 
 
