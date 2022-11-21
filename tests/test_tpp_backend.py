@@ -2918,7 +2918,8 @@ def test_patients_with_gp_consultations():
             date_format="YYYY-MM-DD",
         ),
         latest_consultation_booked_date=patients.with_gp_consultations(
-            date_type="Booked",
+            date_return_col="BookedDate",
+            date_filter_col="BookedDate",
             # An end date of 2012-12-31 ensures we're not accidentally filtering on
             # SeenDate.
             between=["2010-01-01", "2012-12-31"],
@@ -2945,6 +2946,100 @@ def test_patients_with_gp_consultations():
     ]
     assert [x["has_did_not_attend"] for x in results] == ["1", "1", "0"]
     assert [x["has_history"] for x in results] == ["0", "1", "0"]
+
+
+def test_patients_with_gp_consultations_lead_time():
+    session = make_session()
+    session.add_all(
+        [
+            Patient(
+                Appointments=[
+                    # This appointment's SeenDate is outside the range, so it will not
+                    # be matched by the filter.
+                    Appointment(
+                        BookedDate="2022-10-01",
+                        SeenDate="2022-10-05",
+                        Status=AppointmentStatus.FINISHED,
+                    ),
+                    # This appointment's SeenDate is the latest in the date range, so it
+                    # will be used in both of the study's find_last_match_in_period
+                    # variables.
+                    Appointment(
+                        BookedDate="2022-10-01",
+                        SeenDate="2022-11-15",
+                        Status=AppointmentStatus.FINISHED,
+                    ),
+                    # This appointment's SeenDate is the first in the date range, so it
+                    # will be used in both of the study's find_first_match_in_period
+                    # variables.
+                    Appointment(
+                        BookedDate="2022-11-01",
+                        SeenDate="2022-11-05",
+                        Status=AppointmentStatus.FINISHED,
+                    ),
+                    # This appointment's SeenDate is outside the range, so it will not
+                    # be matched by the filter, even though the BookedDate is in the
+                    # range.
+                    Appointment(
+                        BookedDate="2022-11-01",
+                        SeenDate="2022-12-01",
+                        Status=AppointmentStatus.FINISHED,
+                    ),
+                ],
+            ),
+            Patient(
+                Appointments=[
+                    # This appointment has no SeenDate
+                    Appointment(
+                        BookedDate="2022-11-01", Status=AppointmentStatus.ARRIVED
+                    ),
+                ],
+            ),
+        ]
+    )
+    session.commit()
+    study = StudyDefinition(
+        population=patients.all(),
+        booked_date_of_first_seen_appointment=patients.with_gp_consultations(
+            returning="date",
+            date_return_col="BookedDate",
+            date_filter_col="SeenDate",
+            between=["2022-11-01", "2022-11-30"],
+            find_first_match_in_period=True,
+            date_format="YYYY-MM-DD",
+        ),
+        seen_date_of_first_seen_appointment=patients.with_gp_consultations(
+            returning="date",
+            date_return_col="SeenDate",
+            date_filter_col="SeenDate",
+            between=["2022-11-01", "2022-11-30"],
+            find_first_match_in_period=True,
+            date_format="YYYY-MM-DD",
+        ),
+        booked_date_of_last_seen_appointment=patients.with_gp_consultations(
+            returning="date",
+            date_return_col="BookedDate",
+            date_filter_col="SeenDate",
+            between=["2022-11-01", "2022-11-30"],
+            find_last_match_in_period=True,
+            date_format="YYYY-MM-DD",
+        ),
+        seen_date_of_last_seen_appointment=patients.with_gp_consultations(
+            returning="date",
+            date_return_col="SeenDate",
+            date_filter_col="SeenDate",
+            between=["2022-11-01", "2022-11-30"],
+            find_last_match_in_period=True,
+            date_format="YYYY-MM-DD",
+        ),
+    )
+    assert_results(
+        study.to_dicts(),
+        booked_date_of_first_seen_appointment=["2022-10-01", ""],
+        seen_date_of_first_seen_appointment=["2022-11-05", ""],
+        booked_date_of_last_seen_appointment=["2022-11-01", ""],
+        seen_date_of_last_seen_appointment=["2022-11-15", ""],
+    )
 
 
 def test_patients_with_test_result_in_sgss():

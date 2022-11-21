@@ -2092,7 +2092,8 @@ class TPPBackend:
         # Set return type
         returning="binary_flag",
         include_date_of_match=False,
-        date_type="Seen",
+        date_return_col="SeenDate",
+        date_filter_col="SeenDate",
         statuses=None,
     ):
         if returning == "binary_flag" or returning == "date":
@@ -2115,25 +2116,50 @@ class TPPBackend:
             ]
         statuses_str = codelist_to_sql(map(int, statuses))
 
-        if date_type not in ["Seen", "Booked", "Start"]:
-            raise ValueError(f"Unsupported `date_type` value: {date_type}")
-        date_col = f"{date_type}Date"
+        if date_return_col not in ["SeenDate", "BookedDate", "StartDate"]:
+            raise ValueError(f"Unsupported `date_return_col` value: {date_return_col}")
+        if date_filter_col not in ["SeenDate", "BookedDate", "StartDate"]:
+            raise ValueError(f"Unsupported `date_filter_col` value: {date_filter_col}")
 
         date_condition, date_joins = self.get_date_condition(
-            "Appointment", date_col, between
+            "Appointment", date_filter_col, between
         )
-        # Result ordering
-        date_aggregate = "MIN" if find_first_match_in_period else "MAX"
-        return f"""
-        SELECT
-          Appointment.Patient_ID AS patient_id,
-          {column_definition} AS {column_name},
-          {date_aggregate}({date_col}) AS date
-        FROM Appointment
-        {date_joins}
-        WHERE Status IN ({statuses_str}) AND {date_condition}
-        GROUP BY Appointment.Patient_ID
-        """
+
+        if date_return_col == date_filter_col:
+            date_aggregate = "MIN" if find_first_match_in_period else "MAX"
+            return f"""
+            SELECT
+              Appointment.Patient_ID AS patient_id,
+              {column_definition} AS {column_name},
+              {date_aggregate}({date_return_col}) AS date
+            FROM Appointment
+            {date_joins}
+            WHERE Status IN ({statuses_str}) AND {date_condition}
+            GROUP BY Appointment.Patient_ID
+            """
+        else:
+            if returning != "date":
+                raise ValueError('`returning` must be "date" if `date_return_col` and `date_filter_col` do not match')
+            date_ordering = "ASC" if find_first_match_in_period else "DESC"
+            sql = f"""
+            SELECT
+              Patient_ID AS patient_id,
+              {column_definition} AS {column_name},
+              {date_return_col} AS date
+            FROM (
+              SELECT
+                t1.*,
+                ROW_NUMBER() OVER (
+                  PARTITION BY t1.Patient_ID
+                  ORDER BY t1.{date_return_col} {date_ordering}
+                ) AS rownum
+              FROM Appointment t1
+                {date_joins}
+              WHERE Status IN ({statuses_str}) AND {date_condition}
+            ) t2
+            WHERE rownum = 1
+            """
+        return sql
 
     def patients_with_complete_gp_consultation_history_between(
         self, start_date, end_date

@@ -1821,7 +1821,8 @@ def with_gp_consultations(
     # Set return type
     returning="binary_flag",
     date_format=None,
-    date_type="Seen",
+    date_return_col="SeenDate",
+    date_filter_col="SeenDate",
     statuses=None,
     return_expectations=None,
 ):
@@ -1860,7 +1861,8 @@ def with_gp_consultations(
         date_format: a string detailing the format of the dates to be returned. It can be `YYYY-MM-DD`,
             `YYYY-MM` or `YYYY` and wherever possible the least disclosive data should be returned. i.e returning
             only year is less disclosive than a date with day, month and year.
-        date_type: one of `"Seen"`, `"Booked"`, `"Start"`.
+        date_return_col: one of `"SeenDate"` (default), `"BookedDate"`, `"StartDate"`.  Indicates the column to return if `returning` is `"date"`.
+        date_filter_col: one of `"SeenDate"` (default), `"BookedDate"`, `"StartDate"`.  Indicates the column that date filters are applied to.
         statuses: a list containing one or more of the following:
 
             * `AppointmentStatus.BOOKED`
