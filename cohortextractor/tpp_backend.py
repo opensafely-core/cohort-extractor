@@ -597,9 +597,9 @@ class TPPBackend:
     def create_codelist_table(self, codelist, case_sensitive=True):
         table_name = self.get_temp_table_name("codelist")
         if codelist.has_categories:
-            values = list(codelist)
+            values = list(set(codelist))
         else:
-            values = [(code, "") for code in codelist]
+            values = list({(code, "") for code in codelist})
         # Depending on the case-sensitivity of the code system the columns in question
         # use different collations and we need to use a matching one here
         collation = "Latin1_General_BIN" if case_sensitive else "Latin1_General_CI_AS"
@@ -608,7 +608,7 @@ class TPPBackend:
             f"""
             -- Uploading codelist for {self._current_column_name}
             CREATE TABLE {table_name} (
-              code VARCHAR({max_code_len}) COLLATE {collation},
+              code VARCHAR({max_code_len}) COLLATE {collation} NOT NULL PRIMARY KEY,
               category VARCHAR(MAX)
             )
             """
@@ -616,7 +616,6 @@ class TPPBackend:
         queries += make_batches_of_insert_statements(
             table_name, ("code", "category"), values
         )
-        queries += [f"CREATE CLUSTERED INDEX code_ix ON {table_name} (code)"]
         return table_name, queries
 
     def get_temp_table_name(self, suffix):
