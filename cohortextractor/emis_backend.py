@@ -496,7 +496,7 @@ class EMISBackend:
         if codelist.has_categories:
             values = ", ".join(
                 f"({quote(cast(code))}, {quote(category)})"
-                for code, category in codelist
+                for code, category in set(codelist)
             )
             queries = [
                 f"""
@@ -507,7 +507,7 @@ class EMISBackend:
                     """
             ]
         else:
-            values = ", ".join(f"({quote(cast(code))})" for code in codelist)
+            values = ", ".join(f"({quote(cast(code))})" for code in set(codelist))
             queries = [
                 f"""
                     CREATE TABLE IF NOT EXISTS {table_name} AS

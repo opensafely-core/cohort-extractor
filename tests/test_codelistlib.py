@@ -61,3 +61,15 @@ def test_combine_codelists_raises_error_on_inconsistent_categorisation():
     list_2 = codelist([("X", "foo"), ("B", "foo")], system="icd10")
     with pytest.raises(ValueError):
         combine_codelists(list_1, list_2)
+
+
+def test_check_categories():
+    # duplicates are ignored and are deduped later
+    codes_with_duplicate_categories = [("1", "A"), ("1", "A"), ("2", "B")]
+    # duplicate codes with inconsistent categories raise an error
+    codes_with_inconsistent_categories = [("1", "A"), ("1", "C"), ("2", "B")]
+    codes = codelist(codes_with_duplicate_categories, "ctv3")
+    assert codes == [("1", "A"), ("1", "A"), ("2", "B")]
+
+    with pytest.raises(ValueError):
+        codelist(codes_with_inconsistent_categories, "ctv3")

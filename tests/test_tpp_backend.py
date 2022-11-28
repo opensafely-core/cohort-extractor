@@ -306,13 +306,19 @@ def test_meds_with_count():
     study = StudyDefinition(
         population=patients.all(),
         asthma_meds=patients.with_these_medications(
-            codelist(asthma_medication.DMD_ID, "snomed"),
+            codelist([asthma_medication.DMD_ID], "snomed"),
+            on_or_after="2012-01-01",
+            return_number_of_matches_in_period=True,
+        ),
+        asthma_meds_with_duplicate_codes=patients.with_these_medications(
+            codelist([asthma_medication.DMD_ID, asthma_medication.DMD_ID], "snomed"),
             on_or_after="2012-01-01",
             return_number_of_matches_in_period=True,
         ),
     )
     results = study.to_dicts()
     assert [x["asthma_meds"] for x in results] == ["3", "0"]
+    assert [x["asthma_meds_with_duplicate_codes"] for x in results] == ["3", "0"]
 
 
 def _make_clinical_events_selection(condition_code, patient_dates=None):

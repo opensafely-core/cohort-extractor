@@ -162,9 +162,15 @@ def test_meds_with_count():
             on_or_after="2012-01-01",
             return_number_of_matches_in_period=True,
         ),
+        asthma_meds_with_duplicate_codes=patients.with_these_medications(
+            codelist([0, 0], "snomed"),
+            on_or_after="2012-01-01",
+            return_number_of_matches_in_period=True,
+        ),
     )
     results = study.to_dicts()
     assert [x["asthma_meds"] for x in results] == ["3", "0"]
+    assert [x["asthma_meds_with_duplicate_codes"] for x in results] == ["3", "0"]
 
 
 def test_patients_with_vaccination_record():
