@@ -1,4 +1,5 @@
 import csv
+from collections import Counter
 
 
 # Quick and dirty hack until we have a proper library for codelists
@@ -18,19 +19,27 @@ def codelist_from_csv(filename, system, column="code", category_column=None):
                 codes.append((row[column].strip(), row[category_column].strip()))
             else:
                 codes.append(row[column].strip())
-    codes = Codelist(codes)
-    codes.system = system
-    codes.has_categories = bool(category_column)
-    return codes
+    return codelist(codes, system)
 
 
-def codelist(codes, system):
+def codelist(codes, system, check_categories=True):
     codes = Codelist(codes)
     codes.system = system
     first_code = codes[0]
     if isinstance(first_code, tuple):
         codes.has_categories = True
+        if check_categories:
+            check_categories_consistent(codes)
     return codes
+
+
+def check_categories_consistent(codes):
+    code_counts = Counter([code[0] for code in set(codes)])
+    dupes = {code for code, count in code_counts.items() if count > 1}
+    if dupes:
+        raise ValueError(
+            f"Inconsistent categorisation: codelist has codes assigned to more than one category: {', '.join(dupes)}"
+        )
 
 
 def filter_codes_by_category(codes, include):
@@ -65,4 +74,6 @@ def combine_codelists(first_codelist, *other_codelists):
                 )
             else:
                 combined_dict[code] = item
-    return codelist(combined_dict.values(), first_codelist.system)
+    return codelist(
+        combined_dict.values(), first_codelist.system, check_categories=False
+    )
