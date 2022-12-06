@@ -116,6 +116,13 @@ COPY . /app
 # we run the docker image
 RUN cohortextractor --help
 
+ARG BUILD_DATE
+ARG VERSION
+ARG REVISION
+# RFC 3339.
+LABEL org.opencontainers.image.created=$BUILD_DATE \
+      org.opencontainers.image.version=$VERSION \
+      org.opencontainers.image.revision=$REVISION
 
 ################################################
 #
