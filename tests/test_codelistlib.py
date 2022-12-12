@@ -3,6 +3,7 @@ import pytest
 from cohortextractor.codelistlib import (
     codelist,
     combine_codelists,
+    expand_dmd_codelist,
     filter_codes_by_category,
 )
 
@@ -73,3 +74,72 @@ def test_check_categories():
 
     with pytest.raises(ValueError):
         codelist(codes_with_inconsistent_categories, "ctv3")
+
+
+def test_expand_dmd_codelist_no_categories():
+    # In this test (and test_expand_dmd_codelist_categories below) we take a codelist
+    # containing current and previous dm+d codes for VMPs that have multiple previous
+    # codes, and check that we can expand the codelist to include all current and
+    # previous codes for those VMPs.
+    #
+    # Note that although we're talking about dm+d codelists, the coding system label for
+    # dm+d codelists is "snomed" (although that's not actually relevant to this test).
+
+    # A mapping from a VMP code to its previous code(s).
+    mapping = [
+        ("A2", "A1"),
+        ("A2", "A0"),
+        ("A1", "A0"),
+        ("B2", "B1"),
+        ("B2", "B0"),
+        ("B1", "B0"),
+        ("C2", "C1"),
+        ("C2", "C0"),
+        ("C1", "C0"),
+    ]
+
+    cl = codelist(["A0", "B1", "C2", "D"], "snomed")
+    cl1 = expand_dmd_codelist(cl, mapping)
+    assert list(cl1) == [
+        "A0",
+        "A1",
+        "A2",
+        "B0",
+        "B1",
+        "B2",
+        "C0",
+        "C1",
+        "C2",
+        "D",
+    ]
+    assert cl1.system == "snomed"
+
+
+def test_expand_dmd_codelist_categories():
+    # See comment in test_expand_dmd_codelist_no_categories.
+    mapping = [
+        ("A2", "A1"),
+        ("A2", "A0"),
+        ("A1", "A0"),
+        ("B2", "B1"),
+        ("B2", "B0"),
+        ("B1", "B0"),
+        ("C2", "C1"),
+        ("C2", "C0"),
+        ("C1", "C0"),
+    ]
+    cl = codelist([("A0", "A"), ("B1", "B"), ("C2", "C"), ("D", "D")], "snomed")
+    cl1 = expand_dmd_codelist(cl, mapping)
+    assert list(cl1) == [
+        ("A0", "A"),
+        ("A1", "A"),
+        ("A2", "A"),
+        ("B0", "B"),
+        ("B1", "B"),
+        ("B2", "B"),
+        ("C0", "C"),
+        ("C1", "C"),
+        ("C2", "C"),
+        ("D", "D"),
+    ]
+    assert cl1.system == "snomed"

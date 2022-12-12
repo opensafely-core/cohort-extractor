@@ -77,3 +77,31 @@ def combine_codelists(first_codelist, *other_codelists):
     return codelist(
         combined_dict.values(), first_codelist.system, check_categories=False
     )
+
+
+def expand_dmd_codelist(cl, vmp_mapping):
+    """Expand codelist to include all current and previous dm+d codes for VMPs.
+
+    VMP dm+d codes can change, and a codelist might contain a previous version of a VMP
+    code.  We attempt to handle this transparently by expanding the codelist to include
+    all current and previous dm+d codes for VMPs.  However, this means that a query
+    using `patients.with_these_medications(codelist, returning="code", ...)` might
+    return a code that is not in the provided codelist.
+    """
+
+    if cl.has_categories:
+        code_to_category = dict(cl)
+        for id, prev_id in vmp_mapping:
+            if id in code_to_category:
+                code_to_category[prev_id] = code_to_category[id]
+            if prev_id in code_to_category:
+                code_to_category[id] = code_to_category[prev_id]
+        return codelist(sorted(code_to_category.items()), cl.system)
+    else:
+        codes = set(cl)
+        for id, prev_id in vmp_mapping:
+            if id in codes:
+                codes.add(prev_id)
+            if prev_id in codes:
+                codes.add(id)
+        return codelist(sorted(codes), cl.system)
