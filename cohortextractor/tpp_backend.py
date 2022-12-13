@@ -42,10 +42,17 @@ class TPPBackend:
     _db_connection = None
     _current_column_name = None
 
-    def __init__(self, database_url, covariate_definitions, temporary_database=None):
+    def __init__(
+        self,
+        database_url,
+        covariate_definitions,
+        temporary_database=None,
+        dummy_data=False,
+    ):
         self.database_url = database_url
         self.covariate_definitions = covariate_definitions
         self.temporary_database = temporary_database
+        self.dummy_data = dummy_data
         self.next_temp_table_id = 1
         self._therapeutics_table_name = None
         self._ons_cis_table_name = None
@@ -3649,6 +3656,8 @@ class TPPBackend:
 
     @cached_property
     def vmp_mapping(self):
+        if self.dummy_data:
+            return []
         cursor = self.get_db_connection().cursor()
         cursor.execute("SELECT id, prev_id FROM VmpMapping")
         return list(cursor)

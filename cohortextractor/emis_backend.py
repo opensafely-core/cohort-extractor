@@ -43,7 +43,13 @@ class EMISBackend:
     _db_connection = None
     _current_column_name = None
 
-    def __init__(self, database_url, covariate_definitions, temporary_database=None):
+    def __init__(
+        self,
+        database_url,
+        covariate_definitions,
+        temporary_database=None,
+        dummy_data=False,  # Ignored
+    ):
         self.database_url = database_url
         self.covariate_definitions = covariate_definitions
         self.postprocess_covariate_definitions()
