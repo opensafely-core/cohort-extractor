@@ -3659,7 +3659,10 @@ class TPPBackend:
         if self.dummy_data:
             return []
         cursor = self.get_db_connection().cursor()
-        cursor.execute("SELECT id, prev_id FROM VmpMapping")
+        table = "VmpMapping"
+        if self.temporary_database:
+            table = f"{self.temporary_database}..{table}"
+        cursor.execute(f"SELECT id, prev_id FROM {table}")
         return list(cursor)
 
 
