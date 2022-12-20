@@ -33,6 +33,7 @@ from pandas.api.types import (
 import cohortextractor
 from cohortextractor.exceptions import DummyDataValidationError, ValidationError
 from cohortextractor.generate_codelist_report import generate_codelist_report
+from cohortextractor.update_vmp_mapping import update_vmp_mapping
 
 from .log_utils import log_execution_time, log_stats
 
@@ -837,6 +838,12 @@ def main(args=None):
         default="unknown",
     )
 
+    update_vmp_mapping_parser = subparsers.add_parser(
+        "update_vmp_mapping",
+        help="Update VmpMapping table",
+    )
+    update_vmp_mapping_parser.set_defaults(which="update_vmp_mapping")
+
     options = parser.parse_args(sys.argv[1:] if args is None else args)
 
     if options.version:
@@ -958,6 +965,8 @@ def main(args=None):
         if options.database_url:
             os.environ["DATABASE_URL"] = options.database_url
         check_maintenance(options.current_mode)
+    elif options.which == "update_vmp_mapping":
+        update_vmp_mapping()
 
 
 def dict_from_params(params):
