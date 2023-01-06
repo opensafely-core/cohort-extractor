@@ -660,7 +660,7 @@ def with_these_medications(
             * `date`
             * `number_of_matches_in_period`
             * `number_of_episodes`
-            * `code`
+            * `code` (but see warning below)
             * `category`
 
         find_first_match_in_period: a boolean indicating if any returned date, code, category, or numeric value

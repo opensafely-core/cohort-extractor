@@ -191,9 +191,9 @@ class StudyDefinition:
         # dummy database URL. We immediately discard the backend instance, but
         # the process of constructing it should trigger any problems with the
         # study definition.
-        self.create_backend("mssql://localhost/dummy")
+        self.create_backend("mssql://localhost/dummy", dummy_data=True)
 
-    def create_backend(self, database_url=None):
+    def create_backend(self, database_url=None, dummy_data=False):
         # Creates an appropriate backend for the database URL. Uses
         # the provided URL or `self.database_url` if none is provided.
         Backend = self.get_backend_for_database_url(database_url or self.database_url)
@@ -201,6 +201,7 @@ class StudyDefinition:
             self.database_url,
             self.covariate_definitions,
             temporary_database=self.temporary_database,
+            dummy_data=dummy_data,
         )
 
     def recreate_backend(self):

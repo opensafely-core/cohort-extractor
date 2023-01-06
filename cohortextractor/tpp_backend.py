@@ -5,10 +5,12 @@ import math
 import os
 import re
 import uuid
+from functools import cached_property
 
 import pandas
 import structlog
 
+from .codelistlib import expand_dmd_codelist
 from .csv_utils import is_csv_filename, write_rows_to_csv
 from .date_expressions import MSSQLDateFormatter
 from .expressions import format_expression
@@ -40,18 +42,25 @@ class TPPBackend:
     _db_connection = None
     _current_column_name = None
 
-    def __init__(self, database_url, covariate_definitions, temporary_database=None):
+    def __init__(
+        self,
+        database_url,
+        covariate_definitions,
+        temporary_database=None,
+        dummy_data=False,
+    ):
         self.database_url = database_url
         self.covariate_definitions = covariate_definitions
         self.temporary_database = temporary_database
+        self.dummy_data = dummy_data
         self.next_temp_table_id = 1
         self._therapeutics_table_name = None
         self._ons_cis_table_name = None
+        self.truncate_sql_logs = False
         if self.covariate_definitions:
             self.queries = self.get_queries(self.covariate_definitions)
         else:
             self.queries = []
-        self.truncate_sql_logs = False
 
     def to_file(self, filename):
         queries = list(self.queries)
@@ -1060,6 +1069,7 @@ class TPPBackend:
         # has StartDate (the date of issue) and EndDate (not exactly sure what
         # this is).
         assert kwargs["codelist"].system == "snomed"
+        kwargs["codelist"] = expand_dmd_codelist(kwargs["codelist"], self.vmp_mapping)
         if kwargs["returning"] == "numeric_value":
             raise ValueError("Unsupported `returning` value: numeric_value")
         # This uses a special case function with a "fake it til you make it" API
@@ -3643,6 +3653,17 @@ class TPPBackend:
 
         # no change
         return current_mode == "db-maintenance"
+
+    @cached_property
+    def vmp_mapping(self):
+        if self.dummy_data:
+            return []
+        cursor = self.get_db_connection().cursor()
+        table = "VmpMapping"
+        if self.temporary_database:
+            table = f"{self.temporary_database}..{table}"
+        cursor.execute(f"SELECT id, prev_id FROM {table}")
+        return list(cursor)
 
 
 class ColumnExpression:

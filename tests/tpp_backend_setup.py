@@ -1076,3 +1076,13 @@ class BuildProgress(Base):
     EventStart = Column(DateTime, default=datetime.utcnow)
     EventEnd = Column(DateTime, default="9999-12-31")
     Duration = Column(Integer)
+
+
+class VmpMapping(Base):
+    __tablename__ = "VmpMapping"
+
+    # fake pk to satisfy the ORM
+    pk = Column(Integer, primary_key=True)
+
+    id = Column(String(collation="Latin1_General_CI_AS"))
+    prev_id = Column(String(collation="Latin1_General_CI_AS"))

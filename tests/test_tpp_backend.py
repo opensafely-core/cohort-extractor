@@ -64,6 +64,7 @@ from tests.tpp_backend_setup import (
     Therapeutics,
     Vaccination,
     VaccinationReference,
+    VmpMapping,
     clear_database,
     make_database,
     make_session,
@@ -319,6 +320,54 @@ def test_meds_with_count():
     results = study.to_dicts()
     assert [x["asthma_meds"] for x in results] == ["3", "0"]
     assert [x["asthma_meds_with_duplicate_codes"] for x in results] == ["3", "0"]
+
+
+def test_meds_with_vmp_id_changes():
+    # VMP codes can change (more than once) meaning that a VMP can have multiple codes.
+    # This test demonstrates that a codelist containing an old code captures both the new
+    # code and an even older code.
+    #
+    # See also test_codelistlib.test_expand_dmd_codelist_no_categories.
+    session = make_session()
+
+    session.add_all(
+        [
+            VmpMapping(id="201", prev_id="101"),
+            VmpMapping(id="201", prev_id="1"),
+            VmpMapping(id="101", prev_id="1"),
+        ]
+    )
+
+    med0 = MedicationDictionary(DMD_ID="0", MultilexDrug_ID="0")
+    med1 = MedicationDictionary(DMD_ID="1", MultilexDrug_ID="1")
+    med2 = MedicationDictionary(DMD_ID="101", MultilexDrug_ID="2")
+    med3 = MedicationDictionary(DMD_ID="201", MultilexDrug_ID="3")
+
+    session.add_all(
+        [
+            Patient(MedicationIssues=[MedicationIssue(MedicationDictionary=med0)]),
+            Patient(MedicationIssues=[MedicationIssue(MedicationDictionary=med1)]),
+            Patient(MedicationIssues=[MedicationIssue(MedicationDictionary=med2)]),
+            Patient(MedicationIssues=[MedicationIssue(MedicationDictionary=med3)]),
+        ]
+    )
+
+    session.commit()
+
+    study = StudyDefinition(
+        population=patients.all(),
+        binary_flag=patients.with_these_medications(
+            codelist(["101"], "snomed"),
+            returning="binary_flag",
+        ),
+        code=patients.with_these_medications(
+            codelist(["101"], "snomed"),
+            returning="code",
+        ),
+    )
+    results = study.to_dicts()
+    assert [x["binary_flag"] for x in results] == ["0", "1", "1", "1"]
+    assert [x["code"] for x in results] == ["", "1", "101", "201"]
 
 
 def _make_clinical_events_selection(condition_code, patient_dates=None):
