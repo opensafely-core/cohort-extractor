@@ -15,7 +15,7 @@ def validate_dummy_data(covariate_definitions, dummy_data_file):
     df = read_into_dataframe(dummy_data_file)
     validate_expected_columns(df, covariate_definitions)
 
-    for (col_name, (_, query_args)) in covariate_definitions.items():
+    for col_name, (_, query_args) in covariate_definitions.items():
         if col_name == "population":
             # Ignore the population definition, since it is not used as a column in the
             # output

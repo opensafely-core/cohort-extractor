@@ -680,7 +680,6 @@ def test_make_df_from_expectations_doesnt_alter_defaults():
 
 
 def test_make_df_from_expectations_doesnt_alter_date_defaults():
-
     study = StudyDefinition(
         default_expectations={
             "rate": "exponential_increase",

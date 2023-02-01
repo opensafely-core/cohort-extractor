@@ -531,7 +531,6 @@ def _make_cohort_report(input_dir, output_dir, study_name, suffix):
         descriptives.loc["nulls", name] = empty_values_chart
 
     with open(f"{output_dir}/descriptives{suffix}.html", "w") as f:
-
         f.write(
             """<html>
 <head>

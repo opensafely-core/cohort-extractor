@@ -148,7 +148,6 @@ def test_to_datetime_bad_str():
     ],
 )
 def test_dateframe_to_file_csv(filename, gzipped, read, tmp_path):
-
     rows = [
         ("patient_id", "age", "sex", "bmi", "stp", "date_admitted", "date_died"),
         (1, 20, "M", 18.5, "STP1", "2018-08-01", "2020-05"),

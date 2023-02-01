@@ -4,7 +4,6 @@ SMALL_NUMBER_THRESHOLD = 5
 
 
 class Measure:
-
     POPULATION_COLUMN = "population"
 
     def __init__(
