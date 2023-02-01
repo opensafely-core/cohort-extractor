@@ -454,7 +454,6 @@ def add_implied_fixed_value_columns(covariate_definitions):
     unique_names = make_unique_names("fixed_value", covariate_definitions)
 
     for name, (query_type, query_args) in covariate_definitions.items():
-
         if query_type == "aggregate_of":
             new_column_names = []
             for column_name in query_args["column_names"]:

@@ -3340,7 +3340,6 @@ class TPPBackend:
         date_filter_column=None,
         return_expectations=None,
     ):
-
         queries = []
         table = "ISARIC_Patient_Data_TopLine"
 
@@ -3430,7 +3429,6 @@ class TPPBackend:
         find_last_match_in_period=None,
         include_date_of_match=False,
     ):
-
         table, table_queries = self.create_ons_cis_table()
 
         # Result ordering

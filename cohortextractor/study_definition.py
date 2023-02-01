@@ -26,7 +26,6 @@ logger = structlog.get_logger()
 
 
 class StudyDefinition:
-
     backend = None
 
     def __init__(
@@ -164,7 +163,6 @@ class StudyDefinition:
             or database_url.startswith("mssql+pyodbc://")
             or database_url.startswith("mssql+pymssql")
         ):
-
             from .tpp_backend import TPPBackend
 
             return TPPBackend
@@ -429,7 +427,6 @@ class StudyDefinition:
                     dtype = "int"
                 df[colname] = generated_df[dtype]
             except KeyError:
-
                 raise ValueError(
                     f"Column definition {colname} does not return expected type {dtype}"
                 )

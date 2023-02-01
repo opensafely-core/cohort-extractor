@@ -90,7 +90,6 @@ def create_regex():
 
 
 class DateExpressionEvaluator:
-
     regex = create_regex()
 
     def __init__(self, index_date, column_names=()):
@@ -253,7 +252,6 @@ def date_replace(date, **kwargs):
 
 
 class DateFormatter:
-
     regex = create_regex()
 
     def __init__(self, column_definitions):

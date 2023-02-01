@@ -118,7 +118,6 @@ def get_pandas_convertor(funcname, column_type=None, returning=None, **kwargs):
 
 
 class Categoriser(dict):
-
     counter = 0
 
     __call__ = dict.__getitem__
