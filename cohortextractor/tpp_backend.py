@@ -3411,7 +3411,7 @@ class TPPBackend:
                 f"""
             -- Creating ons_cis temp table
             SELECT DISTINCT Patient_ID, {', '.join(ONS_CIS_COLUMN_MAPPINGS)}
-             INTO {self._ons_cis_table_name} FROM ONS_CIS
+             INTO {self._ons_cis_table_name} FROM ONS_CIS_New
             """
             ]
         else:

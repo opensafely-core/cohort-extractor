@@ -1025,7 +1025,7 @@ for name, type_ in ISARIC_COLUMN_MAPPINGS.items():
 
 
 class ONS_CIS(Base):
-    __tablename__ = "ONS_CIS"
+    __tablename__ = "ONS_CIS_New"
 
     # fake pk to satisfy the ORM
     id = Column(Integer, primary_key=True)
