@@ -111,6 +111,7 @@ RESULTS_CODES = {
     9: "Void",
     10: "Insufficient sample",
     11: "Could not process",
+    12: "Unassayed",
 }
 
 

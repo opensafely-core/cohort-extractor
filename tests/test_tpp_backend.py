@@ -6401,6 +6401,7 @@ def test_ons_cis():
                         country=0,
                         self_isolating=0,
                         ct_mean=12.345,
+                        result_combined=0,
                     ),
                 ],
             ),
@@ -6413,6 +6414,7 @@ def test_ons_cis():
                         result_tdi=1,
                         country=1,
                         self_isolating=1,
+                        result_combined=9,
                     ),
                 ],
             ),
@@ -6425,6 +6427,7 @@ def test_ons_cis():
                         result_tdi=10,
                         country=2,
                         self_isolating=0,
+                        result_combined=12,
                     ),
                     ONS_CIS(
                         age_at_visit=41,
@@ -6534,6 +6537,12 @@ def test_ons_cis():
             find_first_match_in_period=True,
             date_filter_column="visit_date",
         ),
+        # result_combined can take a value of 12 (new in ONS_CIS_New table), mapped to "Unassayed"
+        result_combined=patients.with_an_ons_cis_record(
+            returning="result_combined",
+            find_first_match_in_period=True,
+            date_filter_column="visit_date",
+        ),
     )
 
     assert_results(
@@ -6554,6 +6563,7 @@ def test_ons_cis():
         country_date=["2021-10-01", "2021-10-01", "2020-10-01"],
         country_as_codes=["0", "1", ""],
         ct_mean=[12.345, 0, 0],
+        result_combined=["Negative", "Void", "Unassayed"],
     )
 
 
