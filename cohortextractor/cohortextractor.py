@@ -314,6 +314,7 @@ def generate_measures(
     output_dir,
     selected_study_name=None,
     skip_existing=False,
+    params=(),
 ):
     preflight_generation_check()
     study_definitions = list_study_definitions()
@@ -335,6 +336,7 @@ def generate_measures(
                 study_name,
                 suffix,
                 skip_existing=skip_existing,
+                params=params,
             )
 
 
@@ -343,12 +345,13 @@ def _generate_measures(
     study_name,
     suffix,
     skip_existing=False,
+    params=(),
 ):
     logger.info(
         f"Generating measure for {study_name} in {output_dir}",
     )
     logger.debug("args", suffix=suffix, skip_existing=skip_existing)
-    measures = load_study_definition(study_name, value="measures")
+    measures = load_study_definition(study_name, value="measures", params=params)
     measure_outputs = defaultdict(list)
     filename_re = re.compile(rf"^input{re.escape(suffix)}.+\.({EXTENSION_REGEX})$")
 
@@ -786,6 +789,14 @@ def main(args=None):
         help="Do not regenerate measure if output file already exists",
         action="store_true",
     )
+    generate_measures_parser.add_argument(
+        "--param",
+        nargs="+",
+        action="append",
+        dest="params",
+        default=[],
+        help="Additional parameter to pass to study definition",
+    )
 
     # Codelist report parser options
     generate_codelist_report_parser.add_argument(
@@ -940,6 +951,7 @@ def main(args=None):
             options.output_dir,
             selected_study_name=options.study_definition,
             skip_existing=options.skip_existing,
+            params=dict_from_params(options.params),
         )
     elif options.which == "generate_codelist_report":
         generate_codelist_report(
