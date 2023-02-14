@@ -448,6 +448,8 @@ class TPPBackend:
             return 0
         elif column_type == "float":
             return 0.0
+        elif column_type == "bytes":
+            return 0
         else:
             raise ValueError(f"Unhandled column type: {column_type}")
 
@@ -3502,9 +3504,9 @@ class TPPBackend:
         )
 
         if use_partition_query:
-            # additionally ordering by visit_id should be enough to ensure consistent return
+            # additionally ordering by pseudo_visit_id should be enough to ensure consistent return
             # order in the event that there are duplicate values for the date_filter_column
-            # The raw dataset does have duplicate visit_ids, but these are typically complete
+            # The raw dataset does have duplicate pseudo_visit_ids, but these are typically complete
             # duplicate rows (which we've already filtered out) or duplicates between patients
             # which are presumably an error
             sql = f"""
@@ -3519,7 +3521,7 @@ class TPPBackend:
                     {table}.{date_filter_column},
                     ROW_NUMBER() OVER (
                     PARTITION BY {table}.Patient_ID
-                    ORDER BY {table}.{date_filter_column} {ordering}, visit_id
+                    ORDER BY {table}.{date_filter_column} {ordering}, pseudo_visit_id
                     ) AS rownum
                 FROM {table}
                 {date_joins}

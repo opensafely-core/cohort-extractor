@@ -79,7 +79,7 @@ ONS_CIS_COLUMN_MAPPINGS = {
     "travel_abroad": "bool",
     "travel_abroad_date": "date",
     "visit_date": "date",
-    "visit_id": "str",
+    "pseudo_visit_id": "bytes",
     "work_direct_contact_patients_etc": "bool",
     "work_location": "int",
     "work_outside_home_days": "int",
