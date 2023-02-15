@@ -11,6 +11,7 @@ from sqlalchemy import (
     Float,
     ForeignKey,
     Integer,
+    LargeBinary,
     String,
     types,
 )
@@ -1042,6 +1043,7 @@ sqlalchemy_type_conversion = {
     "float": Float,
     "str": String,
     "date": Date,
+    "bytes": LargeBinary,
 }
 for name, ons_cis_type in ONS_CIS_COLUMN_MAPPINGS.items():
     setattr(ONS_CIS, name, Column(sqlalchemy_type_conversion[ons_cis_type]))

@@ -291,6 +291,8 @@ class StudyDefinition:
                 dtypes[name] = "category"
             elif column_type == "float":
                 dtypes[name] = "float"
+            elif column_type == "bytes":
+                dtypes[name] = "bytes"
             else:
                 raise ValueError(
                     f"Unable to impute Pandas type for {column_type} "

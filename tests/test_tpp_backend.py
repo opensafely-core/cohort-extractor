@@ -6402,6 +6402,7 @@ def test_ons_cis():
                         self_isolating=0,
                         ct_mean=12.345,
                         result_combined=0,
+                        pseudo_visit_id=bytes([1]),
                     ),
                 ],
             ),
@@ -6415,6 +6416,7 @@ def test_ons_cis():
                         country=1,
                         self_isolating=1,
                         result_combined=9,
+                        pseudo_visit_id=bytes([2]),
                     ),
                 ],
             ),
@@ -6428,6 +6430,7 @@ def test_ons_cis():
                         country=2,
                         self_isolating=0,
                         result_combined=12,
+                        pseudo_visit_id=bytes([3]),
                     ),
                     ONS_CIS(
                         age_at_visit=41,
@@ -6436,6 +6439,7 @@ def test_ons_cis():
                         result_tdi=1,
                         country=2,
                         self_isolating=0,
+                        pseudo_visit_id=bytes([4]),
                     ),
                     # duplicate record ignored in number_of_matches_in_period counts
                     ONS_CIS(
@@ -6445,6 +6449,7 @@ def test_ons_cis():
                         result_tdi=1,
                         country=2,
                         self_isolating=0,
+                        pseudo_visit_id=bytes([4]),
                     ),
                 ],
             ),
@@ -6543,6 +6548,11 @@ def test_ons_cis():
             find_first_match_in_period=True,
             date_filter_column="visit_date",
         ),
+        pseudo_visit_id=patients.with_an_ons_cis_record(
+            returning="pseudo_visit_id",
+            find_first_match_in_period=True,
+            date_filter_column="visit_date",
+        ),
     )
 
     assert_results(
@@ -6564,6 +6574,7 @@ def test_ons_cis():
         country_as_codes=["0", "1", ""],
         ct_mean=[12.345, 0, 0],
         result_combined=["Negative", "Void", "Unassayed"],
+        pseudo_visit_id=[bytes([1]), bytes([2]), bytes([3])],
     )
 
 
