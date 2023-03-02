@@ -2619,7 +2619,7 @@ class TPPBackend:
               SELECT APCS.Patient_ID, {returning_column} AS {returning},
               ROW_NUMBER() OVER (
                 PARTITION BY APCS.Patient_ID
-                ORDER BY Admission_Date {ordering}, APCS.APCS_Ident
+                ORDER BY APCS.Admission_Date {ordering}, APCS.APCS_Ident
               ) AS rownum
               FROM APCS
               INNER JOIN APCS_Der
