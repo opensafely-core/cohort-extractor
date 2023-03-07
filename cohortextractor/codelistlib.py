@@ -15,10 +15,14 @@ def codelist_from_csv(filename, system, column="code", category_column=None):
             # We strip whitespace below. Longer term we expect this to be done
             # automatically by OpenCodelists but for now we want to avoid the
             # problems it creates
+            code = row[column].strip()
+            # Ignore blanks
+            if not code:
+                continue
             if category_column:
-                codes.append((row[column].strip(), row[category_column].strip()))
+                codes.append((code, row[category_column].strip()))
             else:
-                codes.append(row[column].strip())
+                codes.append(code)
     return codelist(codes, system)
 
 

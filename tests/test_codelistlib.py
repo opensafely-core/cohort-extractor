@@ -2,6 +2,7 @@ import pytest
 
 from cohortextractor.codelistlib import (
     codelist,
+    codelist_from_csv,
     combine_codelists,
     expand_dmd_codelist,
     filter_codes_by_category,
@@ -143,3 +144,10 @@ def test_expand_dmd_codelist_categories():
         ("D", "D"),
     ]
     assert cl1.system == "snomed"
+
+
+def test_codelist_from_csv_ignores_blank_codes(tmp_path):
+    csv_file = tmp_path / "file.csv"
+    csv_file.write_text("code,category\n\n,foo\nabc123,bar\ndef456,baz")
+    codes = codelist_from_csv(csv_file, system="ctv3", column="code")
+    assert codes == ["abc123", "def456"]
