@@ -32,7 +32,6 @@ from pandas.api.types import (
 
 import cohortextractor
 from cohortextractor.exceptions import DummyDataValidationError, ValidationError
-from cohortextractor.generate_codelist_report import generate_codelist_report
 from cohortextractor.update_vmp_mapping import update_vmp_mapping
 
 from .log_utils import log_execution_time, log_stats
@@ -641,11 +640,6 @@ def main(args=None):
         "generate_measures", help="Generate measures from cohort data"
     )
     generate_measures_parser.set_defaults(which="generate_measures")
-    generate_codelist_report_parser = subparsers.add_parser(
-        "generate_codelist_report",
-        help="Generate OpenSAFELY Interactive codelist report",
-    )
-    generate_codelist_report_parser.set_defaults(which="generate_codelist_report")
     cohort_report_parser = subparsers.add_parser(
         "cohort_report", help="Generate cohort report"
     )
@@ -798,41 +792,6 @@ def main(args=None):
         help="Additional parameter to pass to study definition",
     )
 
-    # Codelist report parser options
-    generate_codelist_report_parser.add_argument(
-        "--output-dir",
-        help="Location to store output files",
-        type=pathlib.Path,
-        default="output",
-    )
-    generate_codelist_report_parser.add_argument(
-        "--codelist-path",
-        help="Location of codelist",
-        type=str,
-    )
-    generate_codelist_report_parser.add_argument(
-        "--start-date",
-        help="Start date",
-        type=datetime.date.fromisoformat,
-    )
-    generate_codelist_report_parser.add_argument(
-        "--end-date",
-        help="End date",
-        type=datetime.date.fromisoformat,
-    )
-    generate_codelist_report_parser.add_argument(
-        "--codes",
-        default=16,
-        help="For dummy data, how many codes to use from the codelist",
-        type=int,
-    )
-    generate_codelist_report_parser.add_argument(
-        "--days",
-        default=70,
-        help="For dummy data, how many days of data to generate between start date and end date",
-        type=int,
-    )
-
     maintenance_parser = subparsers.add_parser(
         "maintenance",
         help="Report if backend db is currently performing maintenance",
@@ -952,15 +911,6 @@ def main(args=None):
             selected_study_name=options.study_definition,
             skip_existing=options.skip_existing,
             params=dict_from_params(options.params),
-        )
-    elif options.which == "generate_codelist_report":
-        generate_codelist_report(
-            options.output_dir,
-            options.codelist_path,
-            options.start_date,
-            options.end_date,
-            options.codes,
-            options.days,
         )
     elif options.which == "cohort_report":
         make_cohort_report(options.input_dir, options.output_dir)
