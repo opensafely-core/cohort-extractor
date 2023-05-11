@@ -313,7 +313,7 @@ def most_recent_bmi(
                 between=["2010-02-01", "2020-01-31"],
                 minimum_age_at_measurement=18,
                 include_measurement_date=True,
-                date_format="YYYY-MM",
+                date_format="YYYY-MM-DD",
                 return_expectations={
                     "date": {"earliest": "2010-02-01", "latest": "2020-01-31"},
                     "float": {"distribution": "normal", "mean": 28, "stddev": 8},
@@ -392,7 +392,7 @@ def mean_recorded_value(
                 on_most_recent_day_of_measurement=True,
                 between=["2017-02-01", "2020-01-31"],
                 include_measurement_date=True,
-                date_format="YYYY-MM",
+                date_format="YYYY-MM-DD",
                 return_expectations={
                     "float": {"distribution": "normal", "mean": 80, "stddev": 10},
                     "date": {"earliest": "2019-02-01", "latest": "2020-01-31"},
@@ -402,7 +402,7 @@ def mean_recorded_value(
 
         Alternatively, the date of measurement can be defined as a separate variable, using `date_of`:
 
-            date_of_bp_sys=patients.date_of("bp_sys", date_format="YYYY-MM")
+            date_of_bp_sys=patients.date_of("bp_sys", date_format="YYYY-MM-DD")
 
         This creates a variable returning a float of the mean recorded creatinine level
         over a 6 month period:
@@ -483,7 +483,7 @@ def min_recorded_value(
                 on_most_recent_day_of_measurement=True,
                 between=["2017-02-01", "2020-01-31"],
                 include_measurement_date=True,
-                date_format="YYYY-MM",
+                date_format="YYYY-MM-DD",
                 return_expectations={
                     "float": {"distribution": "normal", "mean": 80, "stddev": 10},
                     "date": {"earliest": "2019-02-01", "latest": "2020-01-31"},
@@ -493,7 +493,7 @@ def min_recorded_value(
 
         Alternatively, the date of measurement can be defined as a separate variable, using `date_of`:
 
-            date_of_min_bp=patients.date_of("min_bp_sys", date_format="YYYY-MM")
+            date_of_min_bp=patients.date_of("min_bp_sys", date_format="YYYY-MM-DD")
 
         This creates a variable returning a float of the minimum recorded creatinine level
         over a 6 month period:
@@ -574,7 +574,7 @@ def max_recorded_value(
                 on_most_recent_day_of_measurement=True,
                 between=["2017-02-01", "2020-01-31"],
                 include_measurement_date=True,
-                date_format="YYYY-MM",
+                date_format="YYYY-MM-DD",
                 return_expectations={
                     "float": {"distribution": "normal", "mean": 80, "stddev": 10},
                     "date": {"earliest": "2019-02-01", "latest": "2020-01-31"},
@@ -584,7 +584,7 @@ def max_recorded_value(
 
         Alternatively, the date of measurement can be defined as a separate variable, using `date_of`:
 
-            date_of_max_bp=patients.date_of("max_bp_sys", date_format="YYYY-MM")
+            date_of_max_bp=patients.date_of("max_bp_sys", date_format="YYYY-MM-DD")
 
         This creates a variable returning a float of the maximum recorded creatinine level
         over a 6 month period:
@@ -1726,7 +1726,7 @@ def with_vaccination_record(
                     ], coding_system="snomedct")
                 }
                 returning="date",
-                date_format="YYYY-MM",
+                date_format="YYYY-MM-DD",
                 find_first_match_in_period=True,
                 return_expectations={
                     date": {"earliest": "2020-12-08", "latest": "2021-02-16"}
@@ -1799,7 +1799,7 @@ def with_tpp_vaccination_record(
                 target_disease_matches="influenza",
                 between=["2019-09-01", "2020-04-01"],
                 returning="date",
-                date_format="YYYY-MM",
+                date_format="YYYY-MM-DD",
                 find_first_match_in_period=True,
                 return_expectations={
                     date": {"earliest": "2019-09-01", "latest": "2020-03-29"}
@@ -2367,7 +2367,7 @@ def date_deregistered_from_all_supported_practices(
 
             dereg_date=patients.date_deregistered_from_all_supported_practices(
                 on_or_after="2020-03-01",
-                date_format="YYYY-MM",
+                date_format="YYYY-MM-DD",
                 return_expectations={
                     {"date": {"earliest": "2020-03-01"},
                     "incidence": 0.05
