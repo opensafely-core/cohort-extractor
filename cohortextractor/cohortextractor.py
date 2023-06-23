@@ -32,6 +32,9 @@ from pandas.api.types import (
 
 import cohortextractor
 from cohortextractor.exceptions import DummyDataValidationError, ValidationError
+from cohortextractor.update_custom_medication_dictionary import (
+    update_custom_medication_dictionary,
+)
 from cohortextractor.update_vmp_mapping import update_vmp_mapping
 
 from .log_utils import log_execution_time, log_stats
@@ -813,6 +816,14 @@ def main(args=None):
     )
     update_vmp_mapping_parser.set_defaults(which="update_vmp_mapping")
 
+    update_custom_medication_dictionary_parser = subparsers.add_parser(
+        "update_custom_medication_dictionary",
+        help="Update CustomMedicationDictionary table",
+    )
+    update_custom_medication_dictionary_parser.set_defaults(
+        which="update_custom_medication_dictionary"
+    )
+
     options = parser.parse_args(sys.argv[1:] if args is None else args)
 
     if options.version:
@@ -928,6 +939,8 @@ def main(args=None):
         check_maintenance(options.current_mode)
     elif options.which == "update_vmp_mapping":
         update_vmp_mapping()
+    elif options.which == "update_custom_medication_dictionary":
+        update_custom_medication_dictionary()
 
 
 def dict_from_params(params):
