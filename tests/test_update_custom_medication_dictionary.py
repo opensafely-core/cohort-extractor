@@ -34,20 +34,37 @@ def test_update_custom_medication_dictionary(tmp_path, monkeypatch):
         )
 
     # First time: Does the table contain the expected mappings?
-    write_mapping_csv([("DMD_ID", "MultilexDrug_ID"), ("111111", "a"), ("222222", "b")])
+    write_mapping_csv(
+        [
+            ("DMD_ID", "MultilexDrug_ID", "FullName"),
+            ("111111", "a", "full name for a"),
+            ("222222", "b", "full name for b"),
+        ]
+    )
     update_custom_medication_dictionary.update_custom_medication_dictionary()
     select()
     assert list(cursor) == [("111111", "a"), ("222222", "b")]
 
     # Second time: Was the old table dropped and a new table created?
-    write_mapping_csv([("DMD_ID", "MultilexDrug_ID"), ("333333", "c"), ("444444", "d")])
+    write_mapping_csv(
+        [
+            ("DMD_ID", "MultilexDrug_ID", "FullName"),
+            ("333333", "c", "full name for c"),
+            ("444444", "d", "full name for d"),
+        ]
+    )
     update_custom_medication_dictionary.update_custom_medication_dictionary()
     select()
     assert list(cursor) == [("333333", "c"), ("444444", "d")]
 
     # Third time: Force the INSERT to error, by passing a DM+D ID that's too long. Did
     # the transaction roll-back?
-    write_mapping_csv([("DMD_ID", "MultilexDrug_ID"), (f"{'5' * 60}", "e")])
+    write_mapping_csv(
+        [
+            ("DMD_ID", "MultilexDrug_ID", "FullName"),
+            (f"{'5' * 60}", "e", "full name for e"),
+        ],
+    )
     try:
         update_custom_medication_dictionary.update_custom_medication_dictionary()
     except OperationalError:
