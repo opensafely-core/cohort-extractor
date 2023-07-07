@@ -230,7 +230,17 @@ class TPPBackend:
             logger.info(f"Writing results into temporary table '{output_table}'")
             conn = self.get_db_connection()
             cursor = conn.cursor()
-            cursor.execute(f"SELECT * INTO {output_table} FROM ({final_query}) t")
+            # Use a `SELECT INTO` with a WHERE clause that will never match to create a
+            # temporary table with the right structure without needing to fetch all the
+            # results. (Creating a table takes a lock on `sys.tables` so we want this to
+            # be as fast as possible.)
+            cursor.execute(
+                f"SELECT * INTO {output_table} FROM ({final_query}) t WHERE 0=1"
+            )
+            # Populate the temporary table
+            cursor.execute(
+                f"INSERT INTO {output_table} SELECT * FROM ({final_query}) t"
+            )
             cursor.execute(f"CREATE INDEX ix_patient_id ON {output_table} (patient_id)")
             logger.info(f"Downloading results from '{output_table}'")
         else:
