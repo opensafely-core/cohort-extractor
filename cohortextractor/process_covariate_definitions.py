@@ -2,8 +2,6 @@ import copy
 import datetime
 import re
 
-from .ons_cis_utils import ONS_CIS_CATEGORY_COLUMNS, ONS_CIS_COLUMN_MAPPINGS
-
 # ISARIC data has a lot of columns that are all varchar in the db.
 ISARIC_COLUMN_MAPPINGS = {
     "abdopain_ceoccur_v2": "str",
@@ -812,13 +810,6 @@ class GetColumnType:
 
     def type_of_with_an_isaric_record(self, returning, **kwargs):
         return ISARIC_COLUMN_MAPPINGS[returning]
-
-    def type_of_with_an_ons_cis_record(self, returning, **kwargs):
-        if returning in ONS_CIS_CATEGORY_COLUMNS:
-            return "str"
-        elif returning in ONS_CIS_COLUMN_MAPPINGS:
-            return ONS_CIS_COLUMN_MAPPINGS[returning]
-        return self._type_from_return_value(returning)
 
     def type_of_with_record_in_ukrr(self, returning, **kwargs):
         return self._type_from_return_value(returning)
