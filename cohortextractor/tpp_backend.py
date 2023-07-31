@@ -235,14 +235,11 @@ class TPPBackend:
             cursor.execute(
                 f"SELECT * INTO {output_table} FROM ({final_query}) t WHERE 0=1"
             )
-            conn.commit()
             # Populate the temporary table
             cursor.execute(
                 f"INSERT INTO {output_table} SELECT * FROM ({final_query}) t"
             )
-            conn.commit()
             cursor.execute(f"CREATE INDEX ix_patient_id ON {output_table} (patient_id)")
-            conn.commit()
             logger.info(f"Downloading results from '{output_table}'")
         else:
             logger.info(f"Downloading results from previous run in '{output_table}'")
