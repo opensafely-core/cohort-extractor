@@ -225,24 +225,23 @@ class TPPBackend:
             queries = list(queries)
             final_query = queries.pop()
             self.execute_queries(queries)
-            logger.info(f"Writing results into temporary table '{output_table}'")
+            # We need to run the final query in a transaction so that we don't end up
+            # with an empty output table in the event that the query fails. See:
+            # https://docs.microsoft.com/en-us/sql/t-sql/queries/select-into-clause-transact-sql?view=sql-server-ver15#remarks
             conn = self.get_db_connection()
+            logger.info(f"Writing results into temporary table '{output_table}'")
+            # pymssql's autocommit implementation is different to CTDS and MS
+            # pyodbc. Firstly, it's a method rather than a property.  Secondly,
+            # when autocommit is off, it implicity starts a transaction from
+            # the client, so we do not need to do it. CTDS do not seem to do
+            # this, which means we would have to begin it manually.
+            previous_autocommit = conn.autocommit_state
+            conn.autocommit(False)
             cursor = conn.cursor()
-            # Use a `SELECT INTO` with a WHERE clause that will never match to create a
-            # temporary table with the right structure without needing to fetch all the
-            # results. (Creating a table takes a lock on `sys.tables` so we want this to
-            # be as fast as possible.)
-            cursor.execute(
-                f"SELECT * INTO {output_table} FROM ({final_query}) t WHERE 0=1"
-            )
-            conn.commit()
-            # Populate the temporary table
-            cursor.execute(
-                f"INSERT INTO {output_table} SELECT * FROM ({final_query}) t"
-            )
-            conn.commit()
+            cursor.execute(f"SELECT * INTO {output_table} FROM ({final_query}) t")
             cursor.execute(f"CREATE INDEX ix_patient_id ON {output_table} (patient_id)")
             conn.commit()
+            conn.autocommit(previous_autocommit)
             logger.info(f"Downloading results from '{output_table}'")
         else:
             logger.info(f"Downloading results from previous run in '{output_table}'")
