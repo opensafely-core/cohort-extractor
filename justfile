@@ -41,7 +41,7 @@ _compile src dst *args: virtualenv
 
     # exit if src file is older than dst file (-nt = 'newer than', but we negate with || to avoid error exit code)
     test "${FORCE:-}" = "true" -o {{ src }} -nt {{ dst }} || exit 0
-    $BIN/pip-compile --allow-unsafe --generate-hashes --output-file={{ dst }} {{ src }} {{ args }}
+    $BIN/pip-compile --allow-unsafe --output-file={{ dst }} {{ src }} {{ args }}
 
 
 # update requirements.prod.txt if requirements.prod.in has changed
