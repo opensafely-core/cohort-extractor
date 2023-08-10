@@ -35,7 +35,7 @@ virtualenv:
     test -e $BIN/pip-compile || $PIP install pip-tools
 
 
-_compile src dst *args: virtualenv
+_compile-dev src dst *args: virtualenv
     #!/usr/bin/env bash
     set -euo pipefail
 
@@ -44,14 +44,23 @@ _compile src dst *args: virtualenv
     $BIN/pip-compile --allow-unsafe --output-file={{ dst }} {{ src }} {{ args }}
 
 
+_compile-prod src dst *args: virtualenv
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    # exit if src file is older than dst file (-nt = 'newer than', but we negate with || to avoid error exit code)
+    test "${FORCE:-}" = "true" -o {{ src }} -nt {{ dst }} || exit 0
+    $BIN/pip-compile --allow-unsafe --extras=drivers --output-file={{ dst }} {{ src }} {{ args }}
+
+
 # update requirements.prod.txt if requirements.prod.in has changed
 requirements-prod *args:
-    "{{ just_executable() }}" _compile setup.py --extra drivers -o requirements.prod.txt {{ args }}
+    "{{ just_executable() }}" _compile-prod setup.py requirements.prod.txt {{ args }}
 
 
 # update requirements.dev.txt if requirements.dev.in has changed
 requirements-dev *args: requirements-prod
-    "{{ just_executable() }}" _compile requirements.dev.in requirements.dev.txt {{ args }}
+    "{{ just_executable() }}" _compile-dev requirements.dev.in requirements.dev.txt {{ args }}
 
 
 # ensure prod requirements installed and up to date
