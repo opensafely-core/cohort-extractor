@@ -37,7 +37,7 @@ apt-get install -y gnupg && \
 export PATH=$PATH:/opt/mssql-tools/bin
 
 ```
-* Set up virtual env: `make devenv` - Note: if not on linux, you may need to install ctds manually
+* Set up virtual env: `just devenv` - Note: if not on linux, you may need to install ctds manually
 * `py.test tests/`
 
 Note: if you change the database schema
