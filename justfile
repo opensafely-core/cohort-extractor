@@ -109,10 +109,6 @@ docker-build:
     ENV=dev docker-compose build --pull $(ARGS) $(ENV)
 
 
-# lint the Docker image
-docker-lint:
-    docker pull hadolint/hadolint
-    docker run --rm -i hadolint/hadolint < Dockerfile
 
 
 # *args is variadic, 0 or more. This allows us to do `just test -k match`, for example.
@@ -127,7 +123,9 @@ ruff *args=".": devenv
     $BIN/ruff check {{ args }}
 
 # run the various dev checks but does not change any files
-check: black ruff
+check: devenv black ruff
+    docker pull hadolint/hadolint
+    docker run --rm -i hadolint/hadolint < Dockerfile
 
 
 # fix formatting and import sort ordering
