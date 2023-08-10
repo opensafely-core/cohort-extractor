@@ -5,7 +5,9 @@ export VIRTUAL_ENV  := `echo ${VIRTUAL_ENV:-.venv}`
 export BIN := VIRTUAL_ENV + if os_family() == "unix" { "/bin" } else { "/Scripts" }
 export PIP := BIN + if os_family() == "unix" { "/python -m pip" } else { "/python.exe -m pip" }
 
-export DEFAULT_PYTHON := if os_family() == "unix" { "python3.11" } else { "python" }
+export DEFAULT_PYTHON := if os_family() == "unix" { "python3.8" } else { "python" }
+export IMAGE_NAME ?= cohortextractor
+
 
 
 # list available commands
@@ -40,7 +42,7 @@ _compile src dst *args: virtualenv
 
 # update requirements.prod.txt if requirements.prod.in has changed
 requirements-prod *args:
-    "{{ just_executable() }}" _compile requirements.prod.in requirements.prod.txt {{ args }}
+    "{{ just_executable() }}" _compile setup.py --extra drivers -o requirements.prod.txt {{ args }}
 
 
 # update requirements.dev.txt if requirements.dev.in has changed
@@ -84,6 +86,21 @@ upgrade env package="": virtualenv
     opts="--upgrade"
     test -z "{{ package }}" || opts="--upgrade-package {{ package }}"
     FORCE=true "{{ just_executable() }}" requirements-{{ env }} $opts
+
+
+# build the production Docker image
+docker-build:
+    export BUILD_DATE=$(shell date +'%y-%m-%dT%H:%M:%S.%3NZ')
+    export REVISION=$(shell git rev-parse --short HEAD)
+    export VERSION=$(shell git describe --tags)
+    export DOCKER_BUILDKIT=1
+    ENV=dev docker-compose build --pull $(ARGS) $(ENV)
+
+
+# lint the Docker image
+docker-lint:
+    docker pull hadolint/hadolint
+    docker run --rm -i hadolint/hadolint < Dockerfile
 
 
 # *args is variadic, 0 or more. This allows us to do `just test -k match`, for example.
