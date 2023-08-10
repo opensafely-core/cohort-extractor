@@ -11,6 +11,7 @@ from cohortextractor.validate_dummy_data import (
     validate_dummy_data,
 )
 
+
 cl = codelist(["12345"], system="snomed")
 
 column_definitions = dict(

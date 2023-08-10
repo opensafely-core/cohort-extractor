@@ -14,6 +14,7 @@ from .log_utils import LoggingDatabaseConnection, log_execution_time, log_stats
 from .pandas_utils import dataframe_from_rows, dataframe_to_file
 from .trino_utils import trino_connection_from_url
 
+
 logger = structlog.get_logger()
 sql_logger = structlog.get_logger("cohortextractor.sql")
 
@@ -1105,7 +1106,7 @@ class EMISBackend:
             match = re.match(pattern, episode_defined_as)
             if not match:
                 raise ValueError(
-                    f"Argument `episode_defined_as` must match " f"pattern: {pattern}"
+                    f"Argument `episode_defined_as` must match pattern: {pattern}"
                 )
             washout_period = int(match.group(1))
         else:
@@ -1169,7 +1170,7 @@ class EMISBackend:
             match = re.match(pattern, episode_defined_as)
             if not match:
                 raise ValueError(
-                    f"Argument `episode_defined_as` must match " f"pattern: {pattern}"
+                    f"Argument `episode_defined_as` must match pattern: {pattern}"
                 )
             washout_period = int(match.group(1))
         else:

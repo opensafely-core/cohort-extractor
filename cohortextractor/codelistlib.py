@@ -10,7 +10,7 @@ class Codelist(list):
 
 def codelist_from_csv(filename, system, column="code", category_column=None):
     codes = []
-    with open(filename, "r") as f:
+    with open(filename) as f:
         for row in csv.DictReader(f):
             # We strip whitespace below. Longer term we expect this to be done
             # automatically by OpenCodelists but for now we want to avoid the

@@ -7,6 +7,7 @@ import structlog
 
 from .log_utils import log_execution_time, timing_log_counter
 
+
 # Some drivers warn about the use of features marked "optional" in the DB-ABI
 # spec, using a standardised set of warnings. See:
 # https://www.python.org/dev/peps/pep-0249/#optional-db-api-extensions

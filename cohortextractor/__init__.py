@@ -11,6 +11,7 @@ from .log_utils import init_logging
 from .measure import Measure
 from .study_definition import StudyDefinition
 
+
 init_logging()
 
 with open(os.path.join(os.path.dirname(__file__), "VERSION")) as version_file:

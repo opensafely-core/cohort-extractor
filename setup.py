@@ -2,6 +2,7 @@ import os
 
 from setuptools import find_packages, setup
 
+
 try:
     with open(os.path.join("cohortextractor", "VERSION")) as f:
         version = f.read().strip()

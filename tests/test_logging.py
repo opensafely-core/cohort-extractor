@@ -679,14 +679,14 @@ def test_stats_logging_with_error(logger):
     assert "Invalid object name 'Bar'" in str(excinfo.value)
 
     # Timing is logged, with the error state in the end log
-    (sql_log,) = [
+    (sql_log,) = (
         log for log in logger.entries if log.get("sql") == "SELECT Foo FROM Bar"
-    ]
-    (end_log,) = [
+    )
+    (end_log,) = (
         log
         for log in logger.entries
         if log.get("timing_id") == sql_log["timing_id"] and log.get("timing") == "stop"
-    ]
+    )
     assert end_log["state"] == "error"
 
 

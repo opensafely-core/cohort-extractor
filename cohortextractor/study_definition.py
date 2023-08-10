@@ -22,6 +22,7 @@ from .pandas_utils import dataframe_from_rows, dataframe_to_file, dataframe_to_r
 from .process_covariate_definitions import process_covariate_definitions
 from .validate_dummy_data import validate_dummy_data
 
+
 logger = structlog.get_logger()
 
 

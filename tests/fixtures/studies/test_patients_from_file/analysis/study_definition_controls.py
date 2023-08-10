@@ -1,5 +1,6 @@
 from cohortextractor import StudyDefinition, patients
 
+
 CONTROLS = "output/matched_matches.csv"
 
 study = StudyDefinition(

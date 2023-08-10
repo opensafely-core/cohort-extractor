@@ -4,6 +4,7 @@ import sqlite3
 import sqlparse
 from sqlparse import tokens as ttypes
 
+
 IGNORE = object()
 
 # As well as alphanumeric, underscore, and space characters, which are generally used

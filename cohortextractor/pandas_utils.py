@@ -5,6 +5,7 @@ import dateutil.parser
 import pandas
 import structlog
 
+
 logger = structlog.get_logger()
 
 

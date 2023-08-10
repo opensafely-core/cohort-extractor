@@ -24,6 +24,7 @@ from .pandas_utils import dataframe_from_rows, dataframe_to_file
 from .process_covariate_definitions import ISARIC_COLUMN_MAPPINGS
 from .therapeutics_utils import ALLOWED_RISK_GROUPS
 
+
 logger = structlog.get_logger()
 
 
@@ -1401,7 +1402,7 @@ class TPPBackend:
             match = re.match(pattern, episode_defined_as)
             if not match:
                 raise ValueError(
-                    f"Argument `episode_defined_as` must match " f"pattern: {pattern}"
+                    f"Argument `episode_defined_as` must match pattern: {pattern}"
                 )
             washout_period = int(match.group(1))
         else:
@@ -1467,7 +1468,7 @@ class TPPBackend:
             match = re.match(pattern, episode_defined_as)
             if not match:
                 raise ValueError(
-                    f"Argument `episode_defined_as` must match " f"pattern: {pattern}"
+                    f"Argument `episode_defined_as` must match pattern: {pattern}"
                 )
             washout_period = int(match.group(1))
         else:
@@ -3211,7 +3212,7 @@ class TPPBackend:
             match = re.match(pattern, episode_defined_as)
             if not match:
                 raise ValueError(
-                    f"Argument `episode_defined_as` must match " f"pattern: {pattern}"
+                    f"Argument `episode_defined_as` must match pattern: {pattern}"
                 )
             washout_period = int(match.group(1))
         else:

@@ -9,6 +9,7 @@ from urllib.parse import unquote, urlparse
 import requests
 import structlog
 
+
 # The Trino client ought to be close to a drop-in replacement for the Presto
 # but it isn't: despite the tests passing we get 500s from Presto in production
 # whenever we try to query it. As a quick fix we want to revert to using the
@@ -28,6 +29,7 @@ except ImportError:
 import urllib3
 from retry import retry
 from tabulate import tabulate
+
 
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 

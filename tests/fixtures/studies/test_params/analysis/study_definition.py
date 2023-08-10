@@ -1,5 +1,6 @@
 from cohortextractor import StudyDefinition, params, patients
 
+
 age_suffix = params["age_suffix"]
 sex_suffix = params["sex_suffix"]
 

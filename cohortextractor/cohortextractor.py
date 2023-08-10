@@ -39,6 +39,7 @@ from cohortextractor.update_vmp_mapping import update_vmp_mapping
 
 from .log_utils import log_execution_time, log_stats
 
+
 logger = structlog.get_logger()
 
 notebook_tag = "opencorona-research"

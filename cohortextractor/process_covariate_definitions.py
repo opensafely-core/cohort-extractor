@@ -2,6 +2,7 @@ import copy
 import datetime
 import re
 
+
 # ISARIC data has a lot of columns that are all varchar in the db.
 ISARIC_COLUMN_MAPPINGS = {
     "abdopain_ceoccur_v2": "str",

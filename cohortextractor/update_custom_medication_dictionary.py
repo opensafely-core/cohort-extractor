@@ -4,6 +4,7 @@ import pathlib
 
 from .mssql_utils import mssql_dbapi_connection_from_url
 
+
 CUSTOM_MEDICATION_DICTIONARY_CSV = pathlib.Path(__file__).with_name(
     "custom_medication_dictionary.csv"
 )

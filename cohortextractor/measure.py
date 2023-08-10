@@ -1,5 +1,6 @@
 import numpy
 
+
 SMALL_NUMBER_THRESHOLD = 5
 
 
