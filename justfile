@@ -6,7 +6,7 @@ export BIN := VIRTUAL_ENV + if os_family() == "unix" { "/bin" } else { "/Scripts
 export PIP := BIN + if os_family() == "unix" { "/python -m pip" } else { "/python.exe -m pip" }
 
 export DEFAULT_PYTHON := if os_family() == "unix" { "python3.8" } else { "python" }
-export IMAGE_NAME ?= cohortextractor
+export IMAGE_NAME := "cohortextractor"
 
 
 
