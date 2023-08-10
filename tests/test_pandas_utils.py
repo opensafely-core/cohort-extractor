@@ -97,7 +97,7 @@ def test_dataframe_from_rows():
     # them to None
     records = [
         {
-            k: v if not (type(v) is float and math.isnan(v)) else None
+            k: v if not (isinstance(v, float) and math.isnan(v)) else None
             for (k, v) in record.items()
         }
         for record in df.to_dict("record")
