@@ -109,15 +109,15 @@ upgrade env package="": virtualenv
     FORCE=true "{{ just_executable() }}" requirements-{{ env }} $opts
 
 
-# build the production Docker image
-docker-build:
+# build the Docker image
+docker-build env="dev" *args="":
     export BUILD_DATE=$(shell date +'%y-%m-%dT%H:%M:%S.%3NZ')
     export REVISION=$(shell git rev-parse --short HEAD)
-    export VERSION=$(shell git describe --tags)
+    # We retrieve the version in GitHub Actions differently,
+    # so allow overriding this value.
+    export VERSION=${VERSION:-$(shell git describe --tags)}
     export DOCKER_BUILDKIT=1
-    ENV=dev docker-compose build --pull $(ARGS) $(ENV)
-
-
+    docker-compose build --pull {{ args }} {{ env }}
 
 
 # *args is variadic, 0 or more. This allows us to do `just test -k match`, for example.
