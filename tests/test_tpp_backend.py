@@ -30,6 +30,7 @@ from tests.tpp_backend_setup import (
     EC,
     ICNARC,
     OPA,
+    T1OO,
     UKRR,
     APCS_Der,
     Appointment,
@@ -128,6 +129,7 @@ def setup_function(function):
     session.query(UKRR).delete()
     session.query(Patient).delete()
     session.query(BuildProgress).delete()
+    session.query(T1OO).delete()
 
     session.commit()
 
@@ -179,6 +181,53 @@ def test_minimal_study_with_reserved_keywords():
     )
 
     assert_results(study.to_dicts(), all=["M", "F"], asc=["40", "55"])
+
+
+def test_minimal_study_with_t1oo_default():
+    # Test that type 1 opt-outs are excluded by default
+    assert "OPENSAFELY_INCLUDE_T1OO" not in os.environ
+    session = make_session()
+    patient_1 = Patient(Patient_ID=1, DateOfBirth="1980-01-01", Sex="M")
+    patient_2 = Patient(Patient_ID=2, DateOfBirth="1965-01-01", Sex="F")
+    t1oo_1 = T1OO(Patient_ID=1)
+    session.add_all([patient_1, patient_2, t1oo_1])
+    session.commit()
+    study = StudyDefinition(
+        population=patients.all(),
+        all=patients.sex(),
+        asc=patients.age_as_of("2020-01-01"),
+    )
+    # patient_1 (M, age 40) excluded
+    assert_results(study.to_dicts(), all=["F"], asc=["55"])
+
+
+@pytest.mark.parametrize(
+    "flag,expected",
+    [
+        ("", ["1", "4"]),
+        ("False", ["1", "4"]),
+        ("false", ["1", "4"]),
+        ("1", ["1", "4"]),
+        ("True", ["1", "2", "3", "4"]),
+        ("true", ["1", "2", "3", "4"]),
+    ],
+)
+def test_minimal_study_with_t1oo_flag(flag, expected, include_t1oo):
+    os.environ["OPENSAFELY_INCLUDE_T1OO"] = flag
+    # Test that type 1 opt-outs are only included if flag is explicitly set to "True"
+    session = make_session()
+    patient_1 = Patient(Patient_ID=1, DateOfBirth="1980-01-01", Sex="M")
+    patient_2 = Patient(Patient_ID=2, DateOfBirth="1965-01-01", Sex="F")
+    patient_3 = Patient(Patient_ID=3, DateOfBirth="1975-01-01", Sex="F")
+    patient_4 = Patient(Patient_ID=4, DateOfBirth="1985-01-01", Sex="F")
+    t1oo_2 = T1OO(Patient_ID=2)
+    t1oo_3 = T1OO(Patient_ID=3)
+    session.add_all([patient_1, patient_2, patient_3, patient_4, t1oo_2, t1oo_3])
+    session.commit()
+    study = StudyDefinition(
+        population=patients.all(),
+    )
+    assert_results(study.to_dicts(), patient_id=expected)
 
 
 @pytest.mark.parametrize("format", ["csv", "csv.gz", "feather", "dta", "dta.gz"])

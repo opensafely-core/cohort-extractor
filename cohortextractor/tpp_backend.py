@@ -387,7 +387,27 @@ class TPPBackend:
             for name in table_queries
             if name != "population"
         ]
+
+        wheres = [f'{output_columns["population"]} = 1']
+
+        def get_t1oo_exclude_expressions():
+            # If this query has been explictly flagged as including T1OO patients then
+            # return unmodified
+            if include_t1oo:
+                return [], []
+            # Otherwise we add an extra LEFT OUTER JOIN on the T1OO table and
+            # WHERE clause which will exclude any patient IDs found in the T1OO table
+            return (
+                [f"LEFT OUTER JOIN T1OO ON T1OO.Patient_ID = {patient_id_expr}"],
+                ["T1OO.Patient_ID IS null"],
+            )
+
+        t100_join, t1oo_where = get_t1oo_exclude_expressions()
+        joins.extend(t100_join)
         joins_str = "\n          ".join(joins)
+        wheres.extend(t1oo_where)
+        where_str = " AND ".join(wheres)
+
         joined_output_query = f"""
         -- Join all columns for final output
         SELECT
@@ -395,7 +415,7 @@ class TPPBackend:
         FROM
           {primary_table}
           {joins_str}
-        WHERE {output_columns["population"]} = 1
+        WHERE {where_str}
         """
         all_queries = []
         for sql_list in table_queries.values():
