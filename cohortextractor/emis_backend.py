@@ -49,6 +49,7 @@ class EMISBackend:
         covariate_definitions,
         temporary_database=None,
         dummy_data=False,  # Ignored
+        include_t1oo=False,  # Ignored
     ):
         self.database_url = database_url
         self.covariate_definitions = covariate_definitions

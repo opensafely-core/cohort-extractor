@@ -47,6 +47,7 @@ class TPPBackend:
         covariate_definitions,
         temporary_database=None,
         dummy_data=False,
+        include_t1oo=False,
     ):
         self.database_url = database_url
         self.covariate_definitions = covariate_definitions
@@ -55,8 +56,11 @@ class TPPBackend:
         self.next_temp_table_id = 1
         self._therapeutics_table_name = None
         self.truncate_sql_logs = False
+
         if self.covariate_definitions:
-            self.queries = self.get_queries(self.covariate_definitions)
+            self.queries = self.get_queries(
+                self.covariate_definitions, include_t1oo=include_t1oo
+            )
         else:
             self.queries = []
 
@@ -307,7 +311,7 @@ class TPPBackend:
                 therapeutics_risk_group_variables.add(name)
         return therapeutics_risk_group_variables
 
-    def get_queries(self, covariate_definitions):
+    def get_queries(self, covariate_definitions, include_t1oo=False):
         output_columns = {}
         table_queries = {}
         for name, (query_type, query_args) in covariate_definitions.items():
