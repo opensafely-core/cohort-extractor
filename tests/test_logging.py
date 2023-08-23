@@ -107,10 +107,11 @@ def test_study_definition_initial_stats_logging(logger):
     )
     assert get_stats_logs(logger.entries) == [
         # output columns include patient_id, and the 4 variables defined in the
-        # study defniiton, including event_date_2, which is defined as a parameter to
-        # event_min_date
+        # study definition - population, event_date_1, event_min_date and event_date_2,
+        # which is defined as a parameter to event_min_date
         # tables - Patient, temp event table for each codelist
-        {"output_column_count": 5, "table_count": 3, "table_joins_count": 2},
+        # joins - Patient to each event table, and t1oo
+        {"output_column_count": 5, "table_count": 3, "table_joins_count": 3},
         # variable_count is a count of the top-level variables defined in the study def (i.e. not event_date_2)
         {"variable_count": 4},
         # 2 variables use a codelist (event_date_1, and the nested event_date_2)
@@ -134,10 +135,10 @@ def test_stats_logging_tpp_backend(logger):
 
     # initial stats
     expected_initial_study_def_logs = [
-        # output columns include patient_id, and the 2 variables defined in the
-        # study defniiton
-        # tables - Patient, temp event table for codelist
-        {"output_column_count": 3, "table_count": 2, "table_joins_count": 1},
+        # output columns include patient_id, and the 2 variables (population, event)
+        # defined in the study defniiton
+        # tables - Patient, temp event table, t1oo for codelist
+        {"output_column_count": 3, "table_count": 2, "table_joins_count": 2},
         {"variable_count": 2},
         {"variables_using_codelist_count": 1},
         {"variable_using_codelist": "event", "codelist_size": 1},
@@ -195,6 +196,55 @@ def test_stats_logging_tpp_backend(logger):
     )
 
 
+def test_stats_logging_tpp_backend_with_t1oo(logger, include_t1oo):
+    # The query counter is a global at the module level, so it isn't reset between tests
+    # Find the next position (without incrementing it); this is the start of the test's timing logs
+    start_counter = timing_log_counter.next
+
+    study = StudyDefinition(
+        population=patients.all(),
+    )
+    study.to_dicts()
+
+    # initial stats
+    expected_initial_study_def_logs = [
+        # output columns include patient_id and population
+        # tables - Patient table only
+        # no joins because t1oo are included, so there is no need to join on the
+        # t1oo table to exclude them
+        {"output_column_count": 2, "table_count": 1, "table_joins_count": 0},
+        {"variable_count": 1},
+        {"variables_using_codelist_count": 0},
+    ]
+    # timing stats
+    # logs in tpp_backend during query execution
+
+    expected_timing_log_params = [
+        *_sql_execute_timing_logs(
+            description="Query for population",
+            sql="SELECT * INTO #population",
+            timing_id=start_counter,
+        ),
+        *_sql_execute_timing_logs(
+            description=None,
+            sql="CREATE CLUSTERED INDEX patient_id_ix ON #population (patient_id)",
+            timing_id=start_counter + 1,
+            is_truncated=False,
+        ),
+        *_sql_execute_timing_logs(
+            description="Join all columns for final output",
+            sql="#population.patient_id AS [patient_id]",
+            timing_id=start_counter + 2,
+        ),
+    ]
+    assert_stats_logs(
+        logger,
+        expected_initial_study_def_logs,
+        expected_timing_log_params,
+        downloaded=False,
+    )
+
+
 @patch("cohortextractor.cohortextractor.preflight_generation_check")
 @patch(
     "cohortextractor.cohortextractor.list_study_definitions",
@@ -239,7 +289,7 @@ def test_stats_logging_generate_cohort(
     expected_initial_study_def_logs = [
         # these 3 are logged from StudyDefinition instantiation
         # patient_id, population, sex - all from patient table, but we make one temp # table per variable
-        {"output_column_count": 3, "table_count": 2, "table_joins_count": 1},
+        {"output_column_count": 3, "table_count": 2, "table_joins_count": 2},
         {"variable_count": 2},  # population, sex
         {"variables_using_codelist_count": 0},
         # index_date_count logged from generate_cohort
@@ -391,7 +441,7 @@ def test_stats_logging_generate_cohort_with_index_dates(
         {"index_date_count": 3},
         {"min_index_date": "2020-01-01", "max_index_date": "2020-03-01"},
         # output_column/table/joins_count is logged in tpp_backend on backend instantiation so it's repeated for each index date
-        *[{"output_column_count": 3, "table_count": 2, "table_joins_count": 1}] * 4,
+        *[{"output_column_count": 3, "table_count": 2, "table_joins_count": 2}] * 4,
         *[
             {"resetting_backend_index_date": ix_date}
             for ix_date in expected_index_dates
