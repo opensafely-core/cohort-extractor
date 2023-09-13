@@ -41,7 +41,8 @@ BACKOFF_FACTOR = 4
 class TPPBackend:
     _db_connection = None
     _current_column_name = None
-    include_t1oo = False
+    # TODO: Temporary default to support safe deployment
+    include_t1oo = True
 
     def __init__(
         self,
