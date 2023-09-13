@@ -80,6 +80,18 @@ def set_database_url(monkeypatch):
         monkeypatch.setenv("DATABASE_URL", os.environ["TPP_DATABASE_URL"])
 
 
+@pytest.fixture
+def set_database_url_with_t1oo(monkeypatch):
+    def set_db_url(t1oo_value):
+        if "TPP_DATABASE_URL" in os.environ:
+            monkeypatch.setenv(
+                "DATABASE_URL",
+                f'{os.environ["TPP_DATABASE_URL"]}?opensafely_include_t1oo={t1oo_value}',
+            )
+
+    return set_db_url
+
+
 def setup_module(module):
     make_database()
 
@@ -134,6 +146,59 @@ def setup_function(function):
     session.commit()
 
 
+@pytest.mark.parametrize(
+    "dsn_in,dsn_out,t1oo_status",
+    [
+        (
+            "mssql://user:pass@localhost:4321/db",
+            "mssql://user:pass@localhost:4321/db",
+            False,
+        ),
+        (
+            "mssql://user:pass@localhost:4321/db?param1=one&param2&param1=three",
+            "mssql://user:pass@localhost:4321/db?param1=one&param1=three&param2=",
+            False,
+        ),
+        (
+            "mssql://user:pass@localhost:4321/db?opensafely_include_t1oo&param2=two",
+            "mssql://user:pass@localhost:4321/db?param2=two",
+            False,
+        ),
+        (
+            "mssql://user:pass@localhost:4321/db?opensafely_include_t1oo=false",
+            "mssql://user:pass@localhost:4321/db",
+            False,
+        ),
+        (
+            "mssql://user:pass@localhost:4321/db?opensafely_include_t1oo=true",
+            "mssql://user:pass@localhost:4321/db",
+            True,
+        ),
+        (
+            "mssql://user:pass@localhost:4321/db?opensafely_include_t1oo=True",
+            "mssql://user:pass@localhost:4321/db",
+            True,
+        ),
+    ],
+)
+def test_tpp_backend_modify_dsn(dsn_in, dsn_out, t1oo_status):
+    backend = TPPBackend(database_url=dsn_in, covariate_definitions=None)
+    assert backend.database_url == dsn_out
+    assert backend.include_t1oo == t1oo_status
+
+
+@pytest.mark.parametrize(
+    "dsn",
+    [
+        "mssql://user:pass@localhost:4321/db?opensafely_include_t1oo=false&opensafely_include_t1oo=false",
+        "mssql://user:pass@localhost:4321/db?opensafely_include_t1oo=false&opensafely_include_t1oo",
+    ],
+)
+def test_tpp_backend_modify_dsn_rejects_duplicate_params(dsn):
+    with pytest.raises(ValueError, match="must not be supplied more than once"):
+        TPPBackend(database_url=dsn, covariate_definitions=None)
+
+
 @pytest.mark.parametrize("format", ["csv", "csv.gz", "feather", "dta", "dta.gz"])
 def test_minimal_study_to_file(tmp_path, format):
     session = make_session()
@@ -185,7 +250,6 @@ def test_minimal_study_with_reserved_keywords():
 
 def test_minimal_study_with_t1oo_default():
     # Test that type 1 opt-outs are excluded by default
-    assert "OPENSAFELY_INCLUDE_T1OO" not in os.environ
     session = make_session()
     patient_1 = Patient(Patient_ID=1, DateOfBirth="1980-01-01", Sex="M")
     patient_2 = Patient(Patient_ID=2, DateOfBirth="1965-01-01", Sex="F")
@@ -212,8 +276,8 @@ def test_minimal_study_with_t1oo_default():
         ("true", ["1", "2", "3", "4"]),
     ],
 )
-def test_minimal_study_with_t1oo_flag(flag, expected, include_t1oo):
-    os.environ["OPENSAFELY_INCLUDE_T1OO"] = flag
+def test_minimal_study_with_t1oo_flag(set_database_url_with_t1oo, flag, expected):
+    set_database_url_with_t1oo(flag)
     # Test that type 1 opt-outs are only included if flag is explicitly set to "True"
     session = make_session()
     patient_1 = Patient(Patient_ID=1, DateOfBirth="1980-01-01", Sex="M")

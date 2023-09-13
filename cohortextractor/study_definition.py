@@ -37,10 +37,6 @@ class StudyDefinition:
         self.set_index_date(index_date)
         self.pandas_csv_args = self.get_pandas_csv_args(self.covariate_definitions)
 
-        self.include_t1oo = (
-            os.environ.get("OPENSAFELY_INCLUDE_T1OO", "").lower().strip() == "true"
-        )
-
         self.database_url = os.environ.get("DATABASE_URL")
         self.temporary_database = os.environ.get("TEMP_DATABASE_NAME")
         if self.database_url:
@@ -205,7 +201,6 @@ class StudyDefinition:
             self.covariate_definitions,
             temporary_database=self.temporary_database,
             dummy_data=dummy_data,
-            include_t1oo=self.include_t1oo,
         )
 
     def recreate_backend(self):

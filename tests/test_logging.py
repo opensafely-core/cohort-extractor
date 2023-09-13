@@ -1,3 +1,4 @@
+import os
 import re
 from collections import Counter
 from unittest.mock import patch
@@ -14,6 +15,15 @@ from tests.test_tpp_backend import (  # noqa: F401; We need to import these for 
     setup_module,
     teardown_module,
 )
+
+
+@pytest.fixture
+def set_database_url_with_t1oo(monkeypatch):
+    if "TPP_DATABASE_URL" in os.environ:
+        monkeypatch.setenv(
+            "DATABASE_URL",
+            f'{os.environ["TPP_DATABASE_URL"]}?opensafely_include_t1oo=True',
+        )
 
 
 @pytest.fixture(name="logger")
@@ -196,7 +206,7 @@ def test_stats_logging_tpp_backend(logger):
     )
 
 
-def test_stats_logging_tpp_backend_with_t1oo(logger, include_t1oo):
+def test_stats_logging_tpp_backend_with_t1oo(logger, set_database_url_with_t1oo):
     # The query counter is a global at the module level, so it isn't reset between tests
     # Find the next position (without incrementing it); this is the start of the test's timing logs
     start_counter = timing_log_counter.next
