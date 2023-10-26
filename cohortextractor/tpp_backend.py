@@ -37,6 +37,8 @@ RETRIES = 6
 SLEEP = 4
 BACKOFF_FACTOR = 4
 
+T1OO_TABLE = "PatientsWithTypeOneDissent"
+
 
 class TPPBackend:
     _db_connection = None
@@ -421,8 +423,10 @@ class TPPBackend:
             # Otherwise we add an extra LEFT OUTER JOIN on the T1OO table and
             # WHERE clause which will exclude any patient IDs found in the T1OO table
             return (
-                [f"LEFT OUTER JOIN T1OO ON T1OO.Patient_ID = {patient_id_expr}"],
-                ["T1OO.Patient_ID IS null"],
+                [
+                    f"LEFT OUTER JOIN {T1OO_TABLE} ON {T1OO_TABLE}.Patient_ID = {patient_id_expr}"
+                ],
+                [f"{T1OO_TABLE}.Patient_ID IS null"],
             )
 
         t100_join, t1oo_where = get_t1oo_exclude_expressions()

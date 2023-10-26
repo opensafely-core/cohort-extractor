@@ -30,7 +30,6 @@ from tests.tpp_backend_setup import (
     EC,
     ICNARC,
     OPA,
-    T1OO,
     UKRR,
     APCS_Der,
     Appointment,
@@ -55,6 +54,7 @@ from tests.tpp_backend_setup import (
     Organisation,
     Patient,
     PatientAddress,
+    PatientsWithTypeOneDissent,
     PotentialCareHomeAddress,
     RegistrationHistory,
     SGSS_AllTests_Negative,
@@ -141,7 +141,7 @@ def setup_function(function):
     session.query(UKRR).delete()
     session.query(Patient).delete()
     session.query(BuildProgress).delete()
-    session.query(T1OO).delete()
+    session.query(PatientsWithTypeOneDissent).delete()
 
     session.commit()
 
@@ -267,8 +267,8 @@ def test_minimal_study_with_t1oo_flag(set_database_url_with_t1oo, flag, expected
     patient_2 = Patient(Patient_ID=2, DateOfBirth="1965-01-01", Sex="F")
     patient_3 = Patient(Patient_ID=3, DateOfBirth="1975-01-01", Sex="F")
     patient_4 = Patient(Patient_ID=4, DateOfBirth="1985-01-01", Sex="F")
-    t1oo_2 = T1OO(Patient_ID=2)
-    t1oo_3 = T1OO(Patient_ID=3)
+    t1oo_2 = PatientsWithTypeOneDissent(Patient_ID=2)
+    t1oo_3 = PatientsWithTypeOneDissent(Patient_ID=3)
     session.add_all([patient_1, patient_2, patient_3, patient_4, t1oo_2, t1oo_3])
     session.commit()
     study = StudyDefinition(

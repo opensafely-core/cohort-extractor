@@ -1057,8 +1057,8 @@ class VmpMapping(Base):
     prev_id = Column(String(collation="Latin1_General_CI_AS"))
 
 
-class T1OO(Base):
-    __tablename__ = "T1OO"
+class PatientsWithTypeOneDissent(Base):
+    __tablename__ = "PatientsWithTypeOneDissent"
     # fake pk to satisfy the ORM
     # Patient_ID might be the primary key, TBC
     pk = Column(Integer, primary_key=True)
