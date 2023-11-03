@@ -36,6 +36,7 @@ class StudyDefinition:
         self._original_default_expectations = default_expectations or {}
         self.set_index_date(index_date)
         self.pandas_csv_args = self.get_pandas_csv_args(self.covariate_definitions)
+
         self.database_url = os.environ.get("DATABASE_URL")
         self.temporary_database = os.environ.get("TEMP_DATABASE_NAME")
         if self.database_url:

@@ -1,3 +1,4 @@
+import os
 import re
 from collections import Counter
 from unittest.mock import patch
@@ -14,6 +15,15 @@ from tests.test_tpp_backend import (  # noqa: F401; We need to import these for 
     setup_module,
     teardown_module,
 )
+
+
+@pytest.fixture
+def set_database_url_with_t1oo(monkeypatch):
+    if "TPP_DATABASE_URL" in os.environ:
+        monkeypatch.setenv(
+            "DATABASE_URL",
+            f'{os.environ["TPP_DATABASE_URL"]}?opensafely_include_t1oo=True',
+        )
 
 
 @pytest.fixture(name="logger")
@@ -187,6 +197,55 @@ def test_stats_logging_tpp_backend(logger):
         ),
     ]
 
+    assert_stats_logs(
+        logger,
+        expected_initial_study_def_logs,
+        expected_timing_log_params,
+        downloaded=False,
+    )
+
+
+def test_stats_logging_tpp_backend_with_t1oo(logger, set_database_url_with_t1oo):
+    # The query counter is a global at the module level, so it isn't reset between tests
+    # Find the next position (without incrementing it); this is the start of the test's timing logs
+    start_counter = timing_log_counter.next
+
+    study = StudyDefinition(
+        population=patients.all(),
+    )
+    study.to_dicts()
+
+    # initial stats
+    expected_initial_study_def_logs = [
+        # output columns include patient_id and population
+        # tables - Patient table only
+        # no joins because t1oo are included, so there is no need to join on the
+        # t1oo table to exclude them
+        {"output_column_count": 2, "table_count": 1, "table_joins_count": 0},
+        {"variable_count": 1},
+        {"variables_using_codelist_count": 0},
+    ]
+    # timing stats
+    # logs in tpp_backend during query execution
+
+    expected_timing_log_params = [
+        *_sql_execute_timing_logs(
+            description="Query for population",
+            sql="SELECT * INTO #population",
+            timing_id=start_counter,
+        ),
+        *_sql_execute_timing_logs(
+            description=None,
+            sql="CREATE CLUSTERED INDEX patient_id_ix ON #population (patient_id)",
+            timing_id=start_counter + 1,
+            is_truncated=False,
+        ),
+        *_sql_execute_timing_logs(
+            description="Join all columns for final output",
+            sql="#population.patient_id AS [patient_id]",
+            timing_id=start_counter + 2,
+        ),
+    ]
     assert_stats_logs(
         logger,
         expected_initial_study_def_logs,

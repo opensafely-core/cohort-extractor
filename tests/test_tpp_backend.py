@@ -54,6 +54,7 @@ from tests.tpp_backend_setup import (
     Organisation,
     Patient,
     PatientAddress,
+    PatientsWithTypeOneDissent,
     PotentialCareHomeAddress,
     RegistrationHistory,
     SGSS_AllTests_Negative,
@@ -77,6 +78,18 @@ def set_database_url(monkeypatch):
     # connections (one for each backend type) so we copy the value in here
     if "TPP_DATABASE_URL" in os.environ:
         monkeypatch.setenv("DATABASE_URL", os.environ["TPP_DATABASE_URL"])
+
+
+@pytest.fixture
+def set_database_url_with_t1oo(monkeypatch):
+    def set_db_url(t1oo_value):
+        if "TPP_DATABASE_URL" in os.environ:
+            monkeypatch.setenv(
+                "DATABASE_URL",
+                f'{os.environ["TPP_DATABASE_URL"]}?opensafely_include_t1oo={t1oo_value}',
+            )
+
+    return set_db_url
 
 
 def setup_module(module):
@@ -128,8 +141,62 @@ def setup_function(function):
     session.query(UKRR).delete()
     session.query(Patient).delete()
     session.query(BuildProgress).delete()
+    session.query(PatientsWithTypeOneDissent).delete()
 
     session.commit()
+
+
+@pytest.mark.parametrize(
+    "dsn_in,dsn_out,t1oo_status",
+    [
+        (
+            "mssql://user:pass@localhost:4321/db",
+            "mssql://user:pass@localhost:4321/db",
+            True,
+        ),
+        (
+            "mssql://user:pass@localhost:4321/db?param1=one&param2&param1=three",
+            "mssql://user:pass@localhost:4321/db?param1=one&param1=three&param2=",
+            True,
+        ),
+        (
+            "mssql://user:pass@localhost:4321/db?opensafely_include_t1oo&param2=two",
+            "mssql://user:pass@localhost:4321/db?param2=two",
+            False,
+        ),
+        (
+            "mssql://user:pass@localhost:4321/db?opensafely_include_t1oo=false",
+            "mssql://user:pass@localhost:4321/db",
+            False,
+        ),
+        (
+            "mssql://user:pass@localhost:4321/db?opensafely_include_t1oo=true",
+            "mssql://user:pass@localhost:4321/db",
+            True,
+        ),
+        (
+            "mssql://user:pass@localhost:4321/db?opensafely_include_t1oo=True",
+            "mssql://user:pass@localhost:4321/db",
+            True,
+        ),
+    ],
+)
+def test_tpp_backend_modify_dsn(dsn_in, dsn_out, t1oo_status):
+    backend = TPPBackend(database_url=dsn_in, covariate_definitions=None)
+    assert backend.database_url == dsn_out
+    assert backend.include_t1oo == t1oo_status
+
+
+@pytest.mark.parametrize(
+    "dsn",
+    [
+        "mssql://user:pass@localhost:4321/db?opensafely_include_t1oo=false&opensafely_include_t1oo=false",
+        "mssql://user:pass@localhost:4321/db?opensafely_include_t1oo=false&opensafely_include_t1oo",
+    ],
+)
+def test_tpp_backend_modify_dsn_rejects_duplicate_params(dsn):
+    with pytest.raises(ValueError, match="must not be supplied more than once"):
+        TPPBackend(database_url=dsn, covariate_definitions=None)
 
 
 @pytest.mark.parametrize("format", ["csv", "csv.gz", "feather", "dta", "dta.gz"])
@@ -179,6 +246,35 @@ def test_minimal_study_with_reserved_keywords():
     )
 
     assert_results(study.to_dicts(), all=["M", "F"], asc=["40", "55"])
+
+
+@pytest.mark.parametrize(
+    "flag,expected",
+    [
+        ("", ["1", "4"]),
+        ("False", ["1", "4"]),
+        ("false", ["1", "4"]),
+        ("1", ["1", "4"]),
+        ("True", ["1", "2", "3", "4"]),
+        ("true", ["1", "2", "3", "4"]),
+    ],
+)
+def test_minimal_study_with_t1oo_flag(set_database_url_with_t1oo, flag, expected):
+    set_database_url_with_t1oo(flag)
+    # Test that type 1 opt-outs are only included if flag is explicitly set to "True"
+    session = make_session()
+    patient_1 = Patient(Patient_ID=1, DateOfBirth="1980-01-01", Sex="M")
+    patient_2 = Patient(Patient_ID=2, DateOfBirth="1965-01-01", Sex="F")
+    patient_3 = Patient(Patient_ID=3, DateOfBirth="1975-01-01", Sex="F")
+    patient_4 = Patient(Patient_ID=4, DateOfBirth="1985-01-01", Sex="F")
+    t1oo_2 = PatientsWithTypeOneDissent(Patient_ID=2)
+    t1oo_3 = PatientsWithTypeOneDissent(Patient_ID=3)
+    session.add_all([patient_1, patient_2, patient_3, patient_4, t1oo_2, t1oo_3])
+    session.commit()
+    study = StudyDefinition(
+        population=patients.all(),
+    )
+    assert_results(study.to_dicts(), patient_id=expected)
 
 
 @pytest.mark.parametrize("format", ["csv", "csv.gz", "feather", "dta", "dta.gz"])

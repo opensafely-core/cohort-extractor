@@ -6,6 +6,7 @@ import os
 import re
 import uuid
 from functools import cached_property
+from urllib import parse
 
 import pandas
 import structlog
@@ -36,10 +37,14 @@ RETRIES = 6
 SLEEP = 4
 BACKOFF_FACTOR = 4
 
+T1OO_TABLE = "PatientsWithTypeOneDissent"
+
 
 class TPPBackend:
     _db_connection = None
     _current_column_name = None
+    # TODO: Temporary default to support safe deployment
+    include_t1oo = True
 
     def __init__(
         self,
@@ -48,17 +53,41 @@ class TPPBackend:
         temporary_database=None,
         dummy_data=False,
     ):
-        self.database_url = database_url
+        if database_url is not None:
+            # set self.include_t1oo from the database url
+            self.database_url = self.modify_dsn(database_url)
+        else:
+            self.database_url = database_url
+
         self.covariate_definitions = covariate_definitions
         self.temporary_database = temporary_database
         self.dummy_data = dummy_data
         self.next_temp_table_id = 1
         self._therapeutics_table_name = None
         self.truncate_sql_logs = False
+
         if self.covariate_definitions:
             self.queries = self.get_queries(self.covariate_definitions)
         else:
             self.queries = []
+
+    def modify_dsn(self, dsn):
+        """
+        Removes the `opensafely_include_t1oo` parameter if present and uses it to set
+        the `include_t1oo` attribute accordingly
+        """
+        parts = parse.urlparse(dsn)
+        params = parse.parse_qs(parts.query, keep_blank_values=True)
+        include_t1oo_values = params.pop("opensafely_include_t1oo", [])
+        if len(include_t1oo_values) == 1:
+            self.include_t1oo = include_t1oo_values[0].lower() == "true"
+        elif len(include_t1oo_values) != 0:
+            raise ValueError(
+                "`opensafely_include_t1oo` parameter must not be supplied more than once"
+            )
+        new_query = parse.urlencode(params, doseq=True)
+        new_parts = parts._replace(query=new_query)
+        return parse.urlunparse(new_parts)
 
     def to_file(self, filename):
         queries = list(self.queries)
@@ -383,7 +412,29 @@ class TPPBackend:
             for name in table_queries
             if name != "population"
         ]
+
+        wheres = [f'{output_columns["population"]} = 1']
+
+        def get_t1oo_exclude_expressions():
+            # If this query has been explictly flagged as including T1OO patients then
+            # return unmodified
+            if self.include_t1oo:
+                return [], []
+            # Otherwise we add an extra LEFT OUTER JOIN on the T1OO table and
+            # WHERE clause which will exclude any patient IDs found in the T1OO table
+            return (
+                [
+                    f"LEFT OUTER JOIN {T1OO_TABLE} ON {T1OO_TABLE}.Patient_ID = {patient_id_expr}"
+                ],
+                [f"{T1OO_TABLE}.Patient_ID IS null"],
+            )
+
+        t100_join, t1oo_where = get_t1oo_exclude_expressions()
+        joins.extend(t100_join)
         joins_str = "\n          ".join(joins)
+        wheres.extend(t1oo_where)
+        where_str = " AND ".join(wheres)
+
         joined_output_query = f"""
         -- Join all columns for final output
         SELECT
@@ -391,7 +442,7 @@ class TPPBackend:
         FROM
           {primary_table}
           {joins_str}
-        WHERE {output_columns["population"]} = 1
+        WHERE {where_str}
         """
         all_queries = []
         for sql_list in table_queries.values():
