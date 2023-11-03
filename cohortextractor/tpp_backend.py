@@ -43,8 +43,7 @@ T1OO_TABLE = "PatientsWithTypeOneDissent"
 class TPPBackend:
     _db_connection = None
     _current_column_name = None
-    # TODO: Temporary default to support safe deployment
-    include_t1oo = True
+    include_t1oo = False
 
     def __init__(
         self,
