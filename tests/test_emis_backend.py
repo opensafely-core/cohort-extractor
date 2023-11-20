@@ -1566,8 +1566,15 @@ def test_patients_with_these_codes_on_death_certificate():
                 nhs_no="bbb",
                 ONSDeath=[
                     ONSDeaths(
-                        reg_stat_dod=20210101, icd10u=code, upload_date="2020-04-01"
-                    )
+                        reg_stat_dod=20210101,
+                        icd10u=code,
+                        upload_date="2020-03-01",
+                    ),
+                    ONSDeaths(
+                        reg_stat_dod=20210101,
+                        icd10u=code,
+                        upload_date="2020-04-01",
+                    ),
                 ],
             ),
             # Died of something else
@@ -1575,8 +1582,15 @@ def test_patients_with_these_codes_on_death_certificate():
                 nhs_no="ccc",
                 ONSDeath=[
                     ONSDeaths(
-                        reg_stat_dod=20200201, icd10u="MI", upload_date="2020-04-01"
-                    )
+                        reg_stat_dod=20200201,
+                        icd10u="MI",
+                        upload_date="2020-03-01",
+                    ),
+                    ONSDeaths(
+                        reg_stat_dod=20200201,
+                        icd10u="MI",
+                        upload_date="2020-04-01",
+                    ),
                 ],
             ),
             # Covid underlying cause
@@ -1587,8 +1601,20 @@ def test_patients_with_these_codes_on_death_certificate():
                         reg_stat_dod=20200201,
                         icd10u=code,
                         icd10014="MI",
+                        upload_date="2020-03-01",
+                    ),
+                    ONSDeaths(
+                        reg_stat_dod=20200201,
+                        icd10u=code,
+                        icd10014="MI",
                         upload_date="2020-04-01",
-                    )
+                    ),
+                    ONSDeaths(
+                        reg_stat_dod=20200202,
+                        icd10u=code,
+                        icd10014="MJ",
+                        upload_date="2020-04-01",
+                    ),
                 ],
             ),
             # Covid not underlying cause
@@ -1600,7 +1626,19 @@ def test_patients_with_these_codes_on_death_certificate():
                         icd10u="MI",
                         icd10014=code,
                         upload_date="2020-04-01",
-                    )
+                    ),
+                    ONSDeaths(
+                        reg_stat_dod=20200302,
+                        icd10u="MJ",
+                        icd10014=code,
+                        upload_date="2020-04-01",
+                    ),
+                    ONSDeaths(
+                        reg_stat_dod=20200301,
+                        icd10u="MI",
+                        icd10014=code,
+                        upload_date="2020-04-01",
+                    ),
                 ],
             ),
         ]
