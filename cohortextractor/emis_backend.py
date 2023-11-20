@@ -1530,15 +1530,18 @@ class EMISBackend:
             )
         else:
             code_conditions = "1 = 1"
+        # The ONS deaths data contains some duplicate patient IDs. In most
+        # cases these are exact duplicate rows, but in same cases the same
+        # patient appears twice with different dates and death or a different
+        # underlying cause of death. We handle this by (arbitrarily) taking the
+        # earliest date of death or the lexically smallest ICD-10 code.
         if returning == "binary_flag":
             column_definition = "1"
         elif returning == "date_of_death":
             # Yes, we're converting an integer to a string to a timestamp to a date.
-            column_definition = (
-                "CAST(date_parse(CAST(o.reg_stat_dod AS VARCHAR), '%Y%m%d') AS date)"
-            )
+            column_definition = "MIN(CAST(date_parse(CAST(o.reg_stat_dod AS VARCHAR), '%Y%m%d') AS date))"
         elif returning == "underlying_cause_of_death":
-            column_definition = "o.icd10u"
+            column_definition = "MIN(o.icd10u)"
         else:
             raise ValueError(f"Unsupported `returning` value: {returning}")
         # ONS_TABLE is updated with each release of data from ONS, so we need to
@@ -1554,6 +1557,7 @@ class EMISBackend:
             WHERE ({code_conditions})
                 AND {date_condition}
                 AND o.upload_date = (SELECT MAX(upload_date) FROM {ONS_TABLE})
+            GROUP BY p.registration_id, p.hashed_organisation
             """
 
     def patients_died_from_any_cause(
