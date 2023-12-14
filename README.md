@@ -1,3 +1,12 @@
+# cohort-extractor is in maintenance mode
+
+Active development is focused on
+[ehrQL](https://github.com/opensafely-core/ehrql),
+the electronic health record query language
+that is cohort-extractor's successor.
+
+Refer to the [ehrQL documentation](https://docs.opensafely.org/ehrql/) to learn more.
+
 # OpenSAFELY cohort extractor tool
 
 This tool supports the authoring of OpenSAFELY-compliant research, by:
