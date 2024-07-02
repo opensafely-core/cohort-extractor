@@ -275,14 +275,16 @@ def test_minimal_study_with_t1oo_default():
 def test_minimal_study_with_t1oo_flag(set_database_url_with_t1oo, flag, expected):
     set_database_url_with_t1oo(flag)
     # Test that type 1 opt-outs are only included if flag is explicitly set to "True"
+    fixtures = [
+        Patient(Patient_ID=1),
+        Patient(Patient_ID=2),
+        Patient(Patient_ID=3),
+        Patient(Patient_ID=4),
+        PatientsWithTypeOneDissent(Patient_ID=2),
+        PatientsWithTypeOneDissent(Patient_ID=3),
+    ]
     session = make_session()
-    patient_1 = Patient(Patient_ID=1, DateOfBirth="1980-01-01", Sex="M")
-    patient_2 = Patient(Patient_ID=2, DateOfBirth="1965-01-01", Sex="F")
-    patient_3 = Patient(Patient_ID=3, DateOfBirth="1975-01-01", Sex="F")
-    patient_4 = Patient(Patient_ID=4, DateOfBirth="1985-01-01", Sex="F")
-    t1oo_2 = PatientsWithTypeOneDissent(Patient_ID=2)
-    t1oo_3 = PatientsWithTypeOneDissent(Patient_ID=3)
-    session.add_all([patient_1, patient_2, patient_3, patient_4, t1oo_2, t1oo_3])
+    session.add_all(fixtures)
     session.commit()
     study = StudyDefinition(
         population=patients.all(),
