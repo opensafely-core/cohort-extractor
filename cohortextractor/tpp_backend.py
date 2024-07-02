@@ -414,24 +414,18 @@ class TPPBackend:
 
         wheres = [f'{output_columns["population"]} = 1']
 
-        def get_t1oo_exclude_expressions():
-            # If this query has been explictly flagged as including T1OO patients then
-            # return unmodified
-            if self.include_t1oo:
-                return [], []
-            # Otherwise we add an extra LEFT OUTER JOIN on the T1OO table and
-            # WHERE clause which will exclude any patient IDs found in the T1OO table
-            return (
-                [
-                    f"LEFT OUTER JOIN {T1OO_TABLE} ON {T1OO_TABLE}.Patient_ID = {patient_id_expr}"
-                ],
-                [f"{T1OO_TABLE}.Patient_ID IS null"],
+        if not self.include_t1oo:
+            # If this query has not been explictly flagged as including T1OO patients
+            # then we add an extra LEFT OUTER JOIN on the T1OO table and WHERE clause
+            # which will exclude any patient IDs found in the T1OO table
+            joins.append(
+                f"LEFT OUTER JOIN {T1OO_TABLE} ON {T1OO_TABLE}.Patient_ID = {patient_id_expr}",
+            )
+            wheres.append(
+                f"{T1OO_TABLE}.Patient_ID IS NULL",
             )
 
-        t100_join, t1oo_where = get_t1oo_exclude_expressions()
-        joins.extend(t100_join)
         joins_str = "\n          ".join(joins)
-        wheres.extend(t1oo_where)
         where_str = " AND ".join(wheres)
 
         joined_output_query = f"""
