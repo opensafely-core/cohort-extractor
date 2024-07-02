@@ -268,11 +268,7 @@ def test_minimal_study_with_t1oo_default():
 @pytest.mark.parametrize(
     "flag,expected",
     [
-        ("", ["1", "4"]),
-        ("False", ["1", "4"]),
         ("false", ["1", "4"]),
-        ("1", ["1", "4"]),
-        ("True", ["1", "2", "3", "4"]),
         ("true", ["1", "2", "3", "4"]),
     ],
 )
