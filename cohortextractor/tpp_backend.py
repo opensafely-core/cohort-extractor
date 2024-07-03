@@ -416,13 +416,50 @@ class TPPBackend:
 
         if not self.include_t1oo:
             # If this query has not been explictly flagged as including T1OO patients
-            # then we add an extra LEFT OUTER JOIN on the T1OO table and WHERE clause
-            # which will exclude any patient IDs found in the T1OO table
-            joins.append(
-                f"LEFT OUTER JOIN {T1OO_TABLE} ON {T1OO_TABLE}.Patient_ID = {patient_id_expr}",
+            # then we need to add some extra conditions ...
+
+            # First, we create a temporary table containing just those patients with a
+            # currently active registration
+            reg_table = "#_current_registration"
+            empty_datetime = "9999-12-31T00:00:00"
+            table_queries[reg_table] = [
+                f"""
+                SELECT
+                  DISTINCT Patient_ID AS patient_id
+                INTO {reg_table}
+                FROM RegistrationHistory
+                WHERE EndDate = '{empty_datetime}'
+                """,
+                f"CREATE CLUSTERED INDEX patient_id_ix ON {reg_table} (patient_id)",
+            ]
+
+            # We join this current registrations table to the query along with the list
+            # of known opt outs
+            joins.extend(
+                [
+                    f"LEFT OUTER JOIN {reg_table} ON {reg_table}.patient_ID = {patient_id_expr}",
+                    f"LEFT OUTER JOIN {T1OO_TABLE} ON {T1OO_TABLE}.Patient_ID = {patient_id_expr}",
+                ]
             )
-            wheres.append(
-                f"{T1OO_TABLE}.Patient_ID IS NULL",
+            # There's some unpleasantness here in that we also need to join on the
+            # `Patient` table (to get `DateOfDeath`) but only if it's not already
+            # included. By construction, the `joins` list will not include the `Patient`
+            # table so the place we need to check is the `primary_table`.
+            if primary_table != "Patient":
+                joins.append(
+                    f"LEFT OUTER JOIN Patient ON Patient.Patient_ID = {patient_id_expr}",
+                )
+            # Finally we add the condition itself which is that patient has no recorded
+            # T1OO and is either currently registered or has died
+            wheres.extend(
+                [
+                    f"""
+                    {T1OO_TABLE}.Patient_ID IS NULL AND (
+                      {reg_table}.patient_id IS NOT NULL
+                      OR Patient.DateOfDeath != '{empty_datetime}'
+                    )
+                    """,
+                ]
             )
 
         joins_str = "\n          ".join(joins)

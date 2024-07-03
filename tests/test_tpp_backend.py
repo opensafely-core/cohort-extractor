@@ -268,20 +268,43 @@ def test_minimal_study_with_t1oo_default():
 @pytest.mark.parametrize(
     "flag,expected",
     [
-        ("false", ["1", "4"]),
-        ("true", ["1", "2", "3", "4"]),
+        ("false", ["1", "4", "6", "8"]),
+        ("true", ["1", "2", "3", "4", "5", "6", "7", "8"]),
     ],
 )
 def test_minimal_study_with_t1oo_flag(set_database_url_with_t1oo, flag, expected):
     set_database_url_with_t1oo(flag)
     # Test that type 1 opt-outs are only included if flag is explicitly set to "True"
     fixtures = [
+        # Included: no opt-out and a current registration
         Patient(Patient_ID=1),
+        RegistrationHistory(Patient_ID=1, StartDate="2020-01-01", EndDate="9999-12-31"),
+        # Excluded: current registration but opted out
         Patient(Patient_ID=2),
-        Patient(Patient_ID=3),
-        Patient(Patient_ID=4),
+        RegistrationHistory(Patient_ID=1, StartDate="2020-01-01", EndDate="9999-12-31"),
         PatientsWithTypeOneDissent(Patient_ID=2),
-        PatientsWithTypeOneDissent(Patient_ID=3),
+        # Excluded: no opt-out, but has deregistered
+        Patient(Patient_ID=3),
+        RegistrationHistory(Patient_ID=3, StartDate="2020-01-01", EndDate="2024-07-01"),
+        # Included: no opt-out, has deregistered, but death recorded
+        Patient(Patient_ID=4, DateOfDeath="2024-06-01"),
+        RegistrationHistory(Patient_ID=4, StartDate="2020-01-01", EndDate="2024-07-01"),
+        # Excluded: death recorded, registered, but had opt out in place
+        Patient(Patient_ID=5, DateOfDeath="2024-07-01"),
+        RegistrationHistory(Patient_ID=5, StartDate="2020-01-01", EndDate="9999-12-31"),
+        PatientsWithTypeOneDissent(Patient_ID=5),
+        # Included: no opt-out and a deregistration followed by a subsequent
+        # re-registration
+        Patient(Patient_ID=6),
+        RegistrationHistory(Patient_ID=6, StartDate="2010-01-01", EndDate="2015-10-20"),
+        RegistrationHistory(Patient_ID=6, StartDate="2022-01-01", EndDate="9999-12-31"),
+        # Excluded: no registration history (only possible if an external dataset
+        # contains patients never registered with SystmOne – unexpected but not
+        # impossible)
+        Patient(Patient_ID=7),
+        # Included: no registration history but death recorded (not possible as far as I
+        # can see, but we should handle all the edge cases)
+        Patient(Patient_ID=8, DateOfDeath="2024-06-01"),
     ]
     session = make_session()
     session.add_all(fixtures)
