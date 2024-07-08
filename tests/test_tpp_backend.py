@@ -73,20 +73,29 @@ from tests.tpp_backend_setup import (
 
 @pytest.fixture(autouse=True)
 def set_database_url(monkeypatch):
-    # The StudyDefinition code expects a single DATABASE_URL to tell it where
-    # to connect to, but the test environment needs to supply multiple
-    # connections (one for each backend type) so we copy the value in here
+    # The StudyDefinition code expects a single DATABASE_URL to tell it where to connect
+    # to, but the test environment needs to supply multiple connections (one for each
+    # backend type) so we copy the value in here. We append the `include_t1oo` parameter
+    # because in general test fixtures do not have sufficient registration history to
+    # pass the T1OO filter.
     if "TPP_DATABASE_URL" in os.environ:
-        monkeypatch.setenv("DATABASE_URL", os.environ["TPP_DATABASE_URL"])
+        monkeypatch.setenv(
+            "DATABASE_URL",
+            f'{os.environ["TPP_DATABASE_URL"]}?opensafely_include_t1oo=true',
+        )
 
 
 @pytest.fixture
 def set_database_url_with_t1oo(monkeypatch):
     def set_db_url(t1oo_value):
         if "TPP_DATABASE_URL" in os.environ:
+            if t1oo_value is not None:
+                query_string = f"?opensafely_include_t1oo={t1oo_value}"
+            else:
+                query_string = ""
             monkeypatch.setenv(
                 "DATABASE_URL",
-                f'{os.environ["TPP_DATABASE_URL"]}?opensafely_include_t1oo={t1oo_value}',
+                f'{os.environ["TPP_DATABASE_URL"]}{query_string}',
             )
 
     return set_db_url
@@ -248,13 +257,20 @@ def test_minimal_study_with_reserved_keywords():
     assert_results(study.to_dicts(), all=["M", "F"], asc=["40", "55"])
 
 
-def test_minimal_study_with_t1oo_default():
+def test_minimal_study_with_t1oo_default(set_database_url_with_t1oo):
+    set_database_url_with_t1oo(None)
     # Test that type 1 opt-outs are excluded by default
     session = make_session()
     patient_1 = Patient(Patient_ID=1, DateOfBirth="1980-01-01", Sex="M")
+    reg_1 = RegistrationHistory(
+        Patient_ID=1, StartDate="2000-01-01", EndDate="9999-12-31"
+    )
     patient_2 = Patient(Patient_ID=2, DateOfBirth="1965-01-01", Sex="F")
+    reg_2 = RegistrationHistory(
+        Patient_ID=2, StartDate="2000-01-01", EndDate="9999-12-31"
+    )
     t1oo_1 = PatientsWithTypeOneDissent(Patient_ID=1)
-    session.add_all([patient_1, patient_2, t1oo_1])
+    session.add_all([patient_1, reg_1, patient_2, reg_2, t1oo_1])
     session.commit()
     study = StudyDefinition(
         population=patients.all(),
