@@ -120,8 +120,8 @@ def test_study_definition_initial_stats_logging(logger):
         # study definition - population, event_date_1, event_min_date and event_date_2,
         # which is defined as a parameter to event_min_date
         # tables - Patient, temp event table for each codelist
-        # joins - Patient to each event table, and t1oo
-        {"output_column_count": 5, "table_count": 3, "table_joins_count": 3},
+        # joins - Patient to each event table
+        {"output_column_count": 5, "table_count": 3, "table_joins_count": 2},
         # variable_count is a count of the top-level variables defined in the study def (i.e. not event_date_2)
         {"variable_count": 4},
         # 2 variables use a codelist (event_date_1, and the nested event_date_2)
@@ -147,8 +147,8 @@ def test_stats_logging_tpp_backend(logger):
     expected_initial_study_def_logs = [
         # output columns include patient_id, and the 2 variables (population, event)
         # defined in the study defniiton
-        # tables - Patient, temp event table, t1oo for codelist
-        {"output_column_count": 3, "table_count": 2, "table_joins_count": 2},
+        # tables - Patient, temp event table
+        {"output_column_count": 3, "table_count": 2, "table_joins_count": 1},
         {"variable_count": 2},
         {"variables_using_codelist_count": 1},
         {"variable_using_codelist": "event", "codelist_size": 1},
@@ -299,7 +299,7 @@ def test_stats_logging_generate_cohort(
     expected_initial_study_def_logs = [
         # these 3 are logged from StudyDefinition instantiation
         # patient_id, population, sex - all from patient table, but we make one temp # table per variable
-        {"output_column_count": 3, "table_count": 2, "table_joins_count": 2},
+        {"output_column_count": 3, "table_count": 2, "table_joins_count": 1},
         {"variable_count": 2},  # population, sex
         {"variables_using_codelist_count": 0},
         # index_date_count logged from generate_cohort
@@ -451,7 +451,7 @@ def test_stats_logging_generate_cohort_with_index_dates(
         {"index_date_count": 3},
         {"min_index_date": "2020-01-01", "max_index_date": "2020-03-01"},
         # output_column/table/joins_count is logged in tpp_backend on backend instantiation so it's repeated for each index date
-        *[{"output_column_count": 3, "table_count": 2, "table_joins_count": 2}] * 4,
+        *[{"output_column_count": 3, "table_count": 2, "table_joins_count": 1}] * 4,
         *[
             {"resetting_backend_index_date": ix_date}
             for ix_date in expected_index_dates
