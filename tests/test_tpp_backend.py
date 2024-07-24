@@ -282,23 +282,34 @@ def test_minimal_study_with_t1oo_default(set_database_url_with_t1oo):
         ("true", ["1", "2", "3", "4"]),
     ],
 )
-def test_minimal_study_with_t1oo_flag(set_database_url_with_t1oo, flag, expected):
+@pytest.mark.parametrize("simple_population", [True, False])
+def test_minimal_study_with_t1oo_flag(
+    set_database_url_with_t1oo, flag, expected, simple_population
+):
     set_database_url_with_t1oo(flag)
     # Test that type 1 opt-outs are only included if flag is explicitly set to "True"
     fixtures = [
-        Patient(Patient_ID=1),
-        Patient(Patient_ID=2),
-        Patient(Patient_ID=3),
-        Patient(Patient_ID=4),
-        AllowedPatientsPlaceholder(Patient_ID=1),
-        AllowedPatientsPlaceholder(Patient_ID=4),
+        Patient(Patient_ID=1, Sex="M"),
+        Patient(Patient_ID=2, Sex="F"),
+        Patient(Patient_ID=3, Sex="M"),
+        Patient(Patient_ID=4, Sex="F"),
+        AllowedPatientsWithTypeOneDissent(Patient_ID=1),
+        AllowedPatientsWithTypeOneDissent(Patient_ID=4),
     ]
     session = make_session()
     session.add_all(fixtures)
     session.commit()
-    study = StudyDefinition(
-        population=patients.all(),
-    )
+    if simple_population:
+        study = StudyDefinition(
+            population=patients.all(),
+        )
+    else:
+        study = StudyDefinition(
+            population=patients.satisfying(
+                "sex = 'M' OR sex = 'F'",
+                sex=patients.sex(),
+            ),
+        )
     assert_results(study.to_dicts(), patient_id=expected)
 
 
