@@ -37,7 +37,10 @@ RETRIES = 6
 SLEEP = 4
 BACKOFF_FACTOR = 4
 
-T1OO_TABLE = "PatientsWithTypeOneDissent"
+
+# This table has its name for historical reasons, and reads slightly oddly: it should be
+# interpreted as "allowed patients with regard to type one dissents"
+ALLOWED_PATIENTS_TABLE = "AllowedPatientsWithTypeOneDissent"
 
 
 class TPPBackend:
@@ -416,13 +419,15 @@ class TPPBackend:
 
         if not self.include_t1oo:
             # If this query has not been explictly flagged as including T1OO patients
-            # then we add an extra LEFT OUTER JOIN on the T1OO table and WHERE clause
-            # which will exclude any patient IDs found in the T1OO table
+            # then we add an extra JOIN on the allowed patients table to ensure that we
+            # only include patients which exist in that table
             joins.append(
-                f"LEFT OUTER JOIN {T1OO_TABLE} ON {T1OO_TABLE}.Patient_ID = {patient_id_expr}",
+                f"JOIN {ALLOWED_PATIENTS_TABLE} ON {ALLOWED_PATIENTS_TABLE}.Patient_ID = {patient_id_expr}",
             )
+            # This condition is theoretically redundant given the RIGHT JOIN above, but
+            # it feels safer to be explicit here
             wheres.append(
-                f"{T1OO_TABLE}.Patient_ID IS NULL",
+                f"{ALLOWED_PATIENTS_TABLE}.Patient_ID IS NOT NULL",
             )
 
         joins_str = "\n          ".join(joins)
