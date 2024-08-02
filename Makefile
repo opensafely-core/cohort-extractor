@@ -49,7 +49,7 @@ docker-build: export VERSION=$(shell git describe --tags)
 docker-build: export DOCKER_BUILDKIT=1
 docker-build: ENV=dev
 docker-build:
-	docker-compose build --pull $(ARGS) $(ENV)
+	docker compose build --pull $(ARGS) $(ENV)
 
 
 
