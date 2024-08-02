@@ -421,6 +421,16 @@ class TPPBackend:
             # If this query has not been explictly flagged as including T1OO patients
             # then we add an extra JOIN on the allowed patients table to ensure that we
             # only include patients which exist in that table
+            #
+            # PLEASE NOTE: This logic is referenced in our public documentation, so if
+            # we make any changes here we should ensure that the documentation is kept
+            # up-to-date:
+            # https://github.com/opensafely/documentation/blob/ea2e1645/docs/type-one-opt-outs.md
+            #
+            # From Cohort Extractor's point of view, the construction of the "allowed
+            # patients" table is opaque. For discussion of the approach currently used
+            # to populate this see:
+            # https://docs.google.com/document/d/1nBAwDucDCeoNeC5IF58lHk6LT-RJg6YZRp5RRkI7HI8/
             joins.append(
                 f"JOIN {ALLOWED_PATIENTS_TABLE} ON {ALLOWED_PATIENTS_TABLE}.Patient_ID = {patient_id_expr}",
             )
