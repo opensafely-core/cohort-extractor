@@ -37,7 +37,10 @@ RETRIES = 6
 SLEEP = 4
 BACKOFF_FACTOR = 4
 
-T1OO_TABLE = "PatientsWithTypeOneDissent"
+
+# This table has its name for historical reasons, and reads slightly oddly: it should be
+# interpreted as "allowed patients with regard to type one dissents"
+ALLOWED_PATIENTS_TABLE = "AllowedPatientsWithTypeOneDissent"
 
 
 class TPPBackend:
@@ -414,24 +417,30 @@ class TPPBackend:
 
         wheres = [f'{output_columns["population"]} = 1']
 
-        def get_t1oo_exclude_expressions():
-            # If this query has been explictly flagged as including T1OO patients then
-            # return unmodified
-            if self.include_t1oo:
-                return [], []
-            # Otherwise we add an extra LEFT OUTER JOIN on the T1OO table and
-            # WHERE clause which will exclude any patient IDs found in the T1OO table
-            return (
-                [
-                    f"LEFT OUTER JOIN {T1OO_TABLE} ON {T1OO_TABLE}.Patient_ID = {patient_id_expr}"
-                ],
-                [f"{T1OO_TABLE}.Patient_ID IS null"],
+        if not self.include_t1oo:
+            # If this query has not been explictly flagged as including T1OO patients
+            # then we add an extra JOIN on the allowed patients table to ensure that we
+            # only include patients which exist in that table
+            #
+            # PLEASE NOTE: This logic is referenced in our public documentation, so if
+            # we make any changes here we should ensure that the documentation is kept
+            # up-to-date:
+            # https://github.com/opensafely/documentation/blob/ea2e1645/docs/type-one-opt-outs.md
+            #
+            # From Cohort Extractor's point of view, the construction of the "allowed
+            # patients" table is opaque. For discussion of the approach currently used
+            # to populate this see:
+            # https://docs.google.com/document/d/1nBAwDucDCeoNeC5IF58lHk6LT-RJg6YZRp5RRkI7HI8/
+            joins.append(
+                f"JOIN {ALLOWED_PATIENTS_TABLE} ON {ALLOWED_PATIENTS_TABLE}.Patient_ID = {patient_id_expr}",
+            )
+            # This condition is theoretically redundant given the RIGHT JOIN above, but
+            # it feels safer to be explicit here
+            wheres.append(
+                f"{ALLOWED_PATIENTS_TABLE}.Patient_ID IS NOT NULL",
             )
 
-        t100_join, t1oo_where = get_t1oo_exclude_expressions()
-        joins.extend(t100_join)
         joins_str = "\n          ".join(joins)
-        wheres.extend(t1oo_where)
         where_str = " AND ".join(wheres)
 
         joined_output_query = f"""

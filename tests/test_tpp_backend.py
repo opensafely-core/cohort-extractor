@@ -31,6 +31,7 @@ from tests.tpp_backend_setup import (
     ICNARC,
     OPA,
     UKRR,
+    AllowedPatientsWithTypeOneDissent,
     APCS_Der,
     Appointment,
     BuildProgress,
@@ -54,7 +55,6 @@ from tests.tpp_backend_setup import (
     Organisation,
     Patient,
     PatientAddress,
-    PatientsWithTypeOneDissent,
     PotentialCareHomeAddress,
     RegistrationHistory,
     SGSS_AllTests_Negative,
@@ -73,20 +73,29 @@ from tests.tpp_backend_setup import (
 
 @pytest.fixture(autouse=True)
 def set_database_url(monkeypatch):
-    # The StudyDefinition code expects a single DATABASE_URL to tell it where
-    # to connect to, but the test environment needs to supply multiple
-    # connections (one for each backend type) so we copy the value in here
+    # The StudyDefinition code expects a single DATABASE_URL to tell it where to connect
+    # to, but the test environment needs to supply multiple connections (one for each
+    # backend type) so we copy the value in here. We append the `include_t1oo` parameter
+    # because in general test fixtures do not have sufficient registration history to
+    # pass the T1OO filter.
     if "TPP_DATABASE_URL" in os.environ:
-        monkeypatch.setenv("DATABASE_URL", os.environ["TPP_DATABASE_URL"])
+        monkeypatch.setenv(
+            "DATABASE_URL",
+            f'{os.environ["TPP_DATABASE_URL"]}?opensafely_include_t1oo=true',
+        )
 
 
 @pytest.fixture
 def set_database_url_with_t1oo(monkeypatch):
     def set_db_url(t1oo_value):
         if "TPP_DATABASE_URL" in os.environ:
+            if t1oo_value is not None:
+                query_string = f"?opensafely_include_t1oo={t1oo_value}"
+            else:
+                query_string = ""
             monkeypatch.setenv(
                 "DATABASE_URL",
-                f'{os.environ["TPP_DATABASE_URL"]}?opensafely_include_t1oo={t1oo_value}',
+                f'{os.environ["TPP_DATABASE_URL"]}{query_string}',
             )
 
     return set_db_url
@@ -141,7 +150,7 @@ def setup_function(function):
     session.query(UKRR).delete()
     session.query(Patient).delete()
     session.query(BuildProgress).delete()
-    session.query(PatientsWithTypeOneDissent).delete()
+    session.query(AllowedPatientsWithTypeOneDissent).delete()
 
     session.commit()
 
@@ -248,13 +257,14 @@ def test_minimal_study_with_reserved_keywords():
     assert_results(study.to_dicts(), all=["M", "F"], asc=["40", "55"])
 
 
-def test_minimal_study_with_t1oo_default():
+def test_minimal_study_with_t1oo_default(set_database_url_with_t1oo):
+    set_database_url_with_t1oo(None)
     # Test that type 1 opt-outs are excluded by default
     session = make_session()
     patient_1 = Patient(Patient_ID=1, DateOfBirth="1980-01-01", Sex="M")
     patient_2 = Patient(Patient_ID=2, DateOfBirth="1965-01-01", Sex="F")
-    t1oo_1 = PatientsWithTypeOneDissent(Patient_ID=1)
-    session.add_all([patient_1, patient_2, t1oo_1])
+    allowed_2 = AllowedPatientsWithTypeOneDissent(Patient_ID=2)
+    session.add_all([patient_1, patient_2, allowed_2])
     session.commit()
     study = StudyDefinition(
         population=patients.all(),
@@ -268,29 +278,38 @@ def test_minimal_study_with_t1oo_default():
 @pytest.mark.parametrize(
     "flag,expected",
     [
-        ("", ["1", "4"]),
-        ("False", ["1", "4"]),
         ("false", ["1", "4"]),
-        ("1", ["1", "4"]),
-        ("True", ["1", "2", "3", "4"]),
         ("true", ["1", "2", "3", "4"]),
     ],
 )
-def test_minimal_study_with_t1oo_flag(set_database_url_with_t1oo, flag, expected):
+@pytest.mark.parametrize("simple_population", [True, False])
+def test_minimal_study_with_t1oo_flag(
+    set_database_url_with_t1oo, flag, expected, simple_population
+):
     set_database_url_with_t1oo(flag)
     # Test that type 1 opt-outs are only included if flag is explicitly set to "True"
+    fixtures = [
+        Patient(Patient_ID=1, Sex="M"),
+        Patient(Patient_ID=2, Sex="F"),
+        Patient(Patient_ID=3, Sex="M"),
+        Patient(Patient_ID=4, Sex="F"),
+        AllowedPatientsWithTypeOneDissent(Patient_ID=1),
+        AllowedPatientsWithTypeOneDissent(Patient_ID=4),
+    ]
     session = make_session()
-    patient_1 = Patient(Patient_ID=1, DateOfBirth="1980-01-01", Sex="M")
-    patient_2 = Patient(Patient_ID=2, DateOfBirth="1965-01-01", Sex="F")
-    patient_3 = Patient(Patient_ID=3, DateOfBirth="1975-01-01", Sex="F")
-    patient_4 = Patient(Patient_ID=4, DateOfBirth="1985-01-01", Sex="F")
-    t1oo_2 = PatientsWithTypeOneDissent(Patient_ID=2)
-    t1oo_3 = PatientsWithTypeOneDissent(Patient_ID=3)
-    session.add_all([patient_1, patient_2, patient_3, patient_4, t1oo_2, t1oo_3])
+    session.add_all(fixtures)
     session.commit()
-    study = StudyDefinition(
-        population=patients.all(),
-    )
+    if simple_population:
+        study = StudyDefinition(
+            population=patients.all(),
+        )
+    else:
+        study = StudyDefinition(
+            population=patients.satisfying(
+                "sex = 'M' OR sex = 'F'",
+                sex=patients.sex(),
+            ),
+        )
     assert_results(study.to_dicts(), patient_id=expected)
 
 

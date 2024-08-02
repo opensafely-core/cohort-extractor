@@ -1063,3 +1063,11 @@ class PatientsWithTypeOneDissent(Base):
     # Patient_ID might be the primary key, TBC
     pk = Column(Integer, primary_key=True)
     Patient_ID = Column(types.BIGINT)
+
+
+# Temporary placeholder name until we confirm the real one
+class AllowedPatientsWithTypeOneDissent(Base):
+    __tablename__ = "AllowedPatientsWithTypeOneDissent"
+    # fake pk to satisfy the ORM
+    pk = Column(Integer, primary_key=True)
+    Patient_ID = Column(types.BIGINT)
