@@ -699,7 +699,7 @@ class HouseholdMember(Base):
 
 
 class EC(Base):
-    __tablename__ = "EC"
+    __tablename__ = "EC_ARCHIVED"
     Patient_ID = Column(Integer, ForeignKey("Patient.Patient_ID"))
     Patient = relationship(
         "Patient", back_populates="ECEpisodes", cascade="all, delete"
@@ -714,7 +714,7 @@ class EC(Base):
 
 
 class EC_Diagnosis(Base):
-    __tablename__ = "EC_Diagnosis"
+    __tablename__ = "EC_Diagnosis_ARCHIVED"
 
     # This column isn't in the actual database but SQLAlchemy gets a bit upset
     # if we don't give it a primary key
@@ -724,7 +724,7 @@ class EC_Diagnosis(Base):
     Patient = relationship(
         "Patient", back_populates="ECDiagnoses", cascade="all, delete"
     )
-    EC_Ident = Column(Integer, ForeignKey("EC.EC_Ident"))
+    EC_Ident = Column(Integer, ForeignKey("EC_ARCHIVED.EC_Ident"))
     EC = relationship("EC", back_populates="Diagnoses", cascade="all, delete")
     EC_Diagnosis_01 = Column(String(collation="Latin1_General_CI_AS"))
     EC_Diagnosis_02 = Column(String(collation="Latin1_General_CI_AS"))
@@ -753,7 +753,7 @@ class EC_Diagnosis(Base):
 
 
 class APCS(Base):
-    __tablename__ = "APCS"
+    __tablename__ = "APCS_ARCHIVED"
     Patient_ID = Column(Integer, ForeignKey("Patient.Patient_ID"))
     Patient = relationship(
         "Patient", back_populates="APCSEpisodes", cascade="all, delete"
@@ -776,12 +776,14 @@ class APCS(Base):
 
 
 class APCS_Der(Base):
-    __tablename__ = "APCS_Der"
+    __tablename__ = "APCS_Der_ARCHIVED"
     Patient_ID = Column(Integer, ForeignKey("Patient.Patient_ID"))
     Patient = relationship(
         "Patient", back_populates="APCS_DerEpisodes", cascade="all, delete"
     )
-    APCS_Ident = Column(Integer, ForeignKey("APCS.APCS_Ident"), primary_key=True)
+    APCS_Ident = Column(
+        Integer, ForeignKey("APCS_ARCHIVED.APCS_Ident"), primary_key=True
+    )
     APCS = relationship("APCS", back_populates="APCS_Der")
     Spell_Primary_Diagnosis = Column(String)
     Spell_Secondary_Diagnosis = Column(String)
@@ -829,7 +831,7 @@ class HighCostDrugs(Base):
 
 
 class OPA(Base):
-    __tablename__ = "OPA"
+    __tablename__ = "OPA_ARCHIVED"
     Patient_ID = Column(Integer, ForeignKey("Patient.Patient_ID"))
     Patient = relationship(
         "Patient", back_populates="OPAEpisodes", cascade="all, delete"
@@ -848,11 +850,11 @@ class OPA(Base):
 
 
 class OPA_Proc(Base):
-    __tablename__ = "OPA_Proc"
+    __tablename__ = "OPA_Proc_ARCHIVED"
 
     Patient_ID = Column(Integer, ForeignKey("Patient.Patient_ID"))
     Patient = relationship("Patient", back_populates="OPA_Proc")
-    OPA_Ident = Column(Integer, ForeignKey("OPA.OPA_Ident"), primary_key=True)
+    OPA_Ident = Column(Integer, ForeignKey("OPA_ARCHIVED.OPA_Ident"), primary_key=True)
     OPA = relationship(
         "OPA",
         back_populates="OPA_Proc",

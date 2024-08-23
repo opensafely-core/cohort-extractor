@@ -2467,7 +2467,7 @@ class TPPBackend:
             assert False
 
         date_condition, date_joins = self.get_date_condition(
-            "EC", "Arrival_Date", between
+            "EC_ARCHIVED", "Arrival_Date", between
         )
         conditions = [date_condition]
 
@@ -2499,14 +2499,14 @@ class TPPBackend:
               t.Patient_ID AS patient_id,
               {column} AS {returning}
             FROM (
-              SELECT EC.Patient_ID, {column},
+              SELECT EC_ARCHIVED.Patient_ID, {column},
               ROW_NUMBER() OVER (
-                PARTITION BY EC.Patient_ID
-                ORDER BY Arrival_Date {ordering}, EC.EC_Ident
+                PARTITION BY EC_ARCHIVED.Patient_ID
+                ORDER BY Arrival_Date {ordering}, EC_ARCHIVED.EC_Ident
               ) AS rownum
-              FROM EC
-              INNER JOIN EC_Diagnosis
-                ON EC.EC_Ident = EC_Diagnosis.EC_Ident
+              FROM EC_ARCHIVED
+              INNER JOIN EC_Diagnosis_ARCHIVED
+                ON EC_ARCHIVED.EC_Ident = EC_Diagnosis_ARCHIVED.EC_Ident
               {date_joins}
               WHERE {conditions}
             ) t
@@ -2515,14 +2515,14 @@ class TPPBackend:
         else:
             sql = f"""
             SELECT
-              EC.Patient_ID AS patient_id,
+              EC_ARCHIVED.Patient_ID AS patient_id,
               {column} AS {returning}
-            FROM EC
-            INNER JOIN EC_Diagnosis
-              ON EC.EC_Ident = EC_Diagnosis.EC_Ident
+            FROM EC_ARCHIVED
+            INNER JOIN EC_Diagnosis_ARCHIVED
+              ON EC_ARCHIVED.EC_Ident = EC_Diagnosis_ARCHIVED.EC_Ident
             {date_joins}
             WHERE {conditions}
-            GROUP BY EC.Patient_ID
+            GROUP BY EC_ARCHIVED.Patient_ID
             """
         return sql
 
@@ -2544,7 +2544,7 @@ class TPPBackend:
             "discharge_destination": "Discharge_Destination",
             "patient_classification": "Patient_Classification",
             "admission_treatment_function_code": "Der_Admit_Treatment_Function_Code",
-            "days_in_critical_care": "APCS_Der.Spell_PbR_CC_Day",
+            "days_in_critical_care": "APCS_Der_ARCHIVED.Spell_PbR_CC_Day",
             "administrative_category": "Administrative_Category",
             "duration_of_elective_wait": "Duration_of_Elective_Wait",
         }
@@ -2605,7 +2605,9 @@ class TPPBackend:
         elif returning == "total_critical_care_days_in_period":
             # In case of duplicate spells that start on the same date, we take the
             # max value by admission date
-            returning_column = "MAX(CAST(APCS_Der.Spell_PbR_CC_Day AS INTEGER))"
+            returning_column = (
+                "MAX(CAST(APCS_Der_ARCHIVED.Spell_PbR_CC_Day AS INTEGER))"
+            )
             use_sum_query = True
             sum_adjustment = ""
             use_partition_query = False
@@ -2616,7 +2618,7 @@ class TPPBackend:
             raise ValueError(f"Unsupported `returning` value: {returning}")
 
         date_condition, date_joins = self.get_date_condition(
-            "APCS", "Admission_Date", between
+            "APCS_ARCHIVED", "Admission_Date", between
         )
         conditions = [date_condition]
 
@@ -2625,12 +2627,12 @@ class TPPBackend:
             conditions.append(f"{supported_columns[column_name]} IN ({value_sql})")
 
         if with_at_least_one_day_in_critical_care:
-            conditions.append("CAST(APCS_Der.Spell_PbR_CC_Day AS int) > 0")
+            conditions.append("CAST(APCS_Der_ARCHIVED.Spell_PbR_CC_Day AS int) > 0")
 
         if with_these_primary_diagnoses:
             assert with_these_primary_diagnoses.system == "icd10"
             fragments = [
-                f"APCS_Der.Spell_Primary_Diagnosis LIKE {pattern} ESCAPE '!'"
+                f"APCS_Der_ARCHIVED.Spell_Primary_Diagnosis LIKE {pattern} ESCAPE '!'"
                 for pattern in codelist_to_like_patterns(
                     with_these_primary_diagnoses, prefix="", suffix="%"
                 )
@@ -2673,14 +2675,14 @@ class TPPBackend:
               t.Patient_ID AS patient_id,
               t.{returning} AS {returning}
             FROM (
-              SELECT APCS.Patient_ID, {returning_column} AS {returning},
+              SELECT APCS_ARCHIVED.Patient_ID, {returning_column} AS {returning},
               ROW_NUMBER() OVER (
-                PARTITION BY APCS.Patient_ID
-                ORDER BY APCS.Admission_Date {ordering}, APCS.APCS_Ident
+                PARTITION BY APCS_ARCHIVED.Patient_ID
+                ORDER BY APCS_ARCHIVED.Admission_Date {ordering}, APCS_ARCHIVED.APCS_Ident
               ) AS rownum
-              FROM APCS
-              INNER JOIN APCS_Der
-                ON APCS.APCS_Ident = APCS_Der.APCS_Ident
+              FROM APCS_ARCHIVED
+              INNER JOIN APCS_Der_ARCHIVED
+                ON APCS_ARCHIVED.APCS_Ident = APCS_Der_ARCHIVED.APCS_Ident
               {date_joins}
               WHERE {conditions}
             ) t
@@ -2691,28 +2693,28 @@ class TPPBackend:
             SELECT patient_id, SUM({returning}{sum_adjustment}) AS {returning}
             FROM (
               SELECT
-                APCS.Patient_ID AS patient_id,
+                APCS_ARCHIVED.Patient_ID AS patient_id,
                 {returning_column} AS {returning}
-                FROM APCS
-                INNER JOIN APCS_Der
-                  ON APCS.APCS_Ident = APCS_Der.APCS_Ident
+                FROM APCS_ARCHIVED
+                INNER JOIN APCS_Der_ARCHIVED
+                  ON APCS_ARCHIVED.APCS_Ident = APCS_Der_ARCHIVED.APCS_Ident
                 {date_joins}
                 WHERE {conditions}
-                GROUP BY APCS.Patient_ID, APCS.Admission_Date
+                GROUP BY APCS_ARCHIVED.Patient_ID, APCS_ARCHIVED.Admission_Date
               ) t
             GROUP BY patient_id
             """
         else:
             sql = f"""
             SELECT
-              APCS.Patient_ID AS patient_id,
+              APCS_ARCHIVED.Patient_ID AS patient_id,
               {returning_column} AS {returning}
-            FROM APCS
-            INNER JOIN APCS_Der
-              ON APCS.APCS_Ident = APCS_Der.APCS_Ident
+            FROM APCS_ARCHIVED
+            INNER JOIN APCS_Der_ARCHIVED
+              ON APCS_ARCHIVED.APCS_Ident = APCS_Der_ARCHIVED.APCS_Ident
             {date_joins}
             WHERE {conditions}
-            GROUP BY APCS.Patient_ID
+            GROUP BY APCS_ARCHIVED.Patient_ID
             """
         return sql
 
@@ -2872,19 +2874,19 @@ class TPPBackend:
               Patient_ID,
               Ethnic_group AS ethnicity_code
             FROM
-              APCS
+              APCS_ARCHIVED
             UNION ALL
             SELECT
               Patient_ID,
               Ethnic_Category AS ethnicity_code
             FROM
-              EC
+              EC_ARCHIVED
             UNION ALL
             SELECT
               Patient_ID,
               Ethnic_Category AS ethnicity_code
             FROM
-              OPA
+              OPA_ARCHIVED
           ) t
           WHERE ethnicity_code IS NOT NULL
             AND ethnicity_code != '99'
@@ -2920,7 +2922,7 @@ class TPPBackend:
         returning="binary_flag",
     ):
         date_condition, date_joins = self.get_date_condition(
-            "OPA", "Appointment_Date", between
+            "OPA_ARCHIVED", "Appointment_Date", between
         )
 
         conditions = [date_condition]
@@ -2955,13 +2957,13 @@ class TPPBackend:
         if with_these_procedures:
             assert with_these_procedures.system == "opcs4"
             fragments = [
-                f"OPA_Proc.Primary_Procedure_Code LIKE {pattern} ESCAPE '!'"
+                f"OPA_Proc_ARCHIVED.Primary_Procedure_Code LIKE {pattern} ESCAPE '!'"
                 for pattern in codelist_to_like_patterns(
                     with_these_procedures, prefix="%", suffix="%"
                 )
             ]
             conditions.append("(" + " OR ".join(fragments) + ")")
-            procedures_joins = "JOIN OPA_Proc ON OPA.OPA_Ident = OPA_Proc.OPA_Ident"
+            procedures_joins = "JOIN OPA_Proc_ARCHIVED ON OPA_ARCHIVED.OPA_Ident = OPA_Proc_ARCHIVED.OPA_Ident"
 
         conditions = " AND ".join(conditions)
 
@@ -2994,13 +2996,13 @@ class TPPBackend:
               t.{column_definition} AS {returning}
             FROM (
               SELECT
-                OPA.Patient_ID,
+                OPA_ARCHIVED.Patient_ID,
                 {column_definition} AS {returning},
                 ROW_NUMBER() OVER (
-                  PARTITION BY OPA.Patient_ID
+                  PARTITION BY OPA_ARCHIVED.Patient_ID
                   ORDER BY Appointment_Date {ordering}
                 ) AS rownum
-              FROM OPA
+              FROM OPA_ARCHIVED
               {date_joins}
               {procedures_joins}
               WHERE {conditions}
@@ -3010,15 +3012,15 @@ class TPPBackend:
         else:
             return f"""
             SELECT
-              OPA.Patient_ID AS patient_id,
+              OPA_ARCHIVED.Patient_ID AS patient_id,
               {column_definition} AS {returning}
             FROM
-              OPA
+              OPA_ARCHIVED
               {date_joins}
               {procedures_joins}
             WHERE {conditions}
             GROUP BY
-              OPA.Patient_ID
+              OPA_ARCHIVED.Patient_ID
             """
 
     @staticmethod
