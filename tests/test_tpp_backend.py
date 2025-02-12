@@ -2527,7 +2527,7 @@ def test_to_sql_passes():
     sql += study.to_sql()
     db_dict = mssql_connection_params_from_url(study.backend.database_url)
     cmd = [
-        "sqlcmd",
+        "/opt/mssql-tools/bin/sqlcmd",
         "-S",
         db_dict["host"] + "," + str(db_dict["port"]),
         "-d",
