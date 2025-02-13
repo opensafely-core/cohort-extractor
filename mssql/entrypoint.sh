@@ -20,7 +20,7 @@ if [ "$1" = '/opt/mssql/bin/sqlservr' ]; then
         sleep 15s
         # Run the setup script to create the DB and the schema in the
         # DB
-        /opt/mssql-tools/bin/sqlcmd -S localhost -U SA -P "Your_password123!" -d master -i /mssql/setup.sql
+        /opt/mssql-tools18/bin/sqlcmd -S localhost -U SA -P "Your_password123!" -d master -C -i /mssql/setup.sql
         # Note that the container has been initialized so future
         # starts won't wipe changes to the data
         touch /tmp/app-initialized
