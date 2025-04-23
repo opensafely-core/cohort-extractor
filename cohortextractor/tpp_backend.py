@@ -3506,7 +3506,7 @@ class TPPBackend:
             AND {date_condition}
         """
 
-    def in_maintenance_mode(self, current_mode):
+    def in_maintenance_mode(self):
         """TPP Specific maintenance mode query.
 
         A BuildProgress table with the following columns:
@@ -3535,43 +3535,39 @@ class TPPBackend:
 
         conn = self.get_db_connection()
         cursor = conn.cursor()
-        latest_rebuild = cursor.execute(
-            "SELECT TOP 1 EventStart FROM BuildProgress WHERE Event = 'OpenSAFELY' ORDER BY EventStart DESC"
+        cursor.execute(
+            """
+            SELECT TOP 1 EventStart, EventEnd
+            FROM BuildProgress
+            WHERE Event = 'OpenSAFELY'
+            ORDER BY EventStart DESC
+            """
         )
         latest_rebuild = cursor.fetchone()
         if not latest_rebuild:
-            # no events at all, we can't be in maintenance mode
+            # No events at all, we can't be in maintenance mode
+            return False
+
+        rebuild_start, rebuild_end = latest_rebuild
+        if rebuild_end.year < 9999:
+            # Rebuild has completed therefore we aren't in maintenance mode
             return False
 
         cursor.execute(
-            """
-            SELECT Event FROM BuildProgress
-            WHERE EventEnd = '9999-12-31' AND EventStart >= %s
-            ORDER BY EventStart
-            """,
-            latest_rebuild[0],
+            "SELECT Event FROM BuildProgress WHERE EventStart >= %s",
+            rebuild_start,
             log_desc=False,
         )
-        current_events = [row[0] for row in cursor.fetchall()]
-
-        # regardless of current mode, once there are no pending events, we are done.
-        if current_events == []:
-            return False
+        current_events = {row[0] for row in cursor.fetchall()}
 
         # Env var allows quick change of start event logic if needed
         start_events = os.environ.get(
             "TPP_MAINTENANCE_START_EVENT", "Swap Tables,CodedEvent_SNOMED"
         ).split(",")
 
-        # we only start maintenance mode if we're not currently in it, and we
-        # see a specific event started but not finished.
-        if current_mode != "db-maintenance" and any(
-            e in current_events for e in start_events
-        ):
-            return True
-
-        # no change
-        return current_mode == "db-maintenance"
+        # We start maintenance mode as soon as we see any of the "trigger" events
+        # and then don't exit until the entire build is finished
+        return bool(current_events.intersection(start_events))
 
     @cached_property
     def vmp_mapping(self):
