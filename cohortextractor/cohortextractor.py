@@ -611,7 +611,7 @@ def list_study_definitions(ignore_errors=False):
     return matches
 
 
-def check_maintenance(current_mode):
+def check_maintenance():
     # avoid circular imports
     from cohortextractor.study_definition import StudyDefinition
 
@@ -619,7 +619,7 @@ def check_maintenance(current_mode):
     backend_cls = StudyDefinition.get_backend_for_database_url(db_url)
     backend = backend_cls(db_url, None)
 
-    if backend.in_maintenance_mode(current_mode):
+    if backend.in_maintenance_mode():
         # Note: logs are output on stderr, so this should be the only output on
         # stdout
         print("db-maintenance")
@@ -806,7 +806,7 @@ def main(args=None):
     )
     maintenance_parser.add_argument(
         "--current-mode",
-        help="The current mode we think the database is in",
+        help="Unused argument retained for backwards compatibility",
         default="unknown",
     )
 
@@ -936,7 +936,7 @@ def main(args=None):
     elif options.which == "maintenance":
         if options.database_url:
             os.environ["DATABASE_URL"] = options.database_url
-        check_maintenance(options.current_mode)
+        check_maintenance()
     elif options.which == "update_vmp_mapping":
         update_vmp_mapping()
     elif options.which == "update_custom_medication_dictionary":

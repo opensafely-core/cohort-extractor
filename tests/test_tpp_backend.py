@@ -6746,68 +6746,58 @@ def test_maintenance_mode():
     session = make_session()
     backend = TPPBackend(os.environ["TPP_DATABASE_URL"], {})
 
-    assert backend.in_maintenance_mode("") is False
+    # No events at all: we're not in maintenance mode
+    assert backend.in_maintenance_mode() is False
 
     # old unfinsihed event
     # we insert this here as a regression test to ensure that it doesn't
     # prevent exiting maintenance mode when we're done.
-    old_OpenSAFELY_event = BuildProgress(Event="OpenSAFELY")
+    old_OpenSAFELY_event = BuildProgress(
+        Event="OpenSAFELY", EventStart="2020-01-01T00:00:00"
+    )
     session.add(old_OpenSAFELY_event)
     session.commit()
-
-    assert backend.in_maintenance_mode("") is False
-    assert backend.in_maintenance_mode("db-maintenance") is True
 
     # initial event
     OpenSAFELY_event = BuildProgress(Event="OpenSAFELY")
     session.add(OpenSAFELY_event)
     session.commit()
 
-    assert backend.in_maintenance_mode("") is False
-    assert backend.in_maintenance_mode("db-maintenance") is True
+    # Build has begun but none of our "trigger" events have started so we're not in
+    # maintenance mode
+    assert backend.in_maintenance_mode() is False
 
     # Swap Tables starts
     Swap_Tables_event = BuildProgress(Event="Swap Tables")
     session.add(Swap_Tables_event)
     session.commit()
 
-    assert backend.in_maintenance_mode("") is True
-    assert backend.in_maintenance_mode("db-maintenance") is True
+    # We're now in maintenance mode
+    assert backend.in_maintenance_mode() is True
 
     # Swap Tables done
     Swap_Tables_event.EventEnd = datetime.utcnow()
     session.commit()
 
-    # This case is why we need the current mode, as without it,  we'll flap
-    # inbetween Swap Tables ending and CodedEvent_SNOMED starting
-    assert backend.in_maintenance_mode("") is False
-    # we're in maintenance, and there still open events, so stay in it
-    assert backend.in_maintenance_mode("db-maintenance") is True
+    # But we stay in maintenance mode until the build has finished
+    assert backend.in_maintenance_mode() is True
 
     # CodedEvent_SNOMED starts
     CodedTable_SNOMED_event = BuildProgress(Event="CodedEvent_SNOMED")
     session.add(CodedTable_SNOMED_event)
     session.commit()
 
-    # robustness, if for some reason, we're not in maintenance mode, but we
-    # should be
-    assert backend.in_maintenance_mode("") is True
-    # yep still in maintenance
-    assert backend.in_maintenance_mode("db-maintenance") is True
+    assert backend.in_maintenance_mode() is True
 
     # CodedEvent_SNOMED finishes
     CodedTable_SNOMED_event.EventEnd = datetime.utcnow()
     session.commit()
 
-    # technically correct, and would be ok if it ever happens
-    assert backend.in_maintenance_mode("") is False
-    # normally we're not done until the final event is done.
-    assert backend.in_maintenance_mode("db-maintenance") is True
+    assert backend.in_maintenance_mode() is True
 
     # OpenSAFELY event finished
     OpenSAFELY_event.EventEnd = datetime.utcnow()
     session.commit()
 
-    # finally flip to off regardless of current state
-    assert backend.in_maintenance_mode("") is False
-    assert backend.in_maintenance_mode("db-maintenance") is False
+    # We should now have exited maintenance mode
+    assert backend.in_maintenance_mode() is False
