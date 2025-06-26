@@ -1,9 +1,8 @@
-# cohort-extractor is in maintenance mode
+# cohort-extractor has been discontinued
 
-Active development is focused on
-[ehrQL](https://github.com/opensafely-core/ehrql),
-the electronic health record query language
-that is cohort-extractor's successor.
+Cohort-extractor is no longer in use or supported.
+It has been replaced by [ehrQL](https://github.com/opensafely-core/ehrql),
+the electronic health record query language.
 
 Refer to the [ehrQL documentation](https://docs.opensafely.org/ehrql/) to learn more.
 
