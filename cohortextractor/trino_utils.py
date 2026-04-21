@@ -24,11 +24,12 @@ except ImportError:
     from prestodb.exceptions import PrestoQueryError as TrinoQueryError
     from prestodb.exceptions import PrestoUserError as TrinoUserError
 
-# TODO remove this when certificate verification reinstated
 import urllib3
 from retry import retry
 from tabulate import tabulate
 
+# For the reasons behind disabling cert verification see:
+# https://github.com/opensafely-core/cohort-extractor/issues/1045
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 sql_logger = structlog.get_logger("cohortextractor.sql")
@@ -42,9 +43,11 @@ def trino_connection_from_url(url):
     if "PFX_PATH" in os.environ or "PRESTO_TLS_CERT" in os.environ:
         adapt_connection(conn, conn_params)
 
+
+    # For the reasons behind disabling cert verification see:
+    # https://github.com/opensafely-core/cohort-extractor/issues/1045
     conn._http_session.verify = False
 
-    # TODO reinstate this
     # For now, there is no valid certificate for directoraccess-cert.emishealthinsights.co.uk.
     # for path in Path(__file__).resolve().parent.parent.glob("certs/*"):
     #     if path.parts[-1] in url:
